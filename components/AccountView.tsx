@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ORDERS, phOf } from "@/lib/catalog";
+import { ORDERS, phOf, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { fmt, priceFor } from "@/lib/pricing";
+import { sizeLabel } from "@/lib/sizes";
+import { previewReorder, type ReorderVariantEdit } from "@/lib/reorder";
 import { useStore } from "@/lib/store";
 import { IconBack } from "./icons";
+import { ReorderVariantPicker } from "./ReorderVariantPicker";
 
 const STEPS = ["התקבלה", "בהכנה", "נשלחה", "נמסרה"];
 
@@ -21,6 +24,16 @@ export function AccountView() {
   const [left, setLeft] = useState(0);
   const [tab, setTab] = useState("orders");
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [reorderReview, setReorderReview] = useState<Record<string, boolean>>({});
+  const [reorderQuantities, setReorderQuantities] = useState<Record<string, Record<number, number>>>({});
+  const [reorderVariants, setReorderVariants] = useState<Record<string, Record<number, ReorderVariantEdit>>>({});
+  const editReorderVariant = (order: string, index: number, edit: ReorderVariantEdit) => {
+    setReorderVariants((edits) => ({ ...edits, [order]: { ...edits[order], [index]: { ...edits[order]?.[index], ...edit } } }));
+  };
+  const editReorderQuantity = (order: string, index: number, quantity: number) => {
+    if (!Number.isSafeInteger(quantity) || quantity < 0) return;
+    setReorderQuantities((edits) => ({ ...edits, [order]: { ...edits[order], [index]: quantity } }));
+  };
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -203,17 +216,22 @@ export function AccountView() {
             {tab === "orders" && ORDERS.map((o) => {
               let tot = 0;
               let units = 0;
-              const lines = o.lines.flatMap(([pid, ci, z, q]) => {
+              const lines = o.lines.flatMap(([pid, orderedColor, z, q]) => {
                 const item = product(pid);
                 if (!item) return [];
-                const sz = item.sizes.includes(z) ? z : item.sizes[0];
+                const sz = z;
                 const pr = priceFor(item, q);
                 tot += pr;
                 units += q;
-                return [{ pid, ci, sz, q, item, pr }];
+                // Display the ordered size, even if the current catalog uses another alias.
+                return [{ pid, orderedColor, sz, q, item, pr, sizeText: sizeLabel(z) || "מידה אחת" }];
               });
               const active = o.st < 3;
               const shown = open[o.no] ?? active;
+              const quantityEdits = reorderQuantities[o.no] || {};
+              const variantEdits = reorderVariants[o.no] || {};
+              const hasReorderEdits = Object.keys(quantityEdits).length > 0 || Object.keys(variantEdits).length > 0;
+              const reorder = reorderReview[o.no] ? previewReorder(o.lines, product, quantityEdits, variantEdits) : null;
               return (
                 <article key={o.no} className="order" style={{ boxShadow: active ? "inset 0 0 0 2px #111" : "inset 0 0 0 1px #E4E4E1" }}>
                   <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12 }}>
@@ -238,7 +256,7 @@ export function AccountView() {
                   )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {lines.map((l) => (
-                      <span key={l.pid + l.sz} style={{ position: "relative", width: 64, height: 64, background: "#F4F4F2", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span key={JSON.stringify([l.pid, l.orderedColor, l.sz])} style={{ position: "relative", width: 64, height: 64, background: "#F4F4F2", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {l.item.imgs?.[0] ? <img src={l.item.imgs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} /> : <span className="k" style={{ color: "#8a8a86", fontSize: 22 }}>{phOf(l.item)}</span>}
                         <span style={{ position: "absolute", bottom: 0, left: 0, background: "#111", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 5px" }}>×{l.q}</span>
                       </span>
@@ -247,10 +265,10 @@ export function AccountView() {
                   {shown && (
                     <div style={{ borderTop: "1px solid #E4E4E1" }}>
                       {lines.map((l) => (
-                        <div key={l.pid + l.sz + "l"} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: "1px solid #EFEFEC", fontSize: 15 }}>
+                        <div key={JSON.stringify([l.pid, l.orderedColor, l.sz])} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: "1px solid #EFEFEC", fontSize: 15 }}>
                           <span>
                             <b style={{ display: "block" }}>{l.item.name}</b>
-                            <span className="muted" style={{ fontSize: 13 }}>{[l.item.colors[l.ci], l.sz, l.q + " יח׳"].filter(Boolean).join(" · ")}</span>
+                            <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(l.orderedColor), l.sizeText, l.q + " יח׳"].filter(Boolean).join(" · ")}</span>
                           </span>
                           <b>{fmt(l.pr)}</b>
                         </div>
@@ -261,9 +279,89 @@ export function AccountView() {
                     <span><span className="muted" style={{ fontSize: 14 }}>סה״כ </span><b style={{ fontSize: 22 }}>{fmt(tot)}</b></span>
                     <span style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <button onClick={() => setOpen((s) => ({ ...s, [o.no]: !shown }))} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>{shown ? "הסתרת פרטים" : "פרטי הזמנה"}</button>
-                      <button className="btn" style={{ height: 46, padding: "0 18px" }} onClick={() => { addMany(lines.map((l) => [l.pid, l.ci, l.sz, l.q]), true); flash(`פריטי הזמנה #${o.no} נוספו לסל`); }}>הזמנה חוזרת</button>
+                      <button type="button" className="btn" style={{ height: 46, padding: "0 18px" }} aria-expanded={!!reorder} onClick={() => {
+                        if (!reorderReview[o.no]) {
+                          setReorderQuantities((edits) => ({ ...edits, [o.no]: {} }));
+                          setReorderVariants((edits) => ({ ...edits, [o.no]: {} }));
+                        }
+                        setReorderReview((review) => ({ ...review, [o.no]: true }));
+                      }}>הזמנה חוזרת</button>
                     </span>
                   </div>
+                  {reorder && (
+                    <div style={{ background: "#F4F4F2", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          <b style={{ fontSize: 17 }}>הפריטים שיתווספו לסל</b>
+                          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                            {reorder.available.map((line) => (
+                              <li key={line.sourceIndex} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "12px 0", borderBottom: "1px solid #D6D6D1" }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <b style={{ fontSize: 15 }}>{line.name}</b>
+                                  <div className="muted" style={{ fontSize: 13 }}>{[line.color && `צבע: ${line.color}`, `מידה: ${line.size}`, `${line.quantity} יח׳`].filter(Boolean).join(" · ")}</div>
+                                  <div className="muted" style={{ fontSize: 13 }}>{fmt(line.unitPrice)} ליחידה</div>
+                                  <ReorderVariantPicker product={product(line.pid)} color={line.color} size={line.size} onChange={(edit) => editReorderVariant(o.no, line.sourceIndex, edit)} />
+                                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 8 }}>
+                                    <div className="qty-sm">
+                                      <button type="button" aria-label={`הוספת יחידה: ${line.name}, ${line.color}, ${line.size}`} onClick={() => editReorderQuantity(o.no, line.sourceIndex, line.quantity + 1)}>+</button>
+                                      <input type="number" min={1} step={1} inputMode="numeric" aria-label={`כמות: ${line.name}, ${line.color}, ${line.size}`} value={line.quantity} onChange={(event) => {
+                                        const value = event.target.valueAsNumber;
+                                        if (value >= 1) editReorderQuantity(o.no, line.sourceIndex, value);
+                                      }} style={{ width: 58, minWidth: 0, height: 36, border: 0, background: "transparent", textAlign: "center", fontSize: 15, fontWeight: 700 }} />
+                                      <button type="button" disabled={line.quantity <= 1} aria-label={`הפחתת יחידה: ${line.name}, ${line.color}, ${line.size}`} onClick={() => editReorderQuantity(o.no, line.sourceIndex, line.quantity - 1)}>−</button>
+                                    </div>
+                                    <button type="button" onClick={() => editReorderQuantity(o.no, line.sourceIndex, 0)} aria-label={`הסרת ${line.name}, ${line.color}, ${line.size} מההזמנה החוזרת`} style={{ background: "none", border: 0, padding: "8px 0", textDecoration: "underline", fontSize: 13, fontWeight: 600 }}>הסרה</button>
+                                  </div>
+                                </div>
+                                <b style={{ fontSize: 15, whiteSpace: "nowrap" }}>{fmt(line.lineTotal)}</b>
+                              </li>
+                            ))}
+                          </ul>
+                          <div role="status" aria-live="polite" aria-atomic="true" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 17, fontWeight: 800 }}>
+                            <span>סה״כ לפריטים שיתווספו · {reorder.quantity} יח׳</span>
+                            <span>{fmt(reorder.total)}</span>
+                          </div>
+                          <span className="muted" style={{ fontSize: 13 }}>לפי המחירים הנוכחיים, לא כולל משלוח.</span>
+                        </div>
+                      <div role="status" aria-live="polite">
+                        <b style={{ fontSize: 15 }}>{reorder.unavailable.length ? "בחרו חלופה לפריטים שאינם זמינים במידה ובצבע שנבחרו:" : reorder.items.length ? "כל הפריטים ברשימה זמינים כעת." : "הרשימה ריקה."}</b>
+                        {reorder.unavailable.length > 0 && (
+                          <ul style={{ margin: "10px 0 0", paddingInlineStart: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                            {reorder.unavailable.map((line) => (
+                              <li key={line.sourceIndex}>
+                                <b style={{ fontSize: 14 }}>{line.name}</b>
+                                <div className="muted" style={{ fontSize: 13 }}>{[line.color && `צבע: ${line.color}`, `מידה: ${line.size}`, `${line.quantity} יח׳`].filter(Boolean).join(" · ")}</div>
+                                <ReorderVariantPicker product={product(line.pid)} color={line.color} size={line.size} onChange={(edit) => editReorderVariant(o.no, line.sourceIndex, edit)} />
+                                <button type="button" onClick={() => editReorderQuantity(o.no, line.sourceIndex, 0)} aria-label={`הסרת ${line.name}, ${line.color}, ${line.size} מההזמנה החוזרת`} style={{ background: "none", border: 0, padding: "8px 0", textDecoration: "underline", fontSize: 13, fontWeight: 600 }}>הסרה</button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p style={{ margin: "10px 0 0", fontSize: 14 }}>{reorder.items.length ? "עדיין לא נוספו פריטים לסל. באישור יתווספו רק הפריטים הזמינים שברשימה." : hasReorderEdits ? "אין פריטים להוספה לסל. בחרו חלופה זמינה או אפסו את השינויים כדי לחזור לרשימה המקורית." : "אין כרגע פריטים זמינים להזמנה חוזרת. אפשר לבחור צבע או מידה אחרים."}</p>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {reorder.items.length > 0 && (
+                          <button type="button" className="btn" style={{ minHeight: 46, padding: "10px 18px" }} onClick={() => {
+                            // Re-resolve against the current catalog at confirmation time.
+                            const current = previewReorder(o.lines, product, quantityEdits, variantEdits);
+                            if (JSON.stringify(current) !== JSON.stringify(reorder)) {
+                              setReorderReview((review) => ({ ...review, [o.no]: true }));
+                              flash("פרטי ההזמנה התעדכנו. בדקו את הפירוט והסכום לפני ההוספה.");
+                              return;
+                            }
+                            if (!current.items.length) return;
+                            setReorderReview((review) => ({ ...review, [o.no]: false }));
+                            addMany(current.items, true);
+                            flash(`נוספו לסל ${current.quantity} יח׳ מהזמנה #${o.no}`);
+                          }}>הוספת הפריטים לסל · {fmt(reorder.total)}</button>
+                        )}
+                        {hasReorderEdits && <button type="button" className="btn btn-line" style={{ minHeight: 46, padding: "10px 18px" }} onClick={() => {
+                          setReorderQuantities((edits) => ({ ...edits, [o.no]: {} }));
+                          setReorderVariants((edits) => ({ ...edits, [o.no]: {} }));
+                        }}>איפוס השינויים</button>}
+                        <button type="button" className="btn btn-line" style={{ minHeight: 46, padding: "10px 18px" }} onClick={() => setReorderReview((review) => ({ ...review, [o.no]: false }))}>סגירה</button>
+                      </div>
+                    </div>
+                  )}
                 </article>
               );
             })}

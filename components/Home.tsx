@@ -21,80 +21,6 @@ const CATEGORY_ART: Record<string, string> = {
   redback: "/images/categories/redback-v1.webp",
 };
 
-function HeroProducts({ products }: { products: Product[] }) {
-  const pool = useMemo(() => products.filter(item => item.imgs?.[0]).slice(0, 12), [products]);
-  const [rotation, setRotation] = useState({ indices: [0, 1, 2], slot: 0, next: 3 });
-  const [outgoing, setOutgoing] = useState<{ slot: number; product: Product } | null>(null);
-  const [paused, setPaused] = useState(false);
-  const [interacting, setInteracting] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const items = rotation.indices.slice(0, pool.length).map(index => pool[index % pool.length]);
-
-  useEffect(() => {
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncMotion = () => setReducedMotion(motion.matches);
-    const syncVisibility = () => setHidden(document.hidden);
-    syncMotion(); syncVisibility();
-    motion.addEventListener("change", syncMotion);
-    document.addEventListener("visibilitychange", syncVisibility);
-    return () => {
-      motion.removeEventListener("change", syncMotion);
-      document.removeEventListener("visibilitychange", syncVisibility);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (pool.length <= 3 || paused || interacting || hidden || reducedMotion) return;
-    let cancelled = false;
-    // Only the next slot changes; keep the other two links and photographs stable.
-    const nextIndex = rotation.next % pool.length;
-    const ready = new Promise<boolean>(resolve => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = pool[nextIndex].imgs![0];
-    });
-    const timer = setTimeout(async () => {
-      const loaded = await ready;
-      if (cancelled || !loaded) return;
-      setOutgoing({ slot: rotation.slot, product: pool[rotation.indices[rotation.slot] % pool.length] });
-      setRotation(current => ({
-        indices: current.indices.map((index, slot) => slot === current.slot ? nextIndex : index),
-        slot: (current.slot + 1) % 3,
-        next: (nextIndex + 1) % pool.length,
-      }));
-    }, 4800);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [pool, rotation, paused, interacting, hidden, reducedMotion]);
-
-  useEffect(() => {
-    if (!outgoing) return;
-    const timer = setTimeout(() => setOutgoing(null), 800);
-    return () => clearTimeout(timer);
-  }, [outgoing]);
-
-  return <div className="hero-showcase">
-    <div className="hero-grid hero-rotating-grid"
-      onPointerEnter={event => { if (event.pointerType === "mouse") setInteracting(true); }}
-      onPointerLeave={() => setInteracting(false)}
-      onFocusCapture={() => setInteracting(true)}
-      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
-      {items.map((item, slot) => <Link key={slot} href={`/p/${item.id}`} className={`hero-tile${outgoing?.slot === slot ? " is-changing" : ""}`}>
-        <img src={item.imgs![0]} alt="" decoding="async" />
-        <span className="tile-cap"><small>{item.name}</small><b>{fmt(item.price)}</b></span>
-        {outgoing?.slot === slot && <span className="hero-product-outgoing" aria-hidden="true">
-          <img src={outgoing.product.imgs![0]} alt="" />
-          <span className="tile-cap"><small>{outgoing.product.name}</small><b>{fmt(outgoing.product.price)}</b></span>
-        </span>}
-      </Link>)}
-    </div>
-    {pool.length > 3 && !reducedMotion && <button type="button" className="hero-rotation-toggle" aria-pressed={paused} onClick={() => setPaused(current => !current)}>
-      <span aria-hidden="true">{paused ? "▶" : "Ⅱ"}</span> {paused ? "הפעלת החלפת מוצרים" : "השהיית החלפת מוצרים"}
-    </button>}
-  </div>;
-}
-
 function CategoryTile({ category, products }: { category: Category; products: Product[] }) {
   const pictured = products.filter((item) =>
     (item.cats ?? [item.cat]).includes(category.id) && item.imgs?.[0]
@@ -304,7 +230,7 @@ function DealsCarousel({ products }: { products: Product[] }) {
   );
 }
 
-export function Home() {
+export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
   const { addMany } = useStore();
   const { products, categories, product } = useCatalog();
   const pictured = products.filter((item) => item.imgs?.[0]);
@@ -321,7 +247,7 @@ export function Home() {
 
   return (
     <main>
-      <section className="wrap home-hero">
+      <section className="home-hero">
         <div className="hero">
           <div className="hero-copy">
             <div className="hero-intro">
@@ -330,13 +256,14 @@ export function Home() {
                 ביגוד ומיגון לעבודה · באר שבע
               </span>
               <h1 className="k hero-title home-hero-title">
-                בגדי עבודה.
-                <br />
-                נעלי בטיחות.
-                <br />
-                מיתוג לעסקים.
+                <span>בגדי עבודה.</span>
+                <span>נעלי בטיחות.</span>
+                <span>מיתוג לעסקים.</span>
               </h1>
-              <p className="lead">לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות — מאותו קטלוג, באותם מחירים.</p>
+              <p className="lead">
+                <span className="hero-lead-desktop">לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות — מאותו קטלוג, באותם מחירים.</span>
+                <span className="hero-lead-mobile">לפריט אחד או לכל הצוות — באותם מחירים.</span>
+              </p>
             </div>
             <div className="hero-conversion">
               <div className="hero-actions">
@@ -359,7 +286,27 @@ export function Home() {
               )}
             </div>
           </div>
-          <HeroProducts products={products} />
+          <div className={`hero-campaign${heroPreview ? " hero-campaign-wide" : ""}${heroPreview === "fade" ? " hero-campaign-fade" : ""}`}>
+            <picture>
+              <source
+                media="(max-width: 767px)"
+                srcSet="/images/hero/workwear-wide-v2-800.webp 800w, /images/hero/workwear-wide-v2-1536.webp 1536w"
+                sizes="100vw"
+                width={1536}
+                height={1024}
+              />
+            <img
+              src={heroPreview ? "/images/hero/workwear-wide-v2-1536.webp" : "/images/hero/workwear-campaign-1200.webp"}
+              srcSet={heroPreview ? "/images/hero/workwear-wide-v2-800.webp 800w, /images/hero/workwear-wide-v2-1536.webp 1536w" : "/images/hero/workwear-campaign-480.webp 480w, /images/hero/workwear-campaign-800.webp 800w, /images/hero/workwear-campaign-1200.webp 1122w"}
+              sizes="(max-width: 1023px) 100vw, 50vw"
+              width={heroPreview ? 1536 : 1122}
+              height={heroPreview ? 1024 : 1402}
+              alt="איש מקצוע בחולצת פולו כחולה, מכנסי עבודה אפורים ומגפי עבודה, על רקע בטון ופס צהוב"
+              fetchPriority="high"
+              decoding="async"
+            />
+            </picture>
+          </div>
         </div>
       </section>
 

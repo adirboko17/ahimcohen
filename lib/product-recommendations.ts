@@ -61,6 +61,55 @@ function brand(value: string | undefined) {
   return /^(worker|ahim|האחים)/.test(normalized) ? "" : normalized;
 }
 
+// These collections contain different kinds of items, so membership alone
+// cannot establish similarity. Recognized accessories use their specific kind.
+const BROAD_SUBCATEGORIES = new Set([
+  "אקססוריז", "אביזרים נלווים", "אביזרים למטבח", "אביזרי הנעלה ורפידות",
+  "אביזרים חד פעמי", "ביגוד מקצועי חד פעמי", "ציוד בטיחות נלווה",
+  "מוצרי ניקיון", "מבצעים", "מומלצים", "חדש",
+]);
+
+function similarityKeys(product: Product): string[] {
+  const accessory = accessoryKind(product);
+  if (accessory) return [`accessory:${accessory}`];
+  return [...new Set([product.sub, ...(product.subs ?? [])].map(normalize))]
+    .filter((sub) => sub && !BROAD_SUBCATEGORIES.has(sub))
+    .map((sub) => `subcategory:${sub}`);
+}
+
+export function similarProducts(product: Product, catalog: Product[], limit = 4): Product[] {
+  if (!Number.isInteger(limit) || limit <= 0) return [];
+  const keys = new Set(similarityKeys(product));
+  if (!keys.size) return [];
+  const wantedBrand = brand(product.brand);
+  const candidates = catalog.filter((candidate) =>
+    candidate.id !== product.id &&
+    (!candidate.choices?.length || candidate.choices.some((choice) => choice.available)) &&
+    similarityKeys(candidate).some((key) => keys.has(key)),
+  );
+  candidates.sort((a, b) => {
+    const sameSub = (item: Product) => !!product.sub && normalize(item.sub) === normalize(product.sub);
+    const sameBrand = (item: Product) => !!wantedBrand && brand(item.brand) === wantedBrand;
+    return Number(sameSub(b)) - Number(sameSub(a)) ||
+      Number(sameBrand(b)) - Number(sameBrand(a)) ||
+      Math.abs(a.price - product.price) - Math.abs(b.price - product.price) ||
+      a.id.localeCompare(b.id);
+  });
+  const identity = (item: Product) => JSON.stringify([normalize(item.name), brand(item.brand)]);
+  const seenIds = new Set([product.id]);
+  const seenProducts = new Set([identity(product)]);
+  const result: Product[] = [];
+  for (const candidate of candidates) {
+    const name = identity(candidate);
+    if (seenIds.has(candidate.id) || seenProducts.has(name)) continue;
+    seenIds.add(candidate.id);
+    seenProducts.add(name);
+    result.push(candidate);
+    if (result.length === limit) break;
+  }
+  return result;
+}
+
 export function complementaryAccessories(product: Product, catalog: Product[], limit = 4): Product[] {
   if (!Number.isInteger(limit) || limit <= 0) return [];
   const kinds = complementaryKinds(product);

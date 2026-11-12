@@ -1,3 +1,5 @@
+import type { OrderLine } from "./types";
+
 export const FREE_SHIPPING = 299;
 
 const H = "https://ahim-cohen.co.il/cdn/shop/files/";
@@ -20,6 +22,7 @@ export type VariantChoice = {
   size: string;
   price: number;
   available: boolean;
+  image?: string;
   sku?: string;
 };
 
@@ -136,12 +139,12 @@ export const SERVICES = [
   { t: "כמויות", d: "שילוב פריטים, צבעים ומידות בהזמנה אחת.", bg: "#F4F4F2", fg: "#111" },
 ];
 
-export type DemoOrder = { no: string; date: string; st: number; eta?: string; lines: [string, number, string, number][] };
+export type DemoOrder = { no: string; date: string; st: number; eta?: string; lines: OrderLine[] };
 
 export const ORDERS: DemoOrder[] = [
-  { no: "10482", date: "21.10.2026", st: 2, eta: "הגעה משוערת: 28.10.2026", lines: [["p1", 0, "L", 12], ["p7", 0, "XL", 2]] },
-  { no: "10377", date: "02.09.2026", st: 3, lines: [["p8", 0, "M", 4], ["p3", 3, "L", 6]] },
-  { no: "10211", date: "14.06.2026", st: 3, lines: [["p1", 1, "XL", 6]] },
+  { no: "10482", date: "21.10.2026", st: 2, eta: "הגעה משוערת: 28.10.2026", lines: [["p1", "אפור עכבר", "L", 12], ["p7", "שחור", "XL", 2]] },
+  { no: "10377", date: "02.09.2026", st: 3, lines: [["p8", "שחור", "M", 4], ["p3", "ירוק בקבוק", "L", 6]] },
+  { no: "10211", date: "14.06.2026", st: 3, lines: [["p1", "כחול כהה", "XL", 6]] },
 ];
 
 export const INFO: Record<string, { title: string; lead: string; blocks: { h: string; p: string }[] }> = {

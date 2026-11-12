@@ -9,7 +9,7 @@ const compiled = transpileModule(readFileSync(resolve(__dirname, "../lib/colors.
 }).outputText;
 const loaded = { exports: {} };
 new Function("exports", "module", compiled)(loaded.exports, loaded);
-const { swatchColor, resolveSwatch, colorLabel, UNKNOWN_SWATCH } = loaded.exports;
+const { swatchColor, resolveSwatch, colorLabel, uniqueColors, matchesColorFilter, UNKNOWN_SWATCH } = loaded.exports;
 
 test("Hebrew abbreviations and English labels resolve to the intended color", () => {
   for (const [label, expected] of [
@@ -47,4 +47,48 @@ test("every color name in the audited live catalog is explicitly supported", () 
   const labels = [...new Set(audit.map(row => row.color))];
   assert.ok(labels.length > 60, "The audit must include the full catalog, not a single page");
   assert.deepEqual(labels.filter(label => resolveSwatch(label) === null), []);
+});
+
+test("English aliases and Hebrew abbreviations have one Hebrew display name", () => {
+  for (const [input, expected] of [
+    ["Blue", "כחול"], ["  BLACK ", "שחור"], ["dark green", "ירוק כהה"],
+    ["Navy", "כחול כהה"], ["נייבי", "כחול כהה"], ["LIGHT NAVY", "נייבי בהיר"],
+    ["yellow stone", "צהוב אבן"], ["אפ עכבר", "אפור"], ["ירוק בק", "ירוק בקבוק"],
+    ["אפור / Navy", "אפור / כחול כהה"], ["White + Black", "לבן / שחור"],
+  ]) assert.equal(colorLabel(input), expected);
+});
+
+test("duplicate aliases collapse while distinct shades and patterns remain separate", () => {
+  assert.deepEqual(uniqueColors(["blue", "כחול", "BLUE", "Navy", "נייבי", "כחול כהה", "תכלת", "LIGHT NAVY"]), ["כחול", "כחול כהה", "תכלת", "נייבי בהיר"]);
+  assert.deepEqual(uniqueColors(["אפור", "אפור עכבר", "Gray", "אפור כהה", "מלאנז'", "grey melange"]), ["אפור", "אפור כהה", "אפור מלאנז'"]);
+  assert.deepEqual(uniqueColors(["blue / gray", "אפור / כחול", "כחול"]), ["כחול / אפור", "כחול"]);
+  assert.deepEqual(uniqueColors(["unknown finish", "another finish"]), ["unknown finish", "another finish"]);
+});
+
+test("one Hebrew filter matches both languages and encoded colors without widening shades", () => {
+  assert.equal(matchesColorFilter(["Blue"], ["כחול"]), true);
+  assert.equal(matchesColorFilter(["כחול"], ["blue"]), true);
+  assert.equal(matchesColorFilter(["Navy"], ["כחול"]), false);
+  assert.equal(matchesColorFilter(["תכלת"], ["כחול"]), false);
+  assert.equal(matchesColorFilter([encodeURIComponent("נייבי")], ["כחול כהה"]), true);
+  assert.equal(matchesColorFilter(["gray / blue"], ["כחול / אפור"]), true);
+  assert.equal(matchesColorFilter([], []), true);
+  assert.equal(matchesColorFilter([], ["כחול"]), false);
+});
+
+test("display and filter normalization leave Shopify variant values unchanged", () => {
+  const rawColors = Object.freeze(["Blue", "כחול", "%d7%a9%d7%97%d7%95%d7%a8"]);
+  const before = [...rawColors];
+  uniqueColors(rawColors);
+  rawColors.forEach(colorLabel);
+  matchesColorFilter(rawColors, ["כחול"]);
+  assert.deepEqual(rawColors, before);
+});
+
+test("every audited catalog color displays in Hebrew and preserves its swatch", () => {
+  const audit = JSON.parse(readFileSync(resolve(__dirname, "../assets/color-catalog-audit.json"), "utf8").replace(/^\uFEFF/, ""));
+  const labels = [...new Set(audit.map(row => row.color))];
+  assert.deepEqual(labels.filter(label => /[a-z]/i.test(colorLabel(label))), []);
+  assert.ok(uniqueColors(labels).length < labels.length);
+  for (const label of labels) assert.equal(swatchColor(colorLabel(label)), swatchColor(label), label);
 });

@@ -3,19 +3,25 @@
 import Link from "next/link";
 import { phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
+import { uniqueColors } from "@/lib/colors";
 import { fmt, saleBadge } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import { IconPlus } from "./icons";
 
-export function ProductTile({ p }: { p: Product }) {
+export function ProductTile({ p, imageSrc, selectedColor, selectedSize }: { p: Product; imageSrc?: string; selectedColor?: string; selectedSize?: string }) {
   const { openQuick } = useStore();
   const { category } = useCatalog();
   const catName = category(p.cat)?.name;
-  const img = p.imgs?.[0];
-  const cols = p.colors || [];
+  const img = imageSrc ?? p.imgs?.[0];
+  const params = new URLSearchParams();
+  if (selectedColor) params.set("color", selectedColor);
+  if (selectedSize) params.set("size", selectedSize);
+  const query = params.toString();
+  const href = `/p/${p.id}${query ? `?${query}` : ""}`;
+  const cols = uniqueColors(p.colors || []);
   return (
     <article className="pt">
-      <Link href={`/p/${p.id}`} className="pt-media" aria-label={p.name}>
+      <Link href={href} className="pt-media" aria-label={p.name}>
         {img ? <img src={img} alt={p.name} /> : <div className="pt-ph k">{p.std ? p.std.join(" · ") : p.sku || catName}</div>}
         <div className="pt-badges">
           {p.deal && <span className="badge y">{p.deal[0]} ב-{p.deal[1]} ₪</span>}
@@ -28,7 +34,7 @@ export function ProductTile({ p }: { p: Product }) {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            openQuick(p.id);
+            openQuick(p.id, { color: selectedColor, size: selectedSize });
           }}
         >
           <IconPlus />
@@ -36,7 +42,7 @@ export function ProductTile({ p }: { p: Product }) {
       </Link>
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <h3>
-          <Link href={`/p/${p.id}`}>{p.name}</Link>
+          <Link href={href}>{p.name}</Link>
         </h3>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span className="price">{fmt(p.price)}</span>

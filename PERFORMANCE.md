@@ -47,6 +47,11 @@ is claimed because the previous implementation was not benchmarked.
 Restart the existing development server with `npm run dev` to use Turbopack.
 Run `npm test` for cache regression checks.
 
+Development output is isolated in `.next-dev/<compiler>-<port>`. Production
+builds still use `.next`, and explicit `NEXT_DIST_DIR` overrides remain supported.
+This prevents concurrent Webpack/Turbopack servers from overwriting each other's
+React client manifests. Do not set the same override for two running servers.
+
 For isolated HTTP verification in PowerShell:
 
 ```powershell

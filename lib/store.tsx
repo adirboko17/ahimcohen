@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { pickVariant } from "./catalog";
 import { useCatalog } from "./catalog-context";
+import { productSizeOptions, sizeLabel } from "./sizes";
+import { productColorIndex } from "./product-selection";
 import type { AddItem, CartLine } from "./types";
 
 type Sheet = null | "quick";
@@ -27,7 +29,7 @@ type Store = {
   openCart: () => void;
   openMenu: () => void;
   openSearch: () => void;
-  openQuick: (id: string) => void;
+  openQuick: (id: string, selection?: { color?: string; size?: string }) => void;
   closeAll: () => void;
   setMenuCat: (id: string | null) => void;
   setQuery: (q: string) => void;
@@ -133,12 +135,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSheet(null);
   }, []);
 
-  const openQuick = useCallback((id: string) => {
+  const openQuick = useCallback((id: string, selection?: { color?: string; size?: string }) => {
     const p = catalog.product(id);
     if (!p) return;
     setQuickId(id);
-    setQColor(0);
-    setQSize(p.sizes.length === 1 ? p.sizes[0] : null);
+    const color = productColorIndex(p, selection?.color, selection?.size);
+    setQColor(color);
+    const sizes = productSizeOptions(p, p.colors[color] || "");
+    const requestedSize = selection?.size ? sizeLabel(selection.size) : null;
+    setQSize(selection?.size
+      ? sizes.find((option) => option.available && option.label === requestedSize)?.label ?? null
+      : sizes.length === 1 && sizes[0].available ? sizes[0].label : null);
     setSheet("quick");
     setCartOpen(false);
     setMenuOpen(false);

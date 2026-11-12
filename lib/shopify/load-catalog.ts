@@ -26,7 +26,7 @@ const readCachedCatalog = unstable_cache(
     inFlight.set(scope, request);
     return request;
   },
-  ["shop-catalog-v2"],
+  ["shop-catalog-v3"],
   { revalidate: 60, tags: ["shop-catalog"] },
 );
 
@@ -187,6 +187,7 @@ function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
       size: size || "מידה אחת",
       price: Number(variant.price.amount),
       available: variant.availableForSale,
+      image: variant.image?.url || undefined,
       sku: variant.sku || undefined,
     } satisfies VariantChoice;
   });

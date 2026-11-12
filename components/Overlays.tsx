@@ -5,7 +5,10 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { FREE_SHIPPING, phOf, swatchColor, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
+import { categoryProductImage } from "@/lib/category-filters";
+import { cartProductImage } from "@/lib/product-selection";
 import { cartMath, fmt, priceFor } from "@/lib/pricing";
+import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useStore } from "@/lib/store";
 import { IconCheck, IconSearch } from "./icons";
 
@@ -75,7 +78,7 @@ export function Overlays() {
           {s.cart.map((l) => {
             const p = product(l.pid);
             if (!p) return null;
-            const img = p.imgs?.[0];
+            const img = cartProductImage(p, l);
             return (
               <div className="line" key={l.key}>
                 <div className="line-ph">
@@ -86,7 +89,7 @@ export function Overlays() {
                     <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>{p.name}</span>
                     <span style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(l.qty * (l.unitPrice ?? p.price))}</span>
                   </div>
-                  <span className="muted" style={{ fontSize: 13 }}>{[l.color, l.size].filter(Boolean).join(" · ")}</span>
+                  <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(l.color), sizeLabel(l.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                     <div className="qty-sm">
                       <button onClick={() => s.setQtyLine(l.key, 1)} aria-label="הוספה">+</button>
@@ -206,9 +209,12 @@ function QuickSheet() {
   if (s.sheet !== "quick") return null;
   const p = product(s.quickId);
   if (!p) return null;
-  const img = p.imgs?.[0];
+  const sizes = productSizeOptions(p, p.colors[s.qColor] || "");
+  const selectedLabel = s.qSize === null ? null : sizeLabel(s.qSize) || "מידה אחת";
+  const selectedSize = sizes.find((option) => option.label === selectedLabel && option.available);
+  const img = categoryProductImage(p, { colors: p.colors[s.qColor] ? [p.colors[s.qColor]] : [], sizes: selectedSize ? [selectedSize.value] : [], stock: false });
   return (
-    <section className="sheet" aria-label="הוספה מהירה">
+    <section className="sheet quick-sheet" aria-label="הוספה מהירה">
       <div className="sheet-h">
         <span style={{ fontSize: 18, fontWeight: 800 }}>הוספה מהירה</span>
         <button className="x" onClick={s.closeAll} aria-label="סגירה">
@@ -240,9 +246,9 @@ function QuickSheet() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <span style={{ fontSize: 15, fontWeight: 800 }}>מידה</span>
           <div className="size-grid">
-            {p.sizes.map((z) => (
-              <button key={z} className={`size ${s.qSize === z ? "on" : ""}`} onClick={() => s.setQSize(z)}>
-                {z}
+            {sizes.map(({ label, available }) => (
+              <button type="button" key={label} disabled={!available} aria-pressed={selectedSize?.label === label} title={!available ? "המידה אינה זמינה בצבע שנבחר" : undefined} className={`size ${selectedSize?.label === label ? "on" : ""}`} onClick={() => s.setQSize(label)}>
+                {label}
               </button>
             ))}
           </div>
@@ -252,14 +258,16 @@ function QuickSheet() {
             לפרטי המוצר
           </Link>
           <button
+            type="button"
             className="btn"
-            style={{ flex: 1, height: 56, fontSize: 16, background: s.qSize ? "#111" : "#8a8a86" }}
+            disabled={!selectedSize}
+            style={{ flex: 1, height: 56, fontSize: 16, background: selectedSize ? "#111" : "#8a8a86" }}
             onClick={() => {
-              if (!s.qSize) return;
-              s.addMany([[p.id, s.qColor, s.qSize, 1]], false);
+              if (!selectedSize) return;
+              s.addMany([[p.id, s.qColor, selectedSize.value, 1]], false);
             }}
           >
-            {s.qSize ? "הוספה לסל" : "בחרו מידה"}
+            {selectedSize ? "הוספה לסל" : "בחרו מידה"}
           </button>
         </div>
       </div>

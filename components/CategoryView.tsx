@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
+import { categoryProductSelection, categoryVariantFilters } from "@/lib/category-filters";
+import { matchesColorFilter, uniqueColors } from "@/lib/colors";
+import { matchesSizeFilter, uniqueSizes } from "@/lib/sizes";
 import { CATEGORY_PAGE_SIZE as PAGE_SIZE, useCategoryHistory, type CategoryFilters as Filters } from "@/lib/category-history";
 import { fmt } from "@/lib/pricing";
 import { useScrollLock } from "@/lib/store";
@@ -22,12 +25,20 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
   const cat = category(catId);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { filters: f, setFilters: setF, sort, setSort, shown, setShown, clearFilters, restoring, rememberBeforeNavigation } = useCategoryHistory(catId, sub);
+  const { filters: savedFilters, setFilters: setF, sort, setSort, shown, setShown, clearFilters, restoring, rememberBeforeNavigation } = useCategoryHistory(catId, sub);
   const [sheet, setSheet] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   useScrollLock(sheet);
 
-  const base = useMemo(() => productsInCategory(catId), [catId, productsInCategory]);
+  const categoryProducts = useMemo(() => productsInCategory(catId), [catId, productsInCategory]);
+  const base = useMemo(() => categoryProducts.filter((p) => !sub || p.sub === sub || (p.subs ?? []).includes(sub)), [categoryProducts, sub]);
+  const f = useMemo(() => ({
+    ...savedFilters,
+    colors: uniqueColors(savedFilters.colors).filter((color) => base.some((p) => matchesColorFilter(p.colors, [color]))),
+    sizes: uniqueSizes(savedFilters.sizes).filter((size) => base.some((p) => matchesSizeFilter(p.sizes, [size]))),
+    std: savedFilters.std.filter((standard) => base.some((p) => p.std?.includes(standard))),
+    brands: savedFilters.brands.filter((brand) => base.some((p) => p.brand === brand)),
+  }), [savedFilters, base]);
   const prices = base.map((p) => p.price);
   const pMin = prices.length ? Math.min(...prices) : 0;
   const pTop = prices.length ? Math.max(...prices) : 100;
@@ -35,19 +46,19 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
 
   const uniq = (fn: (p: Product) => string[]) => [...new Set(base.flatMap(fn))];
   const stdOpts = uniq((p) => p.std || []);
-  const sizeOpts = uniq((p) => p.sizes).filter((z) => z !== "מידה אחת");
-  const colorOpts = uniq((p) => p.colors);
   const brandOpts = uniq((p) => (p.brand ? [p.brand] : []));
 
-  let list = base.filter((p) => !sub || p.sub === sub || (p.subs ?? []).includes(sub));
-  list = list.filter(
+  const eligible = base.filter(
     (p) =>
       (!f.std.length || f.std.every((t) => (p.std || []).includes(t))) &&
-      (!f.colors.length || p.colors.some((c) => f.colors.includes(c))) &&
-      (!f.sizes.length || p.sizes.some((z) => f.sizes.includes(z))) &&
       (!f.brands.length || (!!p.brand && f.brands.includes(p.brand))) &&
       p.price <= pMax
   );
+  const variants = categoryVariantFilters(eligible, f);
+  // Keep selected choices removable even if another filter rules them out.
+  const sizeOpts = uniqueSizes([...variants.sizes, ...f.sizes]);
+  const colorOpts = uniqueColors([...variants.colors, ...f.colors]);
+  let list = variants.products;
   if (sort === "asc") list = list.slice().sort((a, b) => a.price - b.price);
   if (sort === "desc") list = list.slice().sort((a, b) => b.price - a.price);
 
@@ -83,13 +94,13 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
   const fCount = f.std.length + f.colors.length + f.sizes.length + f.brands.length + (f.max != null && f.max < pTop ? 1 : 0);
   const toggle = (field: "std" | "colors" | "sizes" | "brands", val: string) => {
     setF((s) => {
-      const a = s[field];
+      const a = field === "colors" ? uniqueColors(s.colors) : field === "sizes" ? uniqueSizes(s.sizes) : s[field];
       const n = a.includes(val) ? a.filter((x) => x !== val) : a.concat(val);
       return { ...s, [field]: n };
     });
   };
   const clear = () => {
-    if (!base.length && categories[0]) {
+    if (!categoryProducts.length && categories[0]) {
       router.push(`/c/${categories[0].id}`);
       return;
     }
@@ -186,20 +197,21 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
           </div>
           {list.length > 0 ? (
             <div className="product-grid">
-              {list.slice(0, shown).map((p) => (
-                <ProductTile key={p.id} p={p} />
-              ))}
+              {list.slice(0, shown).map((p) => {
+                const selection = categoryProductSelection(p, f);
+                return <ProductTile key={p.id} p={p} imageSrc={selection.image} selectedColor={selection.color} selectedSize={selection.size} />;
+              })}
             </div>
           ) : (
             <div className="empty">
               <span className="k" style={{ fontSize: 64, lineHeight: 0.85 }}>
-                {base.length ? "אין התאמות" : "בקרוב"}
+                {categoryProducts.length ? "אין התאמות" : "בקרוב"}
               </span>
               <span className="muted" style={{ fontSize: 16, maxWidth: "42ch" }}>
-                {base.length ? "נסו להסיר חלק מהמסננים או לבחור תת-קטגוריה אחרת." : "המוצרים בקטגוריה זו יוצגו לאחר חיבור הקטלוג המלא."}
+                {categoryProducts.length ? "נסו להסיר חלק מהמסננים או לבחור תת-קטגוריה אחרת." : "המוצרים בקטגוריה זו יוצגו לאחר חיבור הקטלוג המלא."}
               </span>
               <button className="btn" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={clear}>
-                {base.length ? "ניקוי המסננים" : "לביגוד מקצועי"}
+                {categoryProducts.length ? "ניקוי המסננים" : "לביגוד מקצועי"}
               </button>
             </div>
           )}
@@ -292,32 +304,26 @@ function FilterBody(props: {
       {props.stdOpts.length > 0 && (
         <div className="filter-block" style={props.bare ? { borderTop: 0, paddingTop: 0 } : undefined}>
           <span style={{ fontSize: 15, fontWeight: 700 }}>תקן בטיחות</span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {props.stdOpts.map((v) => (
-              <button key={v} className={`mini ${props.f.std.includes(v) ? "on" : ""}`} onClick={() => props.toggle("std", v)}>
+          <FilterOptions options={props.stdOpts} selected={props.f.std} limit={6} label="תקנים" renderOption={(v) => (
+              <button type="button" key={v} aria-pressed={props.f.std.includes(v)} className={`mini ${props.f.std.includes(v) ? "on" : ""}`} onClick={() => props.toggle("std", v)}>
                 {v}
               </button>
-            ))}
-          </div>
+          )} />
         </div>
       )}
       <div className="filter-block">
         <span style={{ fontSize: 15, fontWeight: 700 }}>מידה</span>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {props.sizeOpts.map((v) => (
-            <button key={v} className={`mini ${props.f.sizes.includes(v) ? "on" : ""}`} style={{ direction: "ltr" }} onClick={() => props.toggle("sizes", v)}>
+        <FilterOptions options={props.sizeOpts} selected={props.f.sizes} limit={8} label="מידות" renderOption={(v) => (
+            <button type="button" key={v} aria-pressed={props.f.sizes.includes(v)} className={`mini ${props.f.sizes.includes(v) ? "on" : ""}`} style={{ direction: "ltr" }} onClick={() => props.toggle("sizes", v)}>
               {v}
             </button>
-          ))}
-        </div>
+        )} />
       </div>
       <div className="filter-block">
         <span style={{ fontSize: 15, fontWeight: 700 }}>צבע</span>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
-          {props.colorOpts.map((c) => (
-            <button key={c} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={props.f.colors.includes(c)} className={`color-dot ${props.f.colors.includes(c) ? "on" : "off"}`} style={{ background: swatchColor(c) }} onClick={() => props.toggle("colors", c)} />
-          ))}
-        </div>
+        <FilterOptions options={props.colorOpts} selected={props.f.colors} limit={14} label="צבעים" variant="colors" renderOption={(c) => (
+            <button type="button" key={c} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={props.f.colors.includes(c)} className={`color-dot ${props.f.colors.includes(c) ? "on" : "off"}`} style={{ background: swatchColor(c) }} onClick={() => props.toggle("colors", c)} />
+        )} />
       </div>
       <div className="filter-block">
         <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -329,12 +335,12 @@ function FilterBody(props: {
       {props.brandOpts.length > 0 && (
         <div className="filter-block">
           <span style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>מותג</span>
-          {props.brandOpts.map((b) => (
-            <button key={b} className="checkline" onClick={() => props.toggle("brands", b)}>
+          <FilterOptions options={props.brandOpts} selected={props.f.brands} limit={5} label="מותגים" variant="list" renderOption={(b) => (
+            <button type="button" key={b} aria-pressed={props.f.brands.includes(b)} className="checkline" onClick={() => props.toggle("brands", b)}>
               <span className={`box ${props.f.brands.includes(b) ? "on" : ""}`} />
               {b}
             </button>
-          ))}
+          )} />
         </div>
       )}
       <button onClick={props.setStock} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: 0, borderTop: "1px solid #E4E4E1", padding: "18px 0", fontSize: 15, fontWeight: 700 }}>
@@ -343,6 +349,43 @@ function FilterBody(props: {
           <i style={{ right: props.stock ? 21 : 3 }} />
         </span>
       </button>
+    </>
+  );
+}
+
+function FilterOptions({ options, selected, limit, label, variant = "chips", renderOption }: {
+  options: string[];
+  selected: string[];
+  limit: number;
+  label: string;
+  variant?: "chips" | "colors" | "list";
+  renderOption: (value: string) => ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const optionsId = useId();
+  // Keep active choices visible after collapsing or returning from a product.
+  const compactOptions = options.filter((value, index) => index < limit || selected.includes(value));
+  const hiddenCount = options.length - compactOptions.length;
+  const visible = expanded ? options : compactOptions;
+
+  return (
+    <>
+      <div id={optionsId} className={`filter-options filter-options-${variant}`}>
+        {visible.map(renderOption)}
+      </div>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className="filter-expand"
+          aria-expanded={expanded}
+          aria-controls={optionsId}
+          aria-label={expanded ? `הצג פחות ${label}` : `הצג עוד ${hiddenCount} ${label}`}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "הצג פחות" : `הצג עוד ${label} (${hiddenCount})`}
+          <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+        </button>
+      )}
     </>
   );
 }

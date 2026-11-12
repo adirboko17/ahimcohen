@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { beginShopifyCheckout } from "@/app/actions/shopify-checkout";
-import { FREE_SHIPPING, phOf } from "@/lib/catalog";
+import { FREE_SHIPPING, phOf, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
+import { cartProductImage } from "@/lib/product-selection";
 import { cartMath, fmt } from "@/lib/pricing";
+import { sizeLabel } from "@/lib/sizes";
 import { useStore } from "@/lib/store";
 
 export function CheckoutView() {
@@ -125,15 +127,16 @@ export function CheckoutView() {
           {cart.map((l) => {
             const p = product(l.pid);
             if (!p) return null;
+            const img = cartProductImage(p, l);
             return (
               <div key={l.key} style={{ display: "grid", gridTemplateColumns: "58px 1fr auto", gap: 12, alignItems: "center" }}>
                 <div style={{ position: "relative", width: 58, height: 64, background: "#E9E9E6", overflow: "hidden" }}>
-                  {p.imgs?.[0] ? <img src={p.imgs[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} /> : <span className="k" style={{ fontSize: 18, color: "#bdbdb7" }}>{phOf(p)}</span>}
+                  {img ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} /> : <span className="k" style={{ fontSize: 18, color: "#bdbdb7" }}>{phOf(p)}</span>}
                   <span style={{ position: "absolute", top: 0, left: 0, minWidth: 20, height: 20, background: "#111", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{l.qty}</span>
                 </div>
                 <div>
                   <b style={{ display: "block", fontSize: 14 }}>{p.name}</b>
-                  <span className="muted" style={{ fontSize: 13 }}>{[l.color, l.size].filter(Boolean).join(" · ")}</span>
+                  <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(l.color), sizeLabel(l.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
                 </div>
                 <b>{fmt(l.qty * (l.unitPrice ?? p.price))}</b>
               </div>

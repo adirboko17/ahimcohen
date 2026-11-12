@@ -23,7 +23,7 @@ function deferred() {
 
 function harness() {
   const entries = new Map();
-  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false };
+  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [] };
   const pageInfo = { hasNextPage: false, endCursor: null };
   const storage = {
     generateSimpleCacheKey: async (key) => key,
@@ -60,7 +60,7 @@ function harness() {
         products: {
           items: [{
             handle: "shirt", title: "Work shirt", vendor: "Brand", description: "Cotton",
-            images: [], variants: [], priceRange: { min: { amount: String(state.price) } },
+            images: [], variants: state.variants, priceRange: { min: { amount: String(state.price) } },
           }],
           pageInfo,
         },
@@ -161,4 +161,21 @@ test("changing stores cannot reuse another store's cached catalog", async () => 
   await otherStore.settle();
   assert.equal((await otherStore.value).products[0].price, 200);
   assert.equal(h.state.loads, 2);
+});
+
+test("variant photos keep their color and size association in fresh and cached catalogs", async () => {
+  const h = harness();
+  h.state.variants = [
+    { id: "navy-m", title: "Navy / M", availableForSale: true, selectedOptions: [{ name: "Color", value: "navy" }, { name: "Size", value: "M" }], price: { amount: "100" }, image: { url: "https://example.com/navy.jpg" } },
+    { id: "white-l", title: "White / L", availableForSale: true, selectedOptions: [{ name: "Color", value: "white" }, { name: "Size", value: "L" }], price: { amount: "100" }, image: null },
+  ];
+  const request = h.request();
+  await request.settle();
+  for (const catalog of [await request.value, await h.request().value]) {
+    const [navy, white] = catalog.products[0].choices;
+    assert.equal(navy.color, "navy");
+    assert.equal(navy.size, "M");
+    assert.equal(navy.image, "https://example.com/navy.jpg");
+    assert.equal(white.image, undefined);
+  }
 });

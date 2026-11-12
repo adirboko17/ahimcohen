@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FREE_SHIPPING, phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
+import { uniqueColors } from "@/lib/colors";
 import { fmt, priceFor, saleBadge } from "@/lib/pricing";
-import { complementaryAccessories } from "@/lib/product-recommendations";
+import { complementaryAccessories, similarProducts } from "@/lib/product-recommendations";
+import { productColorIndex, productGalleryImages } from "@/lib/product-selection";
+import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
 import { IconCheck, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
@@ -17,45 +20,45 @@ function bundleOf(p: Product, extras: Product[]): [string, number][] {
   return [[p.id, q], ...rest];
 }
 
-export function ProductView({ id }: { id: string }) {
-  const { product, category, products, productsInCategory } = useCatalog();
+export function ProductView({ id, initialColor, initialSize }: { id: string; initialColor?: string; initialSize?: string }) {
+  return <ProductDetails key={JSON.stringify([id, initialColor, initialSize])} id={id} initialColor={initialColor} initialSize={initialSize} />;
+}
+
+function ProductDetails({ id, initialColor, initialSize }: { id: string; initialColor?: string; initialSize?: string }) {
+  const { product, category, products } = useCatalog();
   const p = product(id);
   const accP = useMemo(() => p ? complementaryAccessories(p, products) : [], [p, products]);
+  const related = useMemo(() => p ? similarProducts(p, products.filter((item) => !accP.some((accessory) => accessory.id === item.id))) : [], [p, products, accP]);
   const router = useRouter();
   const { addMany, flash, toastOn, cart } = useStore();
-  const [color, setColor] = useState(0);
-  const [size, setSize] = useState<string | null>(p && p.sizes.length === 1 ? p.sizes[0] : null);
+  const [color, setColor] = useState(() => p ? productColorIndex(p, initialColor, initialSize) : 0);
+  const sizeOptions = useMemo(() => p ? productSizeOptions(p, p.colors[color] || "") : [], [p, color]);
+  const [selectedSize, setSize] = useState<string | null>(() => {
+    if (initialSize) return sizeOptions.find((option) => option.available && option.label === sizeLabel(initialSize))?.label ?? null;
+    return sizeOptions.length === 1 && sizeOptions[0].available ? sizeOptions[0].label : null;
+  });
+  const selectedOption = sizeOptions.find((option) => option.label === selectedSize && option.available);
+  const size = selectedOption?.label ?? null;
   const [qty, setQty] = useState(1);
   const [sizeErr, setSizeErr] = useState(false);
-  const [acc, setAcc] = useState<string | null>("desc");
+  const [acc, setAcc] = useState<string | null>(() => p?.desc ? "desc" : "spec");
   const [gal, setGal] = useState(0);
+  const mobileGallery = useRef<HTMLDivElement>(null);
   const [bOff, setBOff] = useState<Record<string, boolean>>({});
   const [bSize, setBSize] = useState<Record<string, string>>({});
   const [bErr, setBErr] = useState(false);
   const [guide, setGuide] = useState(false);
   useScrollLock(guide);
 
-  useEffect(() => {
-    if (!p) return;
-    setColor(0);
-    setSize(p.sizes.length === 1 ? p.sizes[0] : null);
-    setQty(1);
-    setSizeErr(false);
-    setAcc(p.desc ? "desc" : "spec");
-    setGal(0);
-    setBOff({});
-    setBSize({});
-    setBErr(false);
-  }, [p]);
-
   if (!p) return null;
+  const sizeLabels = sizeOptions.map((option) => option.label);
   const catName = category(p.cat)?.name || "";
-  const imgs = p.imgs || [];
+  const imgs = productGalleryImages(p, p.colors[color] || "");
   const slides: { kind: "img" | "ph" | "spec"; src?: string; text?: string; rows?: { k: string; v: string }[] }[] = imgs.map((src) => ({ kind: "img", src }));
   if (!imgs.length) slides.push({ kind: "ph", text: p.std ? p.std.join(" · ") : p.sku || catName });
   const specRows = (p.specs || []).map(([k, v]) => ({ k, v }));
   if (specRows.length) slides.push({ kind: "spec", rows: specRows });
-  else if (p.std) slides.push({ kind: "spec", rows: [{ k: "תקן", v: p.std.join(" · ") }, { k: "צבע", v: p.colors.join(", ") }, { k: "מידות", v: p.sizes[0] + "–" + p.sizes[p.sizes.length - 1] }] });
+  else if (p.std) slides.push({ kind: "spec", rows: [{ k: "תקן", v: p.std.join(" · ") }, { k: "צבע", v: uniqueColors(p.colors).join(", ") }, { k: "מידות", v: sizeLabels.join(", ") }] });
   const gi = Math.min(gal, slides.length - 1);
   const current = slides[gi];
 
@@ -92,7 +95,7 @@ export function ProductView({ id }: { id: string }) {
         { k: "קטגוריה", v: catName },
         ...(p.specs || []).map(([k, v]) => ({ k, v })),
         ...(p.std ? [{ k: "תקן", v: p.std.join(" · ") }] : []),
-        { k: "מידות", v: p.sizes.join(", ") },
+        { k: "מידות", v: sizeLabels.join(", ") },
       ],
     },
     {
@@ -108,17 +111,17 @@ export function ProductView({ id }: { id: string }) {
 
   const items = bundleOf(p, accP);
   const add = () => {
-    if (!size) {
+    if (!selectedOption) {
       setSizeErr(true);
       flash("בחרו מידה");
       return;
     }
-    addMany([[p.id, color, size, qty]], true);
+    addMany([[p.id, color, selectedOption.value, qty]], true);
   };
   const addBundle = () => {
-    const sel = items.filter(([pid]) => pid === p.id || !bOff[pid]);
-    const miss = sel.some(([pid]) => pid !== p.id && (product(pid)?.sizes.length ?? 0) > 1 && !bSize[pid]);
-    if (!size || miss) {
+    const sel = bRows.flatMap((row) => row?.on ? [row] : []);
+    const miss = sel.some((row) => !row.isMain && !row.option?.available);
+    if (!selectedOption || miss) {
       setBErr(miss);
       setSizeErr(!size);
       flash(!size ? "בחרו מידה לפריט הראשי" : "בחרו מידה לכל פריט");
@@ -126,10 +129,9 @@ export function ProductView({ id }: { id: string }) {
     }
     setBErr(false);
     addMany(
-      sel.map(([pid, q]) => {
-        const item = product(pid);
-        return pid === p.id ? [pid, color, size, q] : [pid, 0, item && item.sizes.length > 1 ? bSize[pid] : item?.sizes[0] || "", q];
-      }),
+      sel.map((row) => row.isMain
+        ? [p.id, color, selectedOption.value, row.q]
+        : [row.item.id, 0, row.option!.value, row.q]),
       true
     );
   };
@@ -142,18 +144,19 @@ export function ProductView({ id }: { id: string }) {
     if (!item) return null;
     const isMain = pid === p.id;
     const on = isMain || !bOff[pid];
-    const multi = item.sizes.length > 1;
-    const chosen = multi ? bSize[pid] || "" : item.sizes[0];
+    const options = productSizeOptions(item);
+    const multi = options.length > 1;
+    const chosen = multi ? bSize[pid] || "" : options[0]?.label || "";
+    const option = options.find((entry) => entry.label === chosen && entry.available);
     const pr = priceFor(item, q);
     if (on) {
       bTotal += pr;
       bRegular += q * item.price;
       bCount += q;
     }
-    return { item, q, isMain, on, multi, chosen, pr };
+    return { item, q, isMain, on, multi, chosen, option, options, pr };
   });
 
-  const related = productsInCategory(p.cat).filter((x) => x.id !== p.id && !accP.some((item) => item.id === x.id)).slice(0, 4);
   const addBg = toastOn ? "#1F7A3D" : "#111";
 
   return (
@@ -179,6 +182,8 @@ export function ProductView({ id }: { id: string }) {
         </div>
         <div className="mob-block" style={{ position: "relative" }}>
           <div
+            key={color}
+            ref={mobileGallery}
             className="m-gal scroller"
             onScroll={(e) => {
               const el = e.currentTarget;
@@ -266,7 +271,11 @@ export function ProductView({ id }: { id: string }) {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {p.colors.map((c, i) => (
-                  <button key={c} className={`color-dot lg ${i === color ? "on" : "off"}`} style={{ background: swatchColor(c) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === color} onClick={() => setColor(i)} />
+                  <button key={c} className={`color-dot lg ${i === color ? "on" : "off"}`} style={{ background: swatchColor(c) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === color} onClick={() => {
+                    setColor(i);
+                    setGal(0);
+                    mobileGallery.current?.scrollTo({ left: 0, behavior: "instant" });
+                  }} />
                 ))}
               </div>
             </div>
@@ -283,9 +292,9 @@ export function ProductView({ id }: { id: string }) {
               </button>
             </div>
             <div className="size-grid">
-              {p.sizes.map((z) => (
-                <button key={z} className={`size ${size === z ? "on" : ""} ${sizeErr && size !== z ? "err" : ""}`} onClick={() => { setSize(z); setSizeErr(false); }}>
-                  {z}
+              {sizeOptions.map(({ label, available }) => (
+                <button type="button" key={label} disabled={!available} aria-pressed={size === label} title={!available ? "המידה אינה זמינה בצבע שנבחר" : undefined} className={`size ${size === label ? "on" : ""} ${sizeErr && available && size !== label ? "err" : ""}`} onClick={() => { setSize(label); setSizeErr(false); }}>
+                  {label}
                 </button>
               ))}
             </div>
@@ -317,13 +326,14 @@ export function ProductView({ id }: { id: string }) {
             </div>
             {bRows.map((r) => {
               if (!r) return null;
+              const image = r.isMain ? imgs[0] : r.item.imgs?.[0];
               return (
               <div key={r.item.id} className="bundle-row" style={{ opacity: r.on ? 1 : 0.45 }}>
                 <button className={`tick ${r.on ? "on" : ""}`} aria-label="בחירה" onClick={() => { if (!r.isMain) setBOff((s) => ({ ...s, [r.item.id]: !s[r.item.id] })); }}>
                   {r.on && <IconCheck />}
                 </button>
                 <div className="mini-ph">
-                  {r.item.imgs?.[0] ? <img src={r.item.imgs[0]} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#bdbdb7" }}>{phOf(r.item)}</span>}
+                  {image ? <img src={image} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#bdbdb7" }}>{phOf(r.item)}</span>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -335,7 +345,7 @@ export function ProductView({ id }: { id: string }) {
                     {!r.isMain && r.multi && (
                       <select className="plain" style={{ height: 34, minWidth: 84, border: 0, boxShadow: `inset 0 0 0 1px ${bErr && r.on && !r.chosen ? "#B3261E" : "#CFCFCA"}` }} value={r.chosen} onChange={(e) => { setBSize((s) => ({ ...s, [r.item.id]: e.target.value })); setBErr(false); }}>
                         <option value="">מידה</option>
-                        {r.item.sizes.map((z) => <option key={z} value={z}>{z}</option>)}
+                        {r.options.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label}</option>)}
                       </select>
                     )}
                     {r.isMain && <span style={{ fontSize: 13, fontWeight: 700, direction: "ltr" }}>{size ? `מידה ${size}` : "בחרו מידה למעלה"}</span>}
@@ -428,7 +438,7 @@ export function ProductView({ id }: { id: string }) {
             </div>
             <div className="sheet-b">
               <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65 }}>
-                המידות הזמינות לפריט: <b style={{ direction: "ltr", display: "inline-block" }}>{p.sizes.join(" · ")}</b>. כך מודדים לפני שבוחרים:
+                המידות הזמינות לפריט: <b style={{ direction: "ltr", display: "inline-block" }}>{sizeLabels.join(" · ")}</b>. כך מודדים לפני שבוחרים:
               </p>
               <div style={{ display: "flex", flexDirection: "column", borderTop: "2px solid #111" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "44px 1fr", padding: "14px 0", borderBottom: "1px solid #E4E4E1", fontSize: 15, lineHeight: 1.55 }}><span className="k" style={{ fontSize: 32 }}>01</span><span><b>היקף חזה</b> — מודדים בנקודה הרחבה ביותר, מתחת לבתי השחי.</span></div>

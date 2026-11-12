@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(readFileSync(resolve(__dirname, "../lib/prod
 }).outputText;
 const loaded = { exports: {} };
 new Function("exports", compiled)(loaded.exports);
-const { complementaryAccessories: recommend } = loaded.exports;
+const { complementaryAccessories: recommend, similarProducts } = loaded.exports;
 const product = (id, name, cat = "shop", sub = "", extra = {}) => ({ id, name, cat, sub, price: 100, sizes: ["M"], colors: [], ...extra });
 const ids = (items) => items.map((item) => item.id);
 const belt = product("belt", "חגורת עור", "redback", "חגורות", { brand: "REDBACK" });
@@ -77,4 +77,46 @@ test("duplicate listings of the same named accessory and brand appear only once"
   const pants = product("pants", "PERTH", "pro", "מכנסיים");
   const duplicateBelt = { ...belt, id: "belt-copy", brand: "redback.co.il" };
   assert.deepEqual(ids(recommend(pants, [belt, duplicateBelt])), ["belt"]);
+});
+
+test("similar pants only include pants even when shirts share their category and brand", () => {
+  const pants = product("perth", "PERTH", "pro", "מכנסיים", { brand: "REDBACK" });
+  const shirt = product("shirt", "HAMILTON", "pro", "חולצות", { brand: "REDBACK" });
+  const otherPants = product("cargo", "CARGO", "redback", "מכנסיים", { brand: "REDBACK" });
+  assert.deepEqual(ids(similarProducts(pants, [shirt, belt, pants, otherPants])), ["cargo"]);
+});
+
+test("similar shirts do not fall back to other clothes to fill empty spaces", () => {
+  const shirt = product("shirt", "חולצת עבודה", "pro", "חולצות");
+  const pants = product("pants", "מכנסיים", "pro", "מכנסיים");
+  const otherShirt = product("other", "חולצת דרייפיט", "pro", "חולצות");
+  assert.deepEqual(ids(similarProducts(shirt, [shirt, pants, otherShirt])), ["other"]);
+  assert.deepEqual(similarProducts(shirt, [shirt, pants]), []);
+});
+
+test("all nonempty subcategory memberships are considered, not just the primary one", () => {
+  const pants = product("pants", "Work trousers", "pro", "", { subs: ["", "מכנסיים"] });
+  const candidate = product("other", "Other trousers", "redback", "", { subs: ["מכנסיים"] });
+  assert.deepEqual(ids(similarProducts(pants, [candidate])), ["other"]);
+});
+
+test("generic accessory groups do not mix belts and ties, or unrelated unknown products", () => {
+  const formalBelt = { ...belt, cat: "rep", sub: "אקססוריז" };
+  const tie = product("tie", "עניבה", "rep", "אקססוריז");
+  const otherBelt = product("other-belt", "חגורת קנבס", "rep", "אקססוריז");
+  const unknown = product("unknown", "מחשבון", "acc", "אביזרים נלווים");
+  assert.deepEqual(ids(similarProducts(formalBelt, [tie, otherBelt])), ["other-belt"]);
+  assert.deepEqual(similarProducts(unknown, [product("cover", "כיסוי", "acc", "אביזרים נלווים")]), []);
+  assert.deepEqual(similarProducts({ ...unknown, sub: "" }, [otherBelt]), []);
+});
+
+test("similar products prioritize the brand, omit unavailable/duplicate listings, and respect the limit", () => {
+  const source = product("source", "PERTH", "pro", "מכנסיים", { brand: "REDBACK" });
+  const a = product("a", "CARGO", "pro", "מכנסיים", { brand: "REDBACK", price: 150 });
+  const duplicate = { ...a, id: "a-copy", brand: "redback.co.il" };
+  const b = product("b", "WORK", "pro", "מכנסיים", { brand: "Other", price: 100 });
+  const unavailable = product("sold-out", "UTILITY", "pro", "מכנסיים", { choices: [{ available: false }] });
+  assert.deepEqual(ids(similarProducts(source, [b, unavailable, duplicate, a, a, { ...source, id: "source-copy" }])), ["a", "b"]);
+  assert.deepEqual(ids(similarProducts(source, [b, a], 1)), ["a"]);
+  assert.deepEqual(similarProducts(source, [b, a], 0), []);
 });

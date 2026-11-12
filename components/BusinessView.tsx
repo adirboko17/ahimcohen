@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { SERVICES } from "@/lib/catalog";
+import { SERVICES, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { IconBack, IconCheck, IconFwd, IconUpload } from "./icons";
 
@@ -130,7 +130,7 @@ export function BusinessView() {
                             </label>
                             <label className="field">צבע
                               <select value={r.color} onChange={(e) => upd((x) => ({ ...x, color: +e.target.value }))}>
-                                {(rp.colors.length ? rp.colors : ["ללא"]).map((c, i) => <option key={c} value={i}>{c}</option>)}
+                                {(rp.colors.length ? rp.colors : ["ללא"]).map((c, i) => <option key={c} value={i}>{colorLabel(c)}</option>)}
                               </select>
                             </label>
                           </div>
@@ -208,7 +208,7 @@ export function BusinessView() {
                         return (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, borderTop: "1px solid #EFEFEC", paddingTop: 12 }}>
                             <span>
-                              <b style={{ display: "block" }}>{rp.name}{rp.colors[r.color] ? " · " + rp.colors[r.color] : ""}</b>
+                              <b style={{ display: "block" }}>{rp.name}{rp.colors[r.color] ? " · " + colorLabel(rp.colors[r.color]) : ""}</b>
                               <span className="muted" dir="ltr" style={{ display: "block", textAlign: "right" }}>{ent.length ? ent.map(([z, v]) => `${z} × ${v}`).join("   ") : "ללא כמויות"}</span>
                             </span>
                             <b>{n} יח׳</b>

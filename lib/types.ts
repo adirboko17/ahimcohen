@@ -9,3 +9,6 @@ export type CartLine = {
 };
 
 export type AddItem = [string, number, string, number];
+
+// Snapshot the ordered color name, never its position in a mutable catalog.
+export type OrderLine = [productId: string, color: string, size: string, quantity: number];
