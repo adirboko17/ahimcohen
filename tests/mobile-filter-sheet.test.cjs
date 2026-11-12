@@ -29,17 +29,22 @@ function harness(reduced = false) {
   const modal = { clientHeight: 600, style: { setProperty: (name, value) => properties.set(name, value) }, showModal: () => opened++, close: () => modalClosed++, getBoundingClientRect: () => ({ top: 100, bottom: 700, left: 0, right: 400 }) };
   const render = () => { cursor = 0; return loaded.exports.MobileFilterSheet({ children: "filters", footer: (close) => require("react").createElement("button", { onClick: close }, "results"), onClose: () => closed++ }); };
   const first = render(); first.props.ref.current = modal;
+  const title = find(first, (node) => node.type === "h2");
+  const focusCalls = [];
+  title.props.ref.current = { focus: (options) => focusCalls.push(options) };
   const cleanups = effects.map((fn) => fn());
   const handle = () => find(render(), (node) => node.props?.className === "filter-sheet-handle");
   const pointer = (y, stamp = 0) => ({ pointerId: 1, isPrimary: true, button: 0, clientY: y, timeStamp: stamp, currentTarget: { setPointerCapture() {}, releasePointerCapture() {} } });
   const advance = (ms) => { time += ms; for (const [key, timer] of [...timers]) if (timer.due <= time) { timers.delete(key); timer.callback(); } };
-  return { render, handle, pointer, modal, properties, advance, timers, cleanup: () => cleanups.forEach((fn) => fn?.()), closed: () => closed, opened: () => opened, modalClosed: () => modalClosed };
+  return { render, handle, pointer, modal, properties, advance, timers, focusCalls, cleanup: () => cleanups.forEach((fn) => fn?.()), closed: () => closed, opened: () => opened, modalClosed: () => modalClosed };
 }
 test("filter sheet opens as a native modal with a separate scroll body and fixed footer", () => {
   const h = harness(); const tree = h.render();
   assert.equal(h.opened(), 1);
   assert.equal(tree.type, "dialog");
   assert.equal(tree.props["aria-labelledby"], "filter-title");
+  assert.deepEqual(h.focusCalls, [{ preventScroll: true }]);
+  assert.equal(find(tree, (node) => node.type === "h2").props.tabIndex, -1);
   assert.ok(find(tree, (node) => node.props?.className === "filter-sheet-content"));
   assert.ok(find(tree, (node) => node.props?.className === "filter-sheet-footer"));
   h.cleanup(); assert.equal(h.modalClosed(), 1);

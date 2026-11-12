@@ -11,7 +11,7 @@ import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductImage } from "@/lib/category-filters";
 import { fmt } from "@/lib/pricing";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
-import { useStore } from "@/lib/store";
+import { useScrollLock, useStore } from "@/lib/store";
 import { IconCheck, IconSearch } from "./icons";
 import { CartContents } from "./CartContents";
 import { CheckoutButton } from "./CheckoutButton";
@@ -20,6 +20,23 @@ export function Overlays() {
   const [paying, setPaying] = useState(false);
   const path = usePathname();
   const s = useStore();
+  const [searchPresent, setSearchPresent] = useState(false);
+  const anotherOverlay = s.cartOpen || s.menuOpen || !!s.sheet;
+  useEffect(() => {
+    if (s.searchOpen) {
+      setSearchPresent(true);
+      return;
+    }
+    if (anotherOverlay || !window.matchMedia("(max-width: 767px) and (prefers-reduced-motion: no-preference)").matches) {
+      setSearchPresent(false);
+      return;
+    }
+    // Retain the panel for its exit animation; cancel on a rapid reopen.
+    const timer = window.setTimeout(() => setSearchPresent(false), 220);
+    return () => window.clearTimeout(timer);
+  }, [s.searchOpen, anotherOverlay]);
+  const searchLeaving = searchPresent && !s.searchOpen && !anotherOverlay;
+  useScrollLock(searchPresent && !anotherOverlay);
   const { categories, products, category, product } = useCatalog();
   const count = s.cart.reduce((a, l) => a + l.qty, 0);
   const math = s.pricing;
@@ -28,7 +45,7 @@ export function Overlays() {
     text: `המבצעים הופעלו · חסכתם ${fmt(math.savings)}`,
     pct: "100%", bg: "#FFD100",
   }] : [];
-  const open = s.cartOpen || s.menuOpen || s.searchOpen || !!s.sheet;
+  const open = anotherOverlay || s.searchOpen || searchLeaving;
   const buy = path.startsWith("/p/");
   const tabs = path === "/" || path.startsWith("/c/") || path.startsWith("/business") || path.startsWith("/account");
 
@@ -156,7 +173,7 @@ export function Overlays() {
       </aside>
 
       <QuickSheet />
-      {s.searchOpen && <SearchModal />}
+      {(s.searchOpen || searchLeaving) && <SearchModal closing={searchLeaving} onExited={() => setSearchPresent(false)} />}
       <div className={`toast ${s.toastOn ? "on" : ""} ${buy ? "buy" : ""} ${!tabs && !buy ? "" : ""}`} style={!tabs && !buy ? { bottom: 24 } : undefined} role="status">
         <i>
           <IconCheck />
@@ -240,14 +257,18 @@ function QuickSheet() {
   );
 }
 
-function SearchModal() {
+function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => void }) {
   const s = useStore();
   const { products, category } = useCatalog();
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    if (closing) {
+      ref.current?.blur();
+      return;
+    }
     const t = setTimeout(() => ref.current?.focus(), 30);
     return () => clearTimeout(t);
-  }, []);
+  }, [closing]);
   const q = s.query.trim().toLowerCase();
   const results = q
     ? products.filter((x) =>
@@ -255,11 +276,20 @@ function SearchModal() {
       )
     : [];
   return (
-    <div className="search-modal" role="dialog" aria-label="חיפוש">
+    <div
+      className={`search-modal${closing ? " is-closing" : ""}`}
+      role="dialog"
+      aria-label="חיפוש"
+      aria-hidden={closing || undefined}
+      inert={closing || undefined}
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget && event.animationName === "searchClose") onExited();
+      }}
+    >
       <div className="search-in">
         <div className="search-line">
           <IconSearch size={26} />
-          <input ref={ref} value={s.query} onChange={(e) => s.setQuery(e.target.value)} placeholder="מה מחפשים?" enterKeyHint="search" />
+          <input ref={ref} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label="מה מחפשים?" placeholder="מה מחפשים?" enterKeyHint="search" />
           <button className="x" onClick={s.closeAll} aria-label="סגירה">
             ×
           </button>

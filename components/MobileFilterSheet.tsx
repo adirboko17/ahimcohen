@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 
 export function MobileFilterSheet({ children, footer, onClose }: { children: ReactNode; footer: (close: () => void) => ReactNode; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [closing, setClosing] = useState(false);
@@ -26,6 +27,8 @@ export function MobileFilterSheet({ children, footer, onClose }: { children: Rea
     if (!element) return;
     // Native modal behavior keeps keyboard focus inside and the page behind inert.
     element.showModal();
+    // Start on the title, rather than highlighting the full-width drag handle.
+    heading.current?.focus({ preventScroll: true });
     return () => { clearTimeout(timer.current); clearTimeout(clickTimer.current); element.close(); };
   }, []);
   const resetDrag = () => {
@@ -69,7 +72,7 @@ export function MobileFilterSheet({ children, footer, onClose }: { children: Rea
       else resetDrag();
       event.currentTarget.releasePointerCapture(event.pointerId);
     }} onPointerCancel={resetDrag} onLostPointerCapture={() => { if (drag.current) resetDrag(); }}><span aria-hidden="true" /></button>
-    <header className="filter-sheet-heading"><h2 id={titleId}>סינון</h2><button type="button" className="x" onClick={close} aria-label="סגירת הסינון">×</button></header>
+    <header className="filter-sheet-heading"><h2 ref={heading} id={titleId} tabIndex={-1}>סינון</h2><button type="button" className="x" onClick={close} aria-label="סגירת הסינון">×</button></header>
     <div className="filter-sheet-content">{children}</div>
     <footer className="filter-sheet-footer">{footer(close)}</footer>
   </dialog>;

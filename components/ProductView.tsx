@@ -174,7 +174,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   const addBg = toastOn ? "#1F7A3D" : "#111";
 
   return (
-    <main className="wrap has-buybar" style={{ paddingTop: "clamp(0px, 2vw, 24px)" }}>
+    <main className="wrap has-buybar product-page">
       <div className="crumbs desk">
         <Link href="/">בית</Link>
         <span>/</span>

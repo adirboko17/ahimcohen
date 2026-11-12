@@ -413,7 +413,7 @@ function renderQuick(product, qColor, qSize) {
     "@/lib/product-selection": productSelection,
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, cartMath: () => ({ byP: {}, total: 0 }) },
-    "@/lib/store": { useStore: () => ({ cart: [], pricing: { byP: {}, total: 0, savings: 0 }, cartQuote: { pending: false }, sheet: "quick", quickId: product.id, qColor, qSize }) },
+    "@/lib/store": { useScrollLock: () => {}, useStore: () => ({ cart: [], pricing: { byP: {}, total: 0, savings: 0 }, cartQuote: { pending: false }, sheet: "quick", quickId: product.id, qColor, qSize }) },
     "./icons": { IconCheck: () => null, IconSearch: () => null },
   });
   return renderToStaticMarkup(React.createElement(Overlays)).match(/<section class="sheet quick-sheet"[\s\S]*?<\/section>/)[0];
@@ -467,7 +467,7 @@ test("cart drawer and checkout show separate color photos for multiple lines of 
     "@/lib/product-selection": productSelection,
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, cartMath: () => ({ byP: {}, total: 200, count: 4, savings: 0 }) },
-    "@/lib/store": { useStore: () => ({ cart, cartOpen: true, pricing: { byP: {}, regular: 200, total: 200, count: 4, savings: 0 }, cartQuote: { pending: false } }) },
+    "@/lib/store": { useScrollLock: () => {}, useStore: () => ({ cart, cartOpen: true, pricing: { byP: {}, regular: 200, total: 200, count: 4, savings: 0 }, cartQuote: { pending: false } }) },
     "./icons": { IconCheck: () => null, IconSearch: () => null },
   };
   const { Overlays } = load("components/Overlays.tsx", dependencies);
