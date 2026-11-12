@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { swatchColor, colorLabel, type Product } from "@/lib/catalog";
+import type { Brand } from "@/lib/brands";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductSelection, categoryVariantFilters } from "@/lib/category-filters";
 import { matchesColorFilter, uniqueColors } from "@/lib/colors";
@@ -14,31 +15,40 @@ import { useScrollLock } from "@/lib/store";
 import { IconFilter } from "./icons";
 import { ProductTile } from "./ProductTile";
 
-export function CategoryView({ catId }: { catId: string }) {
+type ListingScope = { catId: string; brand?: never } | { brand: Brand; catId?: never };
+
+export function CategoryView(scope: ListingScope) {
   const searchParams = useSearchParams();
   const sub = searchParams.get("sub") || null;
-  return <CategoryResults key={JSON.stringify([catId, sub])} catId={catId} sub={sub} />;
+  return <CategoryResults key={JSON.stringify([scope.brand ? `brand:${scope.brand.id}` : scope.catId, sub])} {...scope} sub={sub} />;
 }
 
-function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) {
-  const { category, productsInCategory, categories } = useCatalog();
-  const cat = category(catId);
+function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | null }) {
+  const { category, products, productsInCategory, categories } = useCatalog();
+  const scopeId = brand ? `brand:${brand.id}` : catId;
+  const routePath = brand ? `/brands/${brand.id}` : `/c/${catId}`;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { filters: savedFilters, setFilters: setF, sort, setSort, shown, setShown, clearFilters, restoring, rememberBeforeNavigation } = useCategoryHistory(catId, sub);
+  const { filters: savedFilters, setFilters: setF, sort, setSort, shown, setShown, clearFilters, restoring, rememberBeforeNavigation } = useCategoryHistory(scopeId, sub, routePath);
   const [sheet, setSheet] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   useScrollLock(sheet);
 
-  const categoryProducts = useMemo(() => productsInCategory(catId), [catId, productsInCategory]);
+  const categoryProducts = useMemo(() => brand
+    ? products.filter(product => product.brand === brand.name)
+    : productsInCategory(catId), [brand, products, catId, productsInCategory]);
+  const cat = useMemo(() => brand ? {
+    name: brand.name,
+    subs: [...new Set(categoryProducts.flatMap(product => [product.sub, ...(product.subs ?? [])]).filter(Boolean))],
+  } : category(catId), [brand, categoryProducts, category, catId]);
   const base = useMemo(() => categoryProducts.filter((p) => !sub || p.sub === sub || (p.subs ?? []).includes(sub)), [categoryProducts, sub]);
   const f = useMemo(() => ({
     ...savedFilters,
     colors: uniqueColors(savedFilters.colors).filter((color) => base.some((p) => matchesColorFilter(p.colors, [color]))),
     sizes: uniqueSizes(savedFilters.sizes).filter((size) => base.some((p) => matchesSizeFilter(p.sizes, [size]))),
     std: savedFilters.std.filter((standard) => base.some((p) => p.std?.includes(standard))),
-    brands: savedFilters.brands.filter((brand) => base.some((p) => p.brand === brand)),
-  }), [savedFilters, base]);
+    brands: brand ? [] : savedFilters.brands.filter((name) => base.some((p) => p.brand === name)),
+  }), [savedFilters, base, brand]);
   const prices = base.map((p) => p.price);
   const pMin = prices.length ? Math.min(...prices) : 0;
   const pTop = prices.length ? Math.max(...prices) : 100;
@@ -46,7 +56,7 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
 
   const uniq = (fn: (p: Product) => string[]) => [...new Set(base.flatMap(fn))];
   const stdOpts = uniq((p) => p.std || []);
-  const brandOpts = uniq((p) => (p.brand ? [p.brand] : []));
+  const brandOpts = brand ? [] : uniq((p) => (p.brand ? [p.brand] : []));
 
   const eligible = base.filter(
     (p) =>
@@ -89,7 +99,7 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
       active = false;
       observer.disconnect();
     };
-  }, [shown, total, catId, sub, f, sort, sheet, restoring, setShown]);
+  }, [shown, total, scopeId, sub, f, sort, sheet, restoring, setShown]);
 
   const fCount = f.std.length + f.colors.length + f.sizes.length + f.brands.length + (f.max != null && f.max < pTop ? 1 : 0);
   const toggle = (field: "std" | "colors" | "sizes" | "brands", val: string) => {
@@ -100,6 +110,10 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
     });
   };
   const clear = () => {
+    if (brand && !categoryProducts.length) {
+      router.push("/brands");
+      return;
+    }
     if (!categoryProducts.length && categories[0]) {
       router.push(`/c/${categories[0].id}`);
       return;
@@ -114,7 +128,7 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
     if (name) params.set("sub", name);
     else params.delete("sub");
     const query = params.toString();
-    window.history.replaceState(null, "", `/c/${catId}${query ? `?${query}` : ""}`);
+    window.history.replaceState(null, "", `${routePath}${query ? `?${query}` : ""}`);
   };
 
   const active = (["std", "sizes", "colors", "brands"] as const).flatMap((field) => f[field].map((v) => ({ v, field })));
@@ -126,10 +140,11 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
       <div className="crumbs">
         <Link href="/">בית</Link>
         <span>/</span>
+        {brand && <><Link href="/brands">המותגים שלנו</Link><span>/</span>{sub && <><Link href={routePath}>{brand.name}</Link><span>/</span></>}</>}
         <span className="now">{sub || cat.name}</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", paddingBottom: 20 }}>
-        <h1 className="k page-title">{sub || cat.name}</h1>
+        <h1 className="k page-title" dir={brand ? "auto" : undefined}>{brand ? brand.name : sub || cat.name}</h1>
         <span className="muted" style={{ fontSize: 15, fontWeight: 600 }}>
           {list.length} מוצרים
         </span>
@@ -197,9 +212,9 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
           </div>
           {list.length > 0 ? (
             <div className="product-grid">
-              {list.slice(0, shown).map((p) => {
+              {list.slice(0, shown).map((p, index) => {
                 const selection = categoryProductSelection(p, f);
-                return <ProductTile key={p.id} p={p} imageSrc={selection.image} selectedColor={selection.color} selectedSize={selection.size} />;
+                return <ProductTile key={p.id} p={p} priority={index < 2} imageSrc={selection.image} selectedColor={selection.color} selectedSize={selection.size} />;
               })}
             </div>
           ) : (
@@ -208,10 +223,10 @@ function CategoryResults({ catId, sub }: { catId: string; sub: string | null }) 
                 {categoryProducts.length ? "אין התאמות" : "בקרוב"}
               </span>
               <span className="muted" style={{ fontSize: 16, maxWidth: "42ch" }}>
-                {categoryProducts.length ? "נסו להסיר חלק מהמסננים או לבחור תת-קטגוריה אחרת." : "המוצרים בקטגוריה זו יוצגו לאחר חיבור הקטלוג המלא."}
+                {categoryProducts.length ? "נסו להסיר חלק מהמסננים או לבחור תת-קטגוריה אחרת." : brand ? "כרגע אין מוצרים להצגה במותג הזה." : "המוצרים בקטגוריה זו יוצגו לאחר חיבור הקטלוג המלא."}
               </span>
               <button className="btn" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={clear}>
-                {categoryProducts.length ? "ניקוי המסננים" : "לביגוד מקצועי"}
+                {categoryProducts.length ? "ניקוי המסננים" : brand ? "לכל המותגים" : "לביגוד מקצועי"}
               </button>
             </div>
           )}

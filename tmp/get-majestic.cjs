@@ -1,0 +1,1 @@
+const fs=require('fs');(async()=>{const r=await fetch('https://www.majesticglove.com/userfiles/majestic%20product%20personalization.pdf');fs.writeFileSync('tmp/majestic.pdf',Buffer.from(await r.arrayBuffer()));})();

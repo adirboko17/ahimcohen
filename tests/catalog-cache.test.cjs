@@ -23,7 +23,8 @@ function deferred() {
 
 function harness() {
   const entries = new Map();
-  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [], productCount: 1 };
+  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [], productCount: 1, extraBrandProducts: [] };
+  const verifiedBrandHandles = [];
   const pageInfo = { hasNextPage: false, endCursor: null };
   const storage = {
     generateSimpleCacheKey: async (key) => key,
@@ -46,6 +47,7 @@ function harness() {
       storefrontApiVersion: () => "2026-10",
       metafieldIdentifiers: () => [],
     },
+    "./product-brand": { productBrand: product => product.vendor, verifiedBrandHandles },
     "./collections": {
       fetchCollectionsPage: async () => {
         state.loads++;
@@ -58,6 +60,7 @@ function harness() {
       },
     },
     "./products": {
+      fetchProductsByHandles: async handles => state.extraBrandProducts.filter(product => handles.includes(product.handle)),
       fetchCollectionProductsPage: async () => ({
         products: {
           items: Array.from({ length: state.productCount }, (_, index) => ({
@@ -88,7 +91,7 @@ function harness() {
     };
   }
   return {
-    state, request,
+    state, request, verifiedBrandHandles,
     storedBytes: () => Math.max(0, ...[...entries.values()].map((entry) => Buffer.byteLength(JSON.stringify(entry.value)))),
     expire: () => { for (const entry of entries.values()) entry.isStale = true; },
   };
@@ -109,6 +112,16 @@ test("simultaneous cold requests share one Shopify load and warm requests reuse 
   }
   assert.deepEqual(await h.request().value, JSON.parse(JSON.stringify(catalogs[0])));
   assert.equal(h.state.loads, 1);
+});
+
+test("brand pages include live published products without a collection and skip deleted handles", async () => {
+  const h = harness();
+  h.verifiedBrandHandles.push("brand-only", "deleted-product", "shirt");
+  h.state.extraBrandProducts = [{ handle: "brand-only", title: "Brand shoe", vendor: "Redback", description: "", images: [], variants: [], priceRange: { min: { amount: "200" } } }];
+  const catalog = await h.request().value;
+  assert.equal(catalog.products.filter(product => product.id === "shirt").length, 1);
+  assert.equal(catalog.products.find(product => product.id === "brand-only").brand, "Redback");
+  assert.ok(!catalog.products.some(product => product.id === "deleted-product"));
 });
 
 test("expired catalog returns immediately while one shared refresh updates prices", { timeout: 5000 }, async () => {

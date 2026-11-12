@@ -5,6 +5,7 @@ import { Assistant, Karantina } from "next/font/google";
 import { Shell } from "@/components/Shell";
 import { PageLoading } from "@/components/PageLoading";
 import { CatalogProvider } from "@/lib/catalog-context";
+import { packCatalog } from "@/lib/catalog-wire";
 import { loadShopCatalog } from "@/lib/shopify/load-catalog";
 import { StoreProvider } from "@/lib/store";
 import "./globals.css";
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 async function ShopLayout({ children }: { children: React.ReactNode }) {
   const catalog = await loadShopCatalog();
   return (
-    <CatalogProvider catalog={catalog}>
+    <CatalogProvider catalog={packCatalog(catalog)}>
       <StoreProvider>
         <Shell>{children}</Shell>
       </StoreProvider>

@@ -5,12 +5,18 @@ import { pickVariant } from "./catalog";
 import { useCatalog } from "./catalog-context";
 import { productSizeOptions, sizeLabel } from "./sizes";
 import { productColorIndex } from "./product-selection";
+import { updateCartSelection, updateCartUnitSelection } from "./cart-selection";
+import { useCartQuote } from "./use-cart-quote";
+import { useCheckoutReturn } from "./use-checkout-return";
+import { cartMath } from "./pricing";
 import type { AddItem, CartLine } from "./types";
 
 type Sheet = null | "quick";
 
 type Store = {
   cart: CartLine[];
+  pricing: ReturnType<typeof cartMath>;
+  cartQuote: ReturnType<typeof useCartQuote>;
   cartOpen: boolean;
   menuOpen: boolean;
   menuCat: string | null;
@@ -37,6 +43,8 @@ type Store = {
   setQSize: (size: string) => void;
   addMany: (list: AddItem[], openCart?: boolean) => void;
   setQtyLine: (key: string, delta: number) => void;
+  setLineSelection: (key: string, selection: { color: string; size: string }) => void;
+  setUnitSelection: (key: string, selection: { color: string; size: string }) => void;
   flash: (msg: string) => void;
   login: (phone: string) => void;
   logout: () => void;
@@ -50,6 +58,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
   const [cart, setCart] = useState<CartLine[]>([]);
+  const cartQuote = useCartQuote(cart);
+  const pricing = useMemo(() => ({ ...cartMath(cart), ...cartQuote.quote }), [cart, cartQuote.quote]);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuCat, setMenuCat] = useState<string | null>(null);
@@ -72,7 +82,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const raw = localStorage.getItem("ahim-cart");
       if (raw) {
         const parsed = JSON.parse(raw) as CartLine[];
-        if (Array.isArray(parsed)) setCart(parsed.filter((l) => l && catalogRef.current.product(l.pid) && l.qty > 0));
+        if (Array.isArray(parsed)) setCart(parsed.filter((l) => l && catalogRef.current.product(l.pid) && l.qty > 0)
+          .map((line) => ({ ...line, instanceId: line.instanceId || crypto.randomUUID() })));
       }
       const savedPhone = localStorage.getItem("ahim-phone");
       if (localStorage.getItem("ahim-auth") === "1" && savedPhone) {
@@ -88,6 +99,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (ready) localStorage.setItem("ahim-cart", JSON.stringify(cart));
   }, [cart, ready]);
+
+  useCheckoutReturn(ready, setCart);
 
   const anyOverlay = cartOpen || menuOpen || searchOpen || !!sheet || extraLock;
 
@@ -164,7 +177,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const key = `${pid}|${color}|${size}`;
           const i = next.findIndex((l) => l.key === key);
           if (i >= 0) next[i] = { ...next[i], qty: next[i].qty + qty };
-          else next.push({ key, pid, color, size, qty, variantId: variant?.id, unitPrice: variant?.price ?? p.price });
+          else next.push({ key, pid, color, size, qty, instanceId: crypto.randomUUID(), variantId: variant?.id, unitPrice: variant?.price ?? p.price });
         });
         return next;
       });
@@ -180,6 +193,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const setQtyLine = useCallback((key: string, delta: number) => {
     setCart((prev) => prev.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
   }, []);
+
+  const setLineSelection = useCallback((key: string, selection: { color: string; size: string }) => {
+    setCart((prev) => {
+      const line = prev.find((item) => item.key === key);
+      const product = line && catalog.product(line.pid);
+      return product ? updateCartSelection(prev, key, product, selection) : prev;
+    });
+  }, [catalog]);
+
+  const setUnitSelection = useCallback((key: string, selection: { color: string; size: string }) => {
+    const instanceId = crypto.randomUUID();
+    setCart((prev) => {
+      const line = prev.find((item) => item.key === key);
+      const product = line && catalog.product(line.pid);
+      return product ? updateCartUnitSelection(prev, key, product, selection, instanceId) : prev;
+    });
+  }, [catalog]);
 
   const login = useCallback((value: string) => {
     setAuth(true);
@@ -205,6 +235,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       cart,
+      pricing,
+      cartQuote,
       cartOpen,
       menuOpen,
       menuCat,
@@ -231,6 +263,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setQSize,
       addMany,
       setQtyLine,
+      setLineSelection,
+      setUnitSelection,
       flash,
       login,
       logout,
@@ -238,6 +272,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       cart,
+      pricing,
+      cartQuote,
       cartOpen,
       menuOpen,
       menuCat,
@@ -260,6 +296,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       closeAll,
       addMany,
       setQtyLine,
+      setLineSelection,
+      setUnitSelection,
       flash,
       login,
       logout,

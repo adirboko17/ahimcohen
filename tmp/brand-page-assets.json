@@ -1,0 +1,96 @@
+{
+  "medop": {
+    "url": "https://medop.es/es",
+    "status": 403,
+    "imgs": []
+  },
+  "tiger-grip": {
+    "url": "https://www.safetyjogger.com/en/eu/tigergrip",
+    "status": 200,
+    "imgs": [
+      "<img class=\"header-logo-img\" src=\"image/logo/logo-sj-works-rgb-outline-200.png\" alt=\"Safety Jogger logo\" width=\"200\" height=\"160\">"
+    ]
+  },
+  "spasciani": {
+    "url": "https://www.spasciani.com/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://www.spasciani.com/wp-content/themes/spasciani/img/logo-white.png\" alt=\"\">",
+      "<img src=\"https://www.spasciani.com/wp-content/themes/spasciani/img/Logo-SIBOL_white.png\" alt=\"\">"
+    ]
+  },
+  "toffeln": {
+    "url": "https://www.toffeln.com/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://cdn.prod.website-files.com/683ec730f5b3d74afd49fc02/6852d677eacfb5c1aa837097_Toffeln%20Logo.svg\" loading=\"eager\" width=\"Auto\" height=\"Auto\" alt=\"Toffeln logo\" class=\"image\"/>",
+      "<img loading=\"lazy\" src=\"https://cdn.prod.website-files.com/683ec730f5b3d74afd49fc02/6a16e939f073cd1c62d48851_Toffeln%20Academy%20-%20Wordmark%20(RGB).svg\" alt=\"\" class=\"toffeln-academy-logo\"/>",
+      "<img src=\"https://cdn.prod.website-files.com/683ec730f5b3d74afd49fc02/6a16e939f073cd1c62d48851_Toffeln%20Academy%20-%20Wordmark%20(RGB).svg\" loading=\"eager\" alt=\"Toffeln Academy Logo\" class=\"toffeln-academy-logo\"/>",
+      "<img src=\"https://cdn.prod.website-files.com/683ec730f5b3d74afd49fc02/6864ef46e6fe24d3d96b2f8e_Toffeln%20Logo%20White.svg\" loading=\"lazy\" alt=\"Toffeln logo\" class=\"footer-logo---new\"/>",
+      "<img src=\"https://cdn.prod.website-files.com/683ec730f5b3d74afd49fc02/6a3b7f6c14945682aa6fcc9c_linkedin-161-svgrepo-com%20(1).svg\" loading=\"lazy\" alt=\"LinkedIn logo\"/>",
+      "<img src=\"https://cdn.prod.website-files.com/683ec730f5b3d74afd49fc02/6a3bc49b39b0a0e2d1fbd2e6_youtube-168-svgrepo-com%20(1).svg\" loading=\"lazy\" alt=\"YouTube logo\"/>"
+    ]
+  },
+  "alexandra": {
+    "url": "https://www.alexandra.co.uk/",
+    "status": 403,
+    "imgs": []
+  },
+  "neri": {
+    "url": "https://nerisafety.com/en/ppe",
+    "status": 200,
+    "imgs": [
+      "<img alt=\"NERI Safety logo\" class=\"undefined GcLogo-logo mui-style-1xdhyk6\" loading=\"eager\" src=\"/images/NeriSafetyLightLogo.svg\" width=\"120\" height=\"40\" data-nimg=\"true\"/>",
+      "<img alt=\"NERI Safety Logo\" loading=\"lazy\" width=\"200\" height=\"80\" decoding=\"async\" data-nimg=\"1\" class=\"mui-style-p6qabg\" style=\"color:transparent\" src=\"/images/NeriSafetyDarkLogo.svg\"/>"
+    ]
+  },
+  "dian": {
+    "url": "https://dian.com",
+    "error": "fetch failed"
+  },
+  "mure-peyrot": {
+    "url": "https://mure-peyrot.com/en/",
+    "status": 200,
+    "imgs": [
+      "<img width=\"100\" height=\"80\" src=\"https://mure-peyrot.com/wp-content/uploads/2022/12/logo-mure-peyrot.svg\" class=\"custom-logo\" alt=\"Mure Peyrot\" decoding=\"async\" />",
+      "<img loading=\"lazy\" decoding=\"async\" width=\"180\" height=\"150\" src=\"https://dev.mure-peyrot.com/wp-content/uploads/2022/12/lp_logo_footer.svg\" alt=\"\" class=\"wp-image-118\"/>"
+    ]
+  },
+  "portwest": {
+    "url": "https://www.portwest.com/market/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://d11ak7fd9ypfb7.cloudfront.net/com_images/sitewide/portwest-logo-oj.png?2\" style=\"width:190px;\">",
+      "<img src=\"https://d11ak7fd9ypfb7.cloudfront.net/com_images/sitewide/portwest-logo-oj.png\" height=\"20\" alt=\"Portwest\" style=\"display:block;margin-left:auto;margin-right:auto;max-width:40%;\">",
+      "<img src=\"https://d11ak7fd9ypfb7.cloudfront.net/com_images/sitewide/portwest-logo-oj.png\" height=\"20\" alt=\"Portwest\" style=\"display:block;margin-left:auto;margin-right:auto;max-width:40%;\">",
+      "<img src=\"https://d11ak7fd9ypfb7.cloudfront.net/com_images/sitewide/portwest-logo-oj.png\" height=\"20\" alt=\"Portwest\" style=\"display:block;margin-left:auto;margin-right:auto;max-width:40%;\">"
+    ]
+  },
+  "top-glove": {
+    "url": "https://topglove.de/",
+    "status": 200,
+    "imgs": [
+      "<img loading=\"false\" data-no-lazy=\"1\" class=\"fl-logo-img\" itemscope itemtype=\"https://schema.org/ImageObject\" src=\"https://topglove.de/wp-content/uploads/2022/11/Top-Glove-Logo-Blue-White.svg\" data-retina=\"\" title=\"\" alt=\"Top Glove\" />",
+      "<img loading=\"lazy\" decoding=\"async\" class=\"fl-photo-img wp-image-54 size-full\" src=\"https://topglove.de/wp-content/uploads/2022/11/Top-Glove-Logo-Blue-White.svg\" alt=\"Top Glove Logo - Blue White\" height=\"66\" width=\"207\" title=\"Top Glove Logo - Blue White\"  itemprop=\"image\" />"
+    ]
+  },
+  "allen-cooper": {
+    "url": "https://www.allencoopersafety.com/",
+    "status": 200,
+    "imgs": [
+      "<img width=\"104\" height=\"97\" src=\"https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-104x97.png\" class=\"custom-logo\" alt=\"Safety Shoes\" decoding=\"async\" srcset=\"https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-104x97.png 104w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-300x279.png 300w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-1024x952.png 1024w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-768x714.png 768w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo.png 1245w\" sizes=\"(max-width: 104px) 100vw, 104px\" />",
+      "<img width=\"104\" height=\"97\" src=\"https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-104x97.png\" class=\"custom-logo\" alt=\"Safety Shoes\" decoding=\"async\" srcset=\"https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-104x97.png 104w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-300x279.png 300w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-1024x952.png 1024w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-768x714.png 768w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo.png 1245w\" sizes=\"(max-width: 104px) 100vw, 104px\" />",
+      "<img loading=\"lazy\" width=\"104\" height=\"71\" src=\"https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023-104x71.jpg\" class=\"custom-logo\" alt=\"Safety Shoes\" decoding=\"async\" srcset=\"https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023-104x71.jpg 104w, https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023-300x204.jpg 300w, https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023.jpg 700w\" sizes=\"(max-width: 104px) 100vw, 104px\">",
+      "<img loading=\"lazy\" width=\"104\" height=\"71\" src=\"https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023-104x71.jpg\" class=\"custom-logo\" alt=\"Safety Shoes\" decoding=\"async\" srcset=\"https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023-104x71.jpg 104w, https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023-300x204.jpg 300w, https://www.allencoopersafety.com/wp-content/uploads/2024/01/Double-Duty-New-Logo-2023.jpg 700w\" sizes=\"(max-width: 104px) 100vw, 104px\">",
+      "<img width=\"200\" height=\"186\" src=\"https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-104x97.png\" class=\"image wp-image-3768  attachment-200x186 size-200x186\" alt=\"\" style=\"max-width: 100%; height: auto;\" decoding=\"async\" srcset=\"https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-300x279.png 300w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-1024x952.png 1024w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-768x714.png 768w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo-104x97.png 104w, https://www.allencoopersafety.com/wp-content/uploads/2026/02/cropped-AC-Logo.png 1245w\" sizes=\"(max-width: 200px) 100vw, 200px\" />"
+    ]
+  },
+  "delta-plus": {
+    "url": "https://www.deltaplus.eu/",
+    "status": 200,
+    "imgs": [
+      "<img alt=\"\" src=\"/documents/d/delta-plus/dark-logo-delta\" class=\"header__logo__image\">",
+      "<img src=\"/documents/d/delta-plus/white-logo-1-svg-1\" alt=\"Delta Plus logo\" class=\"footer__logo\">"
+    ]
+  }
+}

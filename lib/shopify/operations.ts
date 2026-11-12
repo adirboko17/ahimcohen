@@ -42,6 +42,12 @@ function identifierVar(metafields: boolean) {
   return metafields ? ", $identifiers: [HasMetafieldsIdentifier!]!" : "";
 }
 
+export function productsByHandlesQuery(count: number, inventory: boolean, metafields: boolean) {
+  const variables = Array.from({ length: count }, (_, index) => `$handle${index}: String!`).join(", ");
+  const fields = Array.from({ length: count }, (_, index) => `product${index}: product(handle: $handle${index}) { ${productFields(inventory, metafields)} }`).join("\n");
+  return `query BrandProducts(${variables}${identifierVar(metafields)}) { ${fields} }`;
+}
+
 export function productsQuery(inventory: boolean, metafields: boolean) {
   return `query Products($first: Int!, $after: String, $query: String${identifierVar(metafields)}) {
     products(first: $first, after: $after, query: $query) {
@@ -109,6 +115,10 @@ const CART_FIELDS = `
     nodes {
       id
       quantity
+      cost {
+        subtotalAmount { ${MONEY} }
+        totalAmount { ${MONEY} }
+      }
       merchandise {
         ... on ProductVariant {
           id

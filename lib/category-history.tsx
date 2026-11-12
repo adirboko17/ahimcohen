@@ -24,7 +24,7 @@ export function CategoryHistoryProvider({ children }: { children: React.ReactNod
 
 // The caller is keyed by category/subcategory, so a new route restores its own
 // visit synchronously, including all revealed products, before restoring scroll.
-export function useCategoryHistory(catId: string, sub: string | null) {
+export function useCategoryHistory(catId: string, sub: string | null, routePath = `/c/${catId}`) {
   const history = useContext(HistoryContext);
   if (!history) throw new Error("CategoryHistoryProvider is required");
   const key = JSON.stringify([catId, sub]);
@@ -59,13 +59,13 @@ export function useCategoryHistory(catId: string, sub: string | null) {
     if (restoring) return;
     const rememberScroll = () => {
       const url = new URL(window.location.href);
-      if (leaving.current || decodeURIComponent(url.pathname) !== `/c/${catId}` || (url.searchParams.get("sub") || null) !== sub) return;
+      if (leaving.current || decodeURIComponent(url.pathname) !== routePath || (url.searchParams.get("sub") || null) !== sub) return;
       scroll.current = window.scrollY;
       history.set(key, { ...latest.current, scrollY: scroll.current });
     };
     window.addEventListener("scroll", rememberScroll, { passive: true });
     return () => window.removeEventListener("scroll", rememberScroll);
-  }, [history, key, catId, sub, restoring]);
+  }, [history, key, routePath, sub, restoring]);
 
   const rememberBeforeNavigation = (event: MouseEvent<HTMLElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

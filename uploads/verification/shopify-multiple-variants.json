@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "product": "חולצת טריקו שרוול ארוך",
+  "lines": [
+    {
+      "color": "ירוק בקבוק",
+      "size": "M",
+      "quantity": 2,
+      "unitPrice": 35,
+      "lineTotal": 49.5,
+      "imageMatched": true
+    },
+    {
+      "color": "אפור עכבר",
+      "size": "M",
+      "quantity": 1,
+      "unitPrice": 35,
+      "lineTotal": 24.75,
+      "imageMatched": true
+    },
+    {
+      "color": "ירוק בקבוק",
+      "size": "S",
+      "quantity": 3,
+      "unitPrice": 35,
+      "lineTotal": 74.25,
+      "imageMatched": true
+    }
+  ],
+  "total": 148.5,
+  "host": "ahim-cohen.co.il"
+}

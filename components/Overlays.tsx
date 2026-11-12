@@ -1,40 +1,32 @@
 "use client";
 
+import { ProductImage } from "./ProductImage";
+
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FREE_SHIPPING, phOf, swatchColor, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductImage } from "@/lib/category-filters";
-import { cartProductImage } from "@/lib/product-selection";
-import { cartMath, fmt, priceFor } from "@/lib/pricing";
+import { fmt } from "@/lib/pricing";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useStore } from "@/lib/store";
 import { IconCheck, IconSearch } from "./icons";
+import { CartContents } from "./CartContents";
+import { CheckoutButton } from "./CheckoutButton";
 
 export function Overlays() {
+  const [paying, setPaying] = useState(false);
   const path = usePathname();
   const s = useStore();
   const { categories, products, category, product } = useCatalog();
   const count = s.cart.reduce((a, l) => a + l.qty, 0);
-  const math = cartMath(s.cart);
-  const byP = math.byP;
-  const dealNotes = Object.keys(byP).flatMap((id) => {
-      const p = product(id);
-      if (!p?.deal) return [];
-      const n = byP[id];
-      const [q, dp] = p.deal;
-      const rem = n % q;
-      const done = n >= q && rem === 0;
-      const save = n * p.price - priceFor(p, n);
-      return [{
-        text: done
-          ? `${p.name} — מבצע ${q} ב-${dp} ₪ הופעל. חסכתם ${fmt(save)}`
-          : `עוד ${q - rem} × ${p.name} ותשלמו ${dp} ₪ על ${q}${save > 0 ? " · כבר חסכתם " + fmt(save) : ""}`,
-        pct: (done ? 100 : Math.round((rem / q) * 100)) + "%",
-        bg: done ? "#FFD100" : "#F4F4F2",
-      }];
-    });
+  const math = s.pricing;
+  const priceReady = !!s.cartQuote.quote;
+  const dealNotes = priceReady && math.savings > 0 ? [{
+    text: `המבצעים הופעלו · חסכתם ${fmt(math.savings)}`,
+    pct: "100%", bg: "#FFD100",
+  }] : [];
   const open = s.cartOpen || s.menuOpen || s.searchOpen || !!s.sheet;
   const buy = path.startsWith("/p/");
   const tabs = path === "/" || path.startsWith("/c/") || path.startsWith("/business") || path.startsWith("/account");
@@ -53,10 +45,10 @@ export function Overlays() {
         </div>
         <div className="ship-meter">
           <span style={{ fontSize: 14, fontWeight: 700 }}>
-            {math.total >= FREE_SHIPPING ? "ההזמנה זכאית למשלוח חינם" : `עוד ${fmt(FREE_SHIPPING - math.total)} למשלוח חינם`}
+            {!priceReady ? "המשלוח יחושב לפי הסכום לאחר ההנחות" : math.total >= FREE_SHIPPING ? "ההזמנה זכאית למשלוח חינם" : `עוד ${fmt(FREE_SHIPPING - math.total)} למשלוח חינם`}
           </span>
           <div className="bar">
-            <span style={{ width: Math.min(100, Math.round((math.total / FREE_SHIPPING) * 100)) + "%" }} />
+            <span style={{ width: (priceReady ? Math.min(100, Math.round((math.total / FREE_SHIPPING) * 100)) : 0) + "%" }} />
           </div>
         </div>
         <div className="drawer-body">
@@ -75,35 +67,7 @@ export function Overlays() {
               )}
             </div>
           )}
-          {s.cart.map((l) => {
-            const p = product(l.pid);
-            if (!p) return null;
-            const img = cartProductImage(p, l);
-            return (
-              <div className="line" key={l.key}>
-                <div className="line-ph">
-                  {img ? <img src={img} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, color: "#bdbdb7" }}>{phOf(p)}</span>}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>{p.name}</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(l.qty * (l.unitPrice ?? p.price))}</span>
-                  </div>
-                  <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(l.color), sizeLabel(l.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                    <div className="qty-sm">
-                      <button onClick={() => s.setQtyLine(l.key, 1)} aria-label="הוספה">+</button>
-                      <span style={{ minWidth: 24, textAlign: "center", fontSize: 15, fontWeight: 800 }}>{l.qty}</span>
-                      <button onClick={() => s.setQtyLine(l.key, -1)} aria-label="הפחתה">−</button>
-                    </div>
-                    <button onClick={() => s.setQtyLine(l.key, -9999)} style={{ background: "none", border: 0, fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>
-                      הסרה
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          <CartContents disabled={paying} />
           {dealNotes.map((dn) => (
             <div key={dn.text} style={{ marginTop: 10, background: dn.bg, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
               <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4 }}>{dn.text}</span>
@@ -115,7 +79,7 @@ export function Overlays() {
         </div>
         {count > 0 && (
           <div className="drawer-foot">
-            {math.savings > 0 && (
+            {priceReady && math.savings > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800 }}>
                 <span style={{ background: "#FFD100", padding: "0 6px" }}>חסכתם במבצעי כמות</span>
                 <span dir="ltr">-{fmt(math.savings)}</span>
@@ -123,10 +87,11 @@ export function Overlays() {
             )}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 19, fontWeight: 800 }}>
               <span>סה״כ</span>
-              <span>{fmt(math.total)}</span>
+              <span aria-live="polite">{s.cartQuote.pending ? "מחשב מחיר…" : s.cartQuote.error ? "—" : fmt(math.total)}</span>
             </div>
-            <Link href="/checkout" className="btn" style={{ height: 58, fontSize: 16 }} onClick={s.closeAll}>
-              מעבר לתשלום
+            <CheckoutButton onPendingChange={setPaying} />
+            <Link href="/checkout" className="cart-edit-link" onClick={s.closeAll}>
+              לסיכום ועריכת ההזמנה
             </Link>
           </div>
         )}
@@ -158,11 +123,9 @@ export function Overlays() {
                 <Link href="/business" className="btn" style={{ height: 54, fontSize: 15, fontWeight: 700 }} onClick={s.closeAll}>
                   הזמנות לעסקים
                 </Link>
-                {products[0] && (
-                  <Link href={`/p/${products[0].id}`} className="btn btn-yellow" style={{ height: 54, fontSize: 15 }} onClick={s.closeAll}>
+                  <Link href="/quantity-offers" className="btn btn-yellow" style={{ height: 54, fontSize: 15 }} onClick={s.closeAll}>
                     מבצעי כמות
                   </Link>
-                )}
               </div>
               <div style={{ marginTop: 26, fontSize: 15, lineHeight: 1.8 }} className="muted">
                 הפועלים 20, באר שבע
@@ -223,7 +186,7 @@ function QuickSheet() {
       </div>
       <div className="sheet-b">
         <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: 14, alignItems: "center" }}>
-          <div className="line-ph">{img && <img src={img} alt="" />}</div>
+          <div className="line-ph">{img && <ProductImage sizes="160px" maxWidth={480} src={img} alt="" />}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
             <span style={{ fontSize: 16, fontWeight: 700 }}>{p.name}</span>
             <span style={{ fontSize: 17, fontWeight: 800 }}>{fmt(p.price)}</span>
@@ -314,7 +277,7 @@ function SearchModal() {
               {results.slice(0, 10).map((x) => (
                 <Link key={x.id} href={`/p/${x.id}`} className="search-hit" onClick={s.closeAll}>
                   <div className="line-ph" style={{ width: 64, height: 70 }}>
-                    {x.imgs?.[0] && <img src={x.imgs[0]} alt="" />}
+                    {x.imgs?.[0] && <ProductImage sizes="160px" maxWidth={480} src={x.imgs[0]} alt="" />}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                     <span style={{ fontSize: 16, fontWeight: 700 }}>{x.name}</span>

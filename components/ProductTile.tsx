@@ -1,5 +1,7 @@
 "use client";
 
+import { ProductImage } from "./ProductImage";
+
 import Link from "next/link";
 import { phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
@@ -8,7 +10,7 @@ import { fmt, saleBadge } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import { IconPlus } from "./icons";
 
-export function ProductTile({ p, imageSrc, selectedColor, selectedSize }: { p: Product; imageSrc?: string; selectedColor?: string; selectedSize?: string }) {
+export function ProductTile({ p, imageSrc, selectedColor, selectedSize, priority = false }: { priority?: boolean; p: Product; imageSrc?: string; selectedColor?: string; selectedSize?: string }) {
   const { openQuick } = useStore();
   const { category } = useCatalog();
   const catName = category(p.cat)?.name;
@@ -22,7 +24,7 @@ export function ProductTile({ p, imageSrc, selectedColor, selectedSize }: { p: P
   return (
     <article className="pt">
       <Link href={href} className="pt-media" aria-label={p.name}>
-        {img ? <img src={img} alt={p.name} /> : <div className="pt-ph k">{p.std ? p.std.join(" · ") : p.sku || catName}</div>}
+        {img ? <ProductImage src={img} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} alt={p.name} /> : <div className="pt-ph k">{p.std ? p.std.join(" · ") : p.sku || catName}</div>}
         <div className="pt-badges">
           {p.deal && <span className="badge y">{p.deal[0]} ב-{p.deal[1]} ₪</span>}
           {p.was && <span className="badge b">{saleBadge(p)}</span>}

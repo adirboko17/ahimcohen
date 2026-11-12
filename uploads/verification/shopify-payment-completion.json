@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "realUnpaidShopifyReturn": true,
+  "simulatedPaidReturnClearedCart": true,
+  "freshLoadPaidReturnClearedCart": true,
+  "reloadStayedEmpty": true,
+  "actualOrderPlaced": false
+}

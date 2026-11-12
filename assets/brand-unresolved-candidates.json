@@ -1,0 +1,3117 @@
+[
+  {
+    "handle": "נעל-דגם-דיגר-וורקר-s3",
+    "title": "נעל דגם דיגר וורקר S3",
+    "sku": "603",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "נעלי בטיחות דיגר S3 SRC - שחור",
+        "vendor": "WORKER",
+        "handle": "נעלי-בטיחות-דיגר-s3-src-שחור",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48",
+              "49"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "603N0236",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מגף-גומי-לבן-למטבחים",
+    "title": "מגף גומי לבן למטבחים",
+    "sku": "792",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "מגפי עבודה ניטריל ללא מגן SRC O4 FO - לבן",
+        "vendor": "WORKER",
+        "handle": "kitchen-nitrile-src-work-boots-white",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "35",
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48",
+              "49"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "792N0335",
+          "option1": "35",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מגן-ברכיים-גל",
+    "title": "מגן ברכיים ג`ל",
+    "sku": "990",
+    "exact": [
+      {
+        "title": "מגן ברכיים ג'ל",
+        "vendor": "WORKER",
+        "handle": "מגן-ברכיים-ג-ל"
+      }
+    ],
+    "prefix": [
+      {
+        "title": "כובע חבטות CLEAN CAP - לבן",
+        "vendor": "JSP",
+        "handle": "כובע-חבטות-clean-cap-לבן",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "990103OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע חבטות לנראות גבוהה - צהוב",
+        "vendor": "JSP",
+        "handle": "כובע-חבטות-לנראות-גבוהה-צהוב",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "990010OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "סרבל-שלם-פוליאסטר-כותנה-30",
+    "title": "סרבל שלם פוליאסטר כותנה ( 30)",
+    "sku": "309",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "משקף מגן SPORT בהיר",
+        "vendor": "JSP",
+        "handle": "משקף-מגן-sport-בהיר",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "309700OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מכנסי-גינס-צבעוני",
+    "title": "מכנסי ג'ינס צבעוני",
+    "sku": "11",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "חולצה מכופתרת טקטית שרוול ארוך - אפור",
+        "vendor": "WORKER",
+        "handle": "חולצת-פולו-טקטית-שרוול-ארוך",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11814XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קפוצ'ון עם רוכסן - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "קפוצ-ון-עם-רוכסן",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11501XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קפוצ'ון עם רוכסן - לבן",
+        "vendor": "WORKER",
+        "handle": "קפוצ-ון-עם-רוכסן-2",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11503XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "סווטשירט עם קפוצ'ון ורוכסן - מלאנז",
+        "vendor": "WORKER",
+        "handle": "zipper-sweatshirt-melange",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11506XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קפוצ'ון עם רוכסן - שחור",
+        "vendor": "WORKER",
+        "handle": "קפוצ-ון-עם-רוכסן-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11502XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "נעלי בטיחות S3S SRC HRO FO - שחור",
+        "vendor": "ABARTH",
+        "handle": "abarth-s3-src-hro-safety-shoes-black",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11710236",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "נעלי בטיחות S3S SRC HRO FO - כחול כהה",
+        "vendor": "ABARTH",
+        "handle": "abarth-s3-src-hro-safety-shoes-dark-blue",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11700136",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "נעלי בטיחות S3S SRC HRO FO - אפור",
+        "vendor": "ABARTH",
+        "handle": "abarth-s3-src-hro-safety-shoes-grey",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "11721436",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "חולצת-גטקס-6-60",
+    "title": "חולצת גטקס ( 6-60)",
+    "sku": "56",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "מכנסי אלגנט טרופיקל לנשים - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "womens-tropical-elegant-pants-dark-blue",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "34",
+              "36",
+              "38",
+              "40",
+              "42",
+              "44",
+              "46",
+              "48",
+              "50",
+              "52",
+              "54",
+              "56",
+              "58",
+              "60"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "5690134",
+          "option1": "34",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט טרופיקל לנשים - שחור",
+        "vendor": "WORKER",
+        "handle": "ג-קט-לנשים-טרופיקל-שחור",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "34",
+              "36",
+              "38",
+              "40",
+              "42",
+              "44",
+              "46",
+              "48",
+              "50",
+              "52",
+              "54",
+              "56"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "5680234",
+          "option1": "34",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט ספארי שרוול קצר - שחור",
+        "vendor": "WORKER",
+        "handle": "ג-קט-ספארי-שרוול-קצר-שחור",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "56202XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מכנסי אלגנט טרופיקל לנשים - שחור",
+        "vendor": "WORKER",
+        "handle": "מכנסי-אלגנט-טרופיקל-נשים-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "34",
+              "36",
+              "38",
+              "40",
+              "42",
+              "44",
+              "46",
+              "48",
+              "50",
+              "52",
+              "54",
+              "56",
+              "58",
+              "60"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "5690234",
+          "option1": "34",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט ספארי שרוול קצר - חאקי",
+        "vendor": "WORKER",
+        "handle": "safari-jacket-short-sleeve-khaki",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "56213XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט טרופיקל - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "ג-קט-טרופיקל",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "38",
+              "40",
+              "42",
+              "44",
+              "46",
+              "48",
+              "50",
+              "52",
+              "54",
+              "56",
+              "58",
+              "60",
+              "62"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "5670136",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט טרופיקל - שחור",
+        "vendor": "WORKER",
+        "handle": "ג-קט-טרופיקל-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "38",
+              "40",
+              "42",
+              "44",
+              "46",
+              "48",
+              "50",
+              "52",
+              "54",
+              "56",
+              "58",
+              "60",
+              "62"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "5670236",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מכנסי-גטקס-6-60",
+    "title": "מכנסי גטקס ( 6-60)",
+    "sku": "69",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "קבקב בירקנשטוק OB SRC - מידות 35-39",
+        "vendor": "BIRKINSTOCK",
+        "handle": "ob-src-birkenstock-clogs-35-39",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "35",
+              "36",
+              "37",
+              "38",
+              "39"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "6940235",
+          "option1": "35",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קבקב בירקנשטוק OB SRC - מידות 40-48",
+        "vendor": "BIRKINSTOCK",
+        "handle": "ob-src-birkenstock-clogs-40-48",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "6950240",
+          "option1": "40",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "סרבל-חד-פעמי-שרוול-ארוך-קרטון-50-יח",
+    "title": "סרבל חד-פעמי שרוול ארוך – קרטון 50 יח'",
+    "sku": "390",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "גרבי Coolmax Tracking 39-42 - אפור",
+        "vendor": "WORKER",
+        "handle": "גרב-coolmax-tracking-אפור-39-42",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "390865OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "חולצת-עבודה-שרוול-קצר-100-כותנה",
+    "title": "חולצת עבודה שרוול קצר 100% כותנה",
+    "sku": "52",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "מעיל אלגנט כותנה - בלו בלק",
+        "vendor": "WORKER",
+        "handle": "elegant-coat-blue-black",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "52736XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מעיל יוקון",
+        "vendor": "WORKER",
+        "handle": "מעיל-יוקון",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "520036XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט פליז - אפור עכבר",
+        "vendor": "WORKER",
+        "handle": "grey-fleece-jacket",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "528N14XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט פליז - שחור",
+        "vendor": "WORKER",
+        "handle": "black-fleece-jacket",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "528N02XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "ג'קט פליז - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "dark-blue-fleece-jacket",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "528N01XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "רפידה-דגם-אייל",
+    "title": "רפידה דגם אייל",
+    "sku": "1307",
+    "exact": [
+      {
+        "title": "רפידה דגם אייל",
+        "vendor": "יוניסקס",
+        "handle": "רפידה-דגם-אייל-1"
+      }
+    ],
+    "prefix": [
+      {
+        "title": "רפידה דגם אייל",
+        "vendor": "יוניסקס",
+        "handle": "רפידה-דגם-אייל-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "130700OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "רפידה-דגם-אביב",
+    "title": "רפידה דגם אביב",
+    "sku": "1308",
+    "exact": [
+      {
+        "title": "רפידה דגם אביב",
+        "vendor": "יוניסקס",
+        "handle": "רפידה-דגם-אביב-1"
+      }
+    ],
+    "prefix": [
+      {
+        "title": "רפידה דגם אביב",
+        "vendor": "יוניסקס",
+        "handle": "רפידה-דגם-אביב-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "130800OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "זקט-שף-דגם-סושי",
+    "title": "ז'קט שף דגם סושי",
+    "sku": "155",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "נעלי בטיחות קולוניה - SRC ESD S3",
+        "vendor": "OUTBACK",
+        "handle": "נעלי-בטיחות-קולוניה-עם-מגן-src-esd-s3-שחור",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "15530236",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "פורטו-שחור-ob-src",
+    "title": "פורטו ½ שחור OB SRC",
+    "sku": "1562",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "ג`קט שף - תפוח",
+        "vendor": "WORKER",
+        "handle": "ג-קט-שף-תפוח",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL",
+              "8XL",
+              "9XL",
+              "10XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "15624XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "זקט-שף-כפתור-נשלף",
+    "title": "זקט שף כפתור נשלף",
+    "sku": "162",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "נעלי טיפוס הרים טראקסטון - אפור",
+        "vendor": "ADVENTURE",
+        "handle": "נעלי-טיפוס-הרים-טראקסטון",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "16251436",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מגפי בטיחות דאלאס - S3L SR FO",
+        "vendor": "AUSTRALIAN",
+        "handle": "safety-boots-dallas-s3l-sr-brown",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "36",
+              "37",
+              "38",
+              "39",
+              "40",
+              "41",
+              "42",
+              "43",
+              "44",
+              "45",
+              "46",
+              "47",
+              "48"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "16292136",
+          "option1": "36",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "סינר-sweets",
+    "title": "סינר SWEETS",
+    "sku": "2652",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "סינר צרפתי - חום",
+        "vendor": "WORKER",
+        "handle": "french-apron-brown",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "26521OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "סינר צרפתי - תפוח",
+        "vendor": "WORKER",
+        "handle": "french-apron-apple",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "26524OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "משקפת-מגן-צמודה",
+    "title": "משקפת מגן צמודה",
+    "sku": "3061",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "סרבל עבודה מקצועי - חאקי",
+        "vendor": "WORKER",
+        "handle": "professional-work-overall-khaki",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL",
+              "8XL",
+              "9XL",
+              "10XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "30613XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "סינר-דגם-אמריקה",
+    "title": "סינר דגם אמריקה",
+    "sku": "319",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפת ניטריל SHOWA 720",
+        "vendor": "SHOWA",
+        "handle": "כפפת-ניטריל-showa-720",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3199006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות 306 SHOWA",
+        "vendor": "SHOWA",
+        "handle": "כפפות-306-showa",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3197006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפת מיקרופייבר 381 SHOWA",
+        "vendor": "SHOWA",
+        "handle": "כפפת-מיקרופייבר-381-showa",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3195006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות 377 SHOWA",
+        "vendor": "SHOWA",
+        "handle": "כפפות-377-showa",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3196006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפת CUT 5 עמידות לחום להבה וקשת חשמלית",
+        "vendor": "SHOWA",
+        "handle": "כפפת-cut-5-עמידות-לחום-להבה-וקשת-חשמלית",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3198006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כובע-פקח-חדש",
+    "title": "כובע פקח חדש",
+    "sku": "335",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות PVC לכימיקלים 40 ס\"מ",
+        "vendor": "WORKER",
+        "handle": "כפפות-pvc-לכימיקלים-40-סמ",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "335200OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות P.V.C לכימיקלים - 35 ס\"מ",
+        "vendor": "WORKER",
+        "handle": "כפפות-p-v-c-לכימיקלים-35-סמ",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "335100OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע לד - שחור",
+        "vendor": "WORKER",
+        "handle": "כובע-לד-שחור",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "335602OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע לד - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "כובע-לד-כחול-כהה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "335601OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות משק בית לטקס - ורוד",
+        "vendor": "WORKER",
+        "handle": "כפפות-משק-בית-לטקס-ורוד",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3359N25S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות בי קולור",
+        "vendor": "WORKER",
+        "handle": "כפפות-בי-קולור",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL",
+              "8XL",
+              "9XL",
+              "10XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "335000XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כובע-ברצלונה-מצחיה",
+    "title": "כובע ברצלונה מצחיה",
+    "sku": "339",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפת S-TEX 377SC",
+        "vendor": "SHOWA",
+        "handle": "כפפת-s-tex-377sc",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3392006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות DURACOIL 577",
+        "vendor": "SHOWA",
+        "handle": "כפפות-duracoil-577",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3393006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קסדה משולבת משקף מגן - לבן",
+        "vendor": "JSP",
+        "handle": "קסדה-משולבת-משקף-מגן",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "339903OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות 257X SHOWA",
+        "vendor": "SHOWA",
+        "handle": "כפפות-257x-showa",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3390006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "משקף מגן טקסס בהיר",
+        "vendor": "WORKER",
+        "handle": "משקף-מגן-טקסס-בהיר",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "339400OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "משקף מגן טקסס כהה",
+        "vendor": "WORKER",
+        "handle": "משקף-מגן-טקסס-כהה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "339500OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-ניטריל-חד-פעמיות-ללא-טלק-קרטון-1000-יח",
+    "title": "כפפות ניטריל חד-פעמיות ללא טלק – קרטון – 1000 יח'",
+    "sku": "341",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "שרוול מגן נגד חיתוך (זוג)",
+        "vendor": "Worker",
+        "handle": "שרוול-מגן-נגד-חיתוך-זוג",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "341400OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מטריה אוטומטית 23\" עם פנס",
+        "vendor": "WORKER",
+        "handle": "מטריה-אוטומטית-23-עם-פנס",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "341300OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כובע-ציבוטרו-פסים",
+    "title": "כובע צ'יבוטרו פסים",
+    "sku": "343",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "קיט COMFORT לעבודה בגובה - 8 יח' בקרטון (מידה מיוחדת)",
+        "vendor": "WORKER",
+        "handle": "קיט-comfort-לעבודה-בגובה-8-יח-בקרטון-מידה-מיוחדת",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3430S00OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קיט PREMIUM לעבודה בגובה",
+        "vendor": "WORKER",
+        "handle": "קיט-premium-לעבודה-בגובה-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "343100OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קיט COMFORT לעבודה בגובה - 8 יח' בקרטון",
+        "vendor": "WORKER",
+        "handle": "קיט-comfort-לעבודה-בגובה-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "343000OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "גרב-סירה-נקודות-סיליקון-3-זוגות",
+    "title": "גרב סירה + נקודות סיליקון (3 זוגות)",
+    "sku": "3451",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כובע שף - פסים",
+        "vendor": "WORKER",
+        "handle": "כובע-שף-פסים",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "34515OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מחשבון-שולחני-דגם-cs-2l-1",
+    "title": "מחשבון שולחני דגם CS-2L",
+    "sku": "3458",
+    "exact": [
+      {
+        "title": "מחשבון שולחני דגם CS-2L",
+        "vendor": "WORKER",
+        "handle": "מחשבון-שולחני-דגם-cs-2l"
+      }
+    ],
+    "prefix": []
+  },
+  {
+    "handle": "כובע-בנדנה-פירות-וורקר",
+    "title": "כובע בנדנה פירות וורקר",
+    "sku": "347",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "נשמית FFP2 חד פעמית - 20 יח'",
+        "vendor": "WORKER",
+        "handle": "מסכה-ffp2-יח-20",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "347900OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מדחום-אלקטרוני-ללא-מגע",
+    "title": "מדחום אלקטרוני ללא מגע",
+    "sku": "3480",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כובע רומא - שחור",
+        "vendor": "WORKER",
+        "handle": "כובע-רומא-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "34802OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע רומא - לבן",
+        "vendor": "WORKER",
+        "handle": "כובע-רומא-2",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "34803OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע רומא - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "כובע-רומא",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "34801OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כובע-סהרה",
+    "title": "כובע סהרה",
+    "sku": "349",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "קיט לעבודה CONSTRUCTION",
+        "vendor": "WORKER",
+        "handle": "קיט-לעבודה-construction-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349700OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע אוסטרלי זוהר אולימפיק - צהוב",
+        "vendor": "WORKER",
+        "handle": "כובע-אוסטרלי-זוהר-אולימפיק",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349910OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע סהרה חדש - זית",
+        "vendor": "WORKER",
+        "handle": "כובע-סהרה-חדש-זית",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349N12OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע סהרה חדש - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "כובע-סהרה-חדש-כחול-כהה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349N01OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מעיל אלפיני - שחור",
+        "vendor": "WORKER",
+        "handle": "מעיל-אלפיני-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349802S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מעיל אלפיני - כחול כהה",
+        "vendor": "WORKER",
+        "handle": "מעיל-אלפיני",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349801S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "A1P2 זוג מסננים עבור קיט מקט 3432",
+        "vendor": "GAOMA",
+        "handle": "a1p2-זוג-מסננים-עבור-קיט-מקט-3432",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "349100OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "פליז-חצי-רוכסן-wecamp-20",
+    "title": "פליז חצי רוכסן WECAMP ( 20)",
+    "sku": "3540",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "ג'קט פליז חצי רוכסן - שחור",
+        "vendor": "WORKER",
+        "handle": "halfzip-fleece-jacket",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "354002S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כובע-אוסטרלי",
+    "title": "כובע אוסטרלי",
+    "sku": "365",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "חבל שזור למניעת נפילה אורך 1 מ'",
+        "vendor": "KRATOS",
+        "handle": "חבל-שזור-למניעת-נפילה-אורך-1-מ",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365K00OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מארז גרבי במבוק - דגם ארוך",
+        "vendor": "WECAMP",
+        "handle": "מארז-גרבי-במבוק-אנטיבקטריאלי-דגם-ארוך-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365000OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מארז גרבי במבוק - דגם קצר",
+        "vendor": "WECAMP",
+        "handle": "מארז-גרבי-במבוק-אנטיבקטריאלי-דגם-קצר-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365100OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "קיט מסכת חצי פנים 8700 כולל זוג מסננים",
+        "vendor": "WORKER",
+        "handle": "קיט-מסכת-חצי-פנים-8700-כולל-זוג-מסננים-a2p3",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365200OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מסכת חצי פנים דגם 8700",
+        "vendor": "WORKER",
+        "handle": "מסכת-חצי-פנים-דגם-8700",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365300OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "זוג מסננים A2P3 דגם 9001",
+        "vendor": "WORKER",
+        "handle": "זוג-מסננים-a2p3-דגם-9001",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365400OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "זוג מסננים ABEK1P3 דגם 8006",
+        "vendor": "WORKER",
+        "handle": "זוג-מסננים-abek1p3-דגם-8006",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365500OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מסכת פנים מלאה דגם 9800",
+        "vendor": "WORKER",
+        "handle": "מסכת-פנים-מלאה-דגם-9800",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "365600OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "דיספליי-למשקפיים",
+    "title": "דיספליי למשקפיים",
+    "sku": "3700",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כובע טבח כיפה - שחור",
+        "vendor": "WORKER",
+        "handle": "כובע-טבח-כיפה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "37002OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כובע טבח כיפה - לבן",
+        "vendor": "WORKER",
+        "handle": "כובע-טבח-כיפה-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "37003OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-מלצרים-אינטרלוק-לבנות",
+    "title": "כפפות מלצרים אינטרלוק לבנות",
+    "sku": "3740",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות לטקס חד-פעמיות עם טלק - קרטון 1000 יח'",
+        "vendor": "WORKER",
+        "handle": "כפפות-לטקס-חד-פעמיות-עם-טלק-קרטון-1000-יח",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "37400S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-ויניל-חד-פעמיות-עם-טלק-קרטון-1000-יח",
+    "title": "כפפות ויניל חד-פעמיות עם טלק – קרטון 1000 יח'",
+    "sku": "375",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "מגן עורף אוניברסלי לקסדה",
+        "vendor": "WORKER",
+        "handle": "מגן-עורף-אוניברסלי-לקסדה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "375100OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות ניטריל ירוקות",
+        "vendor": "WORKER",
+        "handle": "כפפות-ניטריל-ירוקות",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "L",
+              "XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "375405L",
+          "option1": "L",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "חגורת גומי זוהרת - כתום",
+        "vendor": "WORKER",
+        "handle": "חגורת-גומי-זוהרת-כתומה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "375909OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "שמלה-לבנה-חד-פעמית-1000-יח-במארז",
+    "title": "שמלה לבנה חד-פעמית – 1000 יח' במארז",
+    "sku": "376",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות SHOWA 380",
+        "vendor": "SHOWA",
+        "handle": "כפפות-showa-381",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3760006",
+          "option1": "6",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפות STEX 541",
+        "vendor": "SHOWA",
+        "handle": "כפפות-stex-541",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL",
+              "4XL",
+              "5XL",
+              "6XL",
+              "7XL",
+              "8XL",
+              "9XL",
+              "10XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "376400XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "סינר-חד-פעמי-1000-יח",
+    "title": "סינר חד-פעמי – 1000 יח'",
+    "sku": "377",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפת סיליקון מצויירת לחום\\קור",
+        "vendor": "WORKER",
+        "handle": "כפפת-סיליקון-מצויירת-לחום",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "377900OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפת סיליקון לחום - שחור",
+        "vendor": "WORKER",
+        "handle": "כפפת-סיליקון-שחורה-לחום",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "377802OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-ניילון-חד-פעמיות-קרטון-10000-יח",
+    "title": "כפפות ניילון חד-פעמיות קרטון 10000 יח'",
+    "sku": "378",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות TPE למזון - 200 יח'",
+        "vendor": "WORKER",
+        "handle": "כפפות-tpe-למזון-200-יח-בקופסה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "378400S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "חבל 4mm X 20 mts",
+        "vendor": "WORKER",
+        "handle": "חבל-4mm-x-20-mts",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "378500OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפת אצבעות סיליקון",
+        "vendor": "WORKER",
+        "handle": "כפפת-אצבעות-סיליקון",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "378000OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "שרוול-לבן-חד-פעמי-קרטון-2500-יח",
+    "title": "שרוול לבן חד-פעמי -קרטון 2500 יח'",
+    "sku": "379",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "מארז 30 מטליות מיקרופייבר 30X30",
+        "vendor": "WORKER",
+        "handle": "מארז-מטליות-30-יח-מיקרופייבר-30x30",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "379100OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מטליות מיקרופייבר - 5 יח'",
+        "vendor": "WORKER",
+        "handle": "מטליות-מיקרופייבר-5-יח",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "379200OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כובע-קאפ",
+    "title": "כובע קאפ",
+    "sku": "382",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "חבל קלוע למניעת נפילה - 1.5 מ'",
+        "vendor": "KRATOS",
+        "handle": "חבל-קלוע-למניעת-נפילה-1-5-מ",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "382K00OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מקטורן-לבן-שרוול-קצר-חד-פעמי-קרטון-100-יח",
+    "title": "מקטורן לבן שרוול קצר חד-פעמי ( קרטון 100 יח' )",
+    "sku": "387",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "שרשרת פלסטיק 25 מטר 8 מ\"מ",
+        "vendor": "WORKER",
+        "handle": "שרשרת-פלסטיק-25-מטר-8-ממ",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "387500OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מעצור לחניה 183X15X10",
+        "vendor": "WORKER",
+        "handle": "מעצור-לחניה-183x15x10",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "387800OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "בולם נפילה אישי 2 מ' כולל סופג אנרגיה ואונקל",
+        "vendor": "KRATOS",
+        "handle": "בולם-נפילה-אישי-2מ-כולל-סופג-אנרגיה-ואונקל",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "387K00OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "כפפת בד עור בקר מלא",
+        "vendor": "WORKER",
+        "handle": "כפפת-בד-עור-בקר-מלא",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "8",
+              "9",
+              "10",
+              "11"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3872008",
+          "option1": "8",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "גדר בטיחות אמסטרדם 2 מטר",
+        "vendor": "WORKER",
+        "handle": "גדר-בטיחות-אמסטרדם-2-מטר",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "387300OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "שלט זהירות החלקה לרצפה",
+        "vendor": "WORKER",
+        "handle": "שלט-זהירות-החלקה-לרצפה",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "387400OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "חלוק-שרוול-ארוך-חד-פעמי-100-יח",
+    "title": "חלוק שרוול ארוך חד-פעמי – 100 יח'",
+    "sku": "389",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "מארז 2 תחתוני בוקסר – שחור/אפור",
+        "vendor": "WORKER",
+        "handle": "תחתון-בוקסר-צמוד-2-יח-שחור-אפור-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "389800S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "מארז 2 תחתוני בוקסר – שחור/כחול",
+        "vendor": "WORKER",
+        "handle": "תחתון-בוקסר-צמוד-2-יח-שחור-כחול-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL",
+              "3XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "389700S",
+          "option1": "S",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-דגם-pn75-אדום",
+    "title": "כפפות דגם PN75 אדום",
+    "sku": "3953",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות עבודה אמיגו אדומות",
+        "vendor": "WORKER",
+        "handle": "כפפות-עבודה-אמיגו-אדומות-120",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "7",
+              "8",
+              "9",
+              "10",
+              "11"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "3953P077",
+          "option1": "7",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-קור-ninja-ice",
+    "title": "כפפות קור NINJA ICE",
+    "sku": "4044",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות קור Ninja Ice - שחור/צהוב",
+        "vendor": "PORTWEST",
+        "handle": "כפפות-קור-ninja-ice-144-שחור-צהוב",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "L",
+              "XL",
+              "2XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "4044N43L",
+          "option1": "L",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "מעיל-טייס-ניילון-אמיגו",
+    "title": "מעיל טייס ניילון אמיגו",
+    "sku": "503",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "משטח הכוונה עיגולים TPU 8x30x30",
+        "vendor": "WORKER",
+        "handle": "משטח-הכוונה-עיגולים-tpu-8x30x30",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "503900OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "משטח הכוונה TPU + פסים 8X30X30",
+        "vendor": "WORKER",
+        "handle": "משטח-הכוונה-tpu-פסים-8x30x30",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "503800OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "פס האטה שחור 4*30*34",
+        "vendor": "WORKER",
+        "handle": "פס-האטה-שחור-4-30-34",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "OS"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "503200OS",
+          "option1": "OS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "אפוד-זוהר",
+    "title": "אפוד זוהר",
+    "sku": "816",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "אפוד זוהר שני פסים רוחביים 5XL - צהוב",
+        "vendor": "WORKER",
+        "handle": "אפוד-זוהר-10-100-5xl-צהוב",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "816B105XL",
+          "option1": "5XL",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "אפוד זוהר שני פסים רוחביים - צהוב",
+        "vendor": "WORKER",
+        "handle": "אפוד-זוהר-שני-פסים-רוחביים-צהוב",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "816-210XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "אפוד-זוהר-שני-פסים-רוחביים",
+    "title": "אפוד זוהר שני פסים רוחביים",
+    "sku": "816",
+    "exact": [
+      {
+        "title": "אפוד זוהר שני פסים רוחביים",
+        "vendor": "WORKER",
+        "handle": "אפוד-זוהר-שני-פסים-רוחביים-1"
+      }
+    ],
+    "prefix": [
+      {
+        "title": "אפוד זוהר שני פסים רוחביים 5XL - צהוב",
+        "vendor": "WORKER",
+        "handle": "אפוד-זוהר-10-100-5xl-צהוב",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "5XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "816B105XL",
+          "option1": "5XL",
+          "option2": null,
+          "option3": null
+        }
+      },
+      {
+        "title": "אפוד זוהר שני פסים רוחביים - צהוב",
+        "vendor": "WORKER",
+        "handle": "אפוד-זוהר-שני-פסים-רוחביים-צהוב",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "2XL"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "816-210XS",
+          "option1": "XS",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  },
+  {
+    "handle": "כפפות-נאופרין",
+    "title": "כפפות נאופרין",
+    "sku": "839",
+    "exact": [
+      {
+        "title": "כפפות נאופרין",
+        "vendor": "NERI ITALY",
+        "handle": "כפפות-נאופרין-clipper-code-348071"
+      }
+    ],
+    "prefix": []
+  },
+  {
+    "handle": "כפפה-balance-600",
+    "title": "כפפה BALANCE 600",
+    "sku": "929",
+    "exact": [],
+    "prefix": [
+      {
+        "title": "כפפות BALANCE מנוקד כפול",
+        "vendor": "WORKER",
+        "handle": "כפפות-balance-מנוקד-כפול-1",
+        "options": [
+          {
+            "name": "Size",
+            "position": 1,
+            "values": [
+              "7",
+              "8",
+              "9",
+              "10",
+              "11"
+            ]
+          }
+        ],
+        "variant": {
+          "sku": "929B007",
+          "option1": "7",
+          "option2": null,
+          "option3": null
+        }
+      }
+    ]
+  }
+]

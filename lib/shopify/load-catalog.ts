@@ -6,8 +6,9 @@ import { promisify } from "node:util";
 import { CATS, type Category, type Product, type VariantChoice } from "@/lib/catalog";
 import { fetchCollectionsPage } from "./collections";
 import { metafieldIdentifiers, shopDomain, storefrontApiVersion } from "./config";
-import { fetchCollectionProductsPage, fetchProductsPage } from "./products";
+import { fetchCollectionProductsPage, fetchProductsByHandles, fetchProductsPage } from "./products";
 import type { ShopifyCollection, ShopifyProduct } from "./types";
+import { productBrand, verifiedBrandHandles } from "./product-brand";
 
 export type ShopCatalog = {
   categories: Category[];
@@ -35,7 +36,7 @@ const readCachedCatalog = unstable_cache(
     inFlight.set(scope, request);
     return request;
   },
-  ["shop-catalog-v4-gzip"],
+  ["shop-catalog-v7-brands-followup"],
   { revalidate: 60, tags: ["shop-catalog"] },
 );
 
@@ -69,6 +70,14 @@ async function fetchShopCatalog(): Promise<ShopCatalog> {
   if (merged.size === 0) {
     for (const item of await allProducts()) merged.set(item.handle, toProduct(item, "shop"));
   }
+
+  // Some published branded products have no collection. Fetch only the missing
+  // audited handles live so their brand links and product pages remain complete.
+  const missing = verifiedBrandHandles.filter(handle => !merged.has(handle));
+  const batches = Array.from({ length: Math.ceil(missing.length / 10) }, (_, index) => missing.slice(index * 10, index * 10 + 10));
+  await pool(batches, 3, async handles => {
+    for (const item of await fetchProductsByHandles(handles)) merged.set(item.handle, toProduct(item, "shop"));
+  });
 
   const products = [...merged.values()];
   const categories = CATS.flatMap((parent) => {
@@ -220,7 +229,7 @@ function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
     colors,
     sizes: sizes.length ? sizes : ["מידה אחת"],
     sku: choices.find((choice) => choice.sku)?.sku,
-    brand: product.vendor.trim() || undefined,
+    brand: productBrand(product),
     imgs: images,
     desc: product.description.split(/\n+/).map((line) => line.trim()).filter(Boolean),
     choices,

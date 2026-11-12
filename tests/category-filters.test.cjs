@@ -12,7 +12,20 @@ function load(file, dependencies = {}) {
   }).outputText;
   const module = { exports: {} };
   new Function("require", "module", "exports", compiled)(
-    (name) => Object.hasOwn(dependencies, name) ? dependencies[name] : require(name), module, module.exports,
+    (name) => Object.hasOwn(dependencies, name) ? dependencies[name]
+      : name === "./CartItem" ? load("components/CartItem.tsx", dependencies)
+      : name === "./CartContents" ? load("components/CartContents.tsx", dependencies)
+      : name === "./CartOfferCompletion" ? load("components/CartOfferCompletion.tsx", dependencies)
+      : name === "@/lib/offer-completion-price" ? load("lib/offer-completion-price.ts")
+      : name === "@/lib/cart-unit-presets" ? load("lib/cart-unit-presets.ts", { "./colors": colors, "./sizes": sizes, "./quantity-selection": load("lib/quantity-selection.ts", { "./sizes": sizes }) })
+      : name === "@/lib/use-cart-quote" ? { useCartQuote: () => ({ pending: false }) }
+      : name === "@/lib/cart-groups" ? load("lib/cart-groups.ts", { "./quantity-offers": load("lib/quantity-offers.ts") })
+      : name === "./CheckoutButton" ? load("components/CheckoutButton.tsx", { "@/app/actions/shopify-checkout": { beginShopifyCheckout: () => { throw new Error("Unexpected checkout during rendering"); } }, ...dependencies })
+      : name === "./ProductImage" ? load("components/ProductImage.tsx", dependencies)
+      : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
+      : name === "@/lib/quantity-selection" ? load("lib/quantity-selection.ts", { "./sizes": sizes })
+      : name === "@/lib/checkout-return" ? load("lib/checkout-return.ts")
+      : name === "@/lib/image-sources" ? load("lib/image-sources.ts") : require(name), module, module.exports,
   );
   return module.exports;
 }
@@ -38,25 +51,46 @@ const products = [
   { id: "shoe", cat: "shoes", sub: "Shirts", name: "Other category", price: 200, colors: ["red"], sizes: ["46"] },
 ];
 
-function renderCategory(sub, filters = {}, catalog = products) {
+function renderCategory(sub, filters = {}, catalog = products, brand) {
   const category = { id: "work", name: "Work", subs: ["Shirts", "Pants", "Empty"] };
+  let historyArgs;
   const { CategoryView } = load("components/CategoryView.tsx", {
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/navigation": { useRouter: () => ({}), useSearchParams: () => new URLSearchParams(sub ? { sub } : {}) },
     "@/lib/catalog": colors,
-    "@/lib/catalog-context": { useCatalog: () => ({ category: () => category, categories: [category], productsInCategory: (id) => catalog.filter((p) => p.cat === id) }) },
+    "@/lib/catalog-context": { useCatalog: () => ({ category: () => category, categories: [category], products: catalog, productsInCategory: (id) => catalog.filter((p) => p.cat === id) }) },
     "@/lib/category-filters": variantFilters,
     "@/lib/colors": colors,
     "@/lib/sizes": sizes,
-    "@/lib/category-history": { CATEGORY_PAGE_SIZE: 8, useCategoryHistory: () => ({ filters: { ...emptyFilters, ...filters }, sort: "pop", shown: 8, restoring: false }) },
+    "@/lib/category-history": { CATEGORY_PAGE_SIZE: 8, useCategoryHistory: (...args) => { historyArgs = args; return { filters: { ...emptyFilters, ...filters }, sort: "pop", shown: 8, restoring: false }; } },
     "@/lib/pricing": { fmt: String },
     "@/lib/store": { useScrollLock: () => {} },
     "./icons": { IconFilter: () => null },
     "./ProductTile": { ProductTile: (props) => React.createElement("div", { "data-product": props.p.id }, React.createElement(ProductTile, props)) },
   });
-  const html = renderToStaticMarkup(React.createElement(CategoryView, { catId: "work" }));
-  return { html, sidebar: html.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/)[1] };
+  const View = brand ? load("components/BrandView.tsx", { "./CategoryView": { CategoryView } }).BrandView : CategoryView;
+  const html = renderToStaticMarkup(React.createElement(View, brand ? { brand } : { catId: "work" }));
+  return { html, sidebar: html.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/)[1], historyArgs };
 }
+
+test("brand listings share the category layout while scoping products and facets across categories", () => {
+  const brand = { id: "work", name: "Target" };
+  const catalog = products.map((p, i) => ({ ...p, brand: i === 1 ? "Other" : "Target" }));
+  const { html, sidebar, historyArgs } = renderCategory(null, { brands: ["Other"] }, catalog, brand);
+  assert.match(html, /class="cat-layout"/);
+  assert.match(html, /class="filters desk"/);
+  for (const id of ["shirt", "shared", "shoe"]) assert.ok(html.includes(`data-product="${id}"`));
+  assert.doesNotMatch(html, /data-product="pants"/);
+  assert.match(sidebar, />46<\/button>/);
+  assert.doesNotMatch(sidebar, />42<\/button>|>Other<\/button>/);
+  assert.deepEqual(historyArgs, ["brand:work", null, "/brands/work"]);
+  assert.deepEqual(renderCategory(null).historyArgs, ["work", null, "/c/work"]);
+  assert.match(html, /href="\/brands"/);
+  const sub = renderCategory("Uniforms", {}, catalog, brand);
+  assert.match(sub.html, /data-product="shared"/);
+  assert.doesNotMatch(sub.html, /data-product="shirt"|data-product="shoe"/);
+  assert.match(sub.html, /href="\/brands\/work"/);
+});
 
 test("subcategory filters contain only its products, including secondary subcategory membership", () => {
   const { html, sidebar } = renderCategory("Shirts");
@@ -168,16 +202,33 @@ const picturedCatalog = [{
   choices: variantCatalog[0].choices.map((choice) => ({ ...choice, image: `/${choice.id}.jpg` })),
 }];
 
+test("brand listings keep variant-aware filtering, responsive images and the category batch size", () => {
+  const brand = { id: "target", name: "Target" };
+  const catalog = Array.from({ length: 12 }, (_, i) => ({ ...picturedCatalog[0], id: `brand-${i}`, brand: "Target" }));
+  catalog.push({ ...picturedCatalog[0], id: "other-brand", brand: "Other" });
+  const { html } = renderCategory("Shirts", { colors: ["white"], sizes: ["L"], stock: true }, catalog, brand);
+  assert.equal((html.match(/data-product=/g) || []).length, 8);
+  assert.match(html, /מוצגים 8 מתוך 12/);
+  assert.doesNotMatch(html, /data-product="other-brand"/);
+  assert.match(html, /src="\/white-l.jpg"/);
+  assert.equal((html.match(/loading="eager"/g) || []).length, 2);
+  assert.equal((html.match(/loading="lazy"/g) || []).length, 6);
+  assert.match(html, /href="\/p\/brand-0\?color=white&amp;size=L"/);
+  const invalid = renderCategory(null, { colors: ["navy"], sizes: ["L"] }, catalog, brand);
+  assert.match(invalid.html, /אין התאמות/);
+  assert.doesNotMatch(invalid.html, /data-product=/);
+});
+
 test("category cards show the chosen color photo and restore the default after clearing", () => {
   const navy = renderCategory("Shirts", { colors: ["כחול כהה"] }, picturedCatalog).html;
-  assert.match(navy, /<img src="\/navy-m.jpg"/);
-  assert.doesNotMatch(navy, /<img src="\/default.jpg"/);
+  assert.match(navy, /<img[^>]* src="\/navy-m.jpg"/);
+  assert.doesNotMatch(navy, /<img[^>]* src="\/default.jpg"/);
   const white = renderCategory("Shirts", { colors: ["לבן"], sizes: ["2XL"] }, picturedCatalog).html;
-  assert.match(white, /<img src="\/white-xxl.jpg"/);
+  assert.match(white, /<img[^>]* src="\/white-xxl.jpg"/);
   const cleared = renderCategory("Shirts", {}, picturedCatalog).html;
-  assert.match(cleared, /<img src="\/default.jpg"/);
+  assert.match(cleared, /<img[^>]* src="\/default.jpg"/);
   // Product tiles elsewhere retain their default image without filter props.
-  assert.match(renderToStaticMarkup(React.createElement(ProductTile, { p: picturedCatalog[0] })), /<img src="\/default.jpg"/);
+  assert.match(renderToStaticMarkup(React.createElement(ProductTile, { p: picturedCatalog[0] })), /<img[^>]* src="\/default.jpg"/);
 });
 
 test("multiple selected colors choose a photo of a color matching size and stock filters", () => {
@@ -204,13 +255,13 @@ test("missing variant photos use the same color in another size, then the defaul
 test("both category card links carry the color corresponding to the shown image", () => {
   const { html } = renderCategory("Shirts", { colors: ["navy", "white"], sizes: ["L"] }, picturedCatalog);
   assert.equal((html.match(/href="\/p\/variants\?color=white&amp;size=L"/g) || []).length, 2);
-  assert.match(html, /<img src="\/white-l.jpg"/);
+  assert.match(html, /<img[^>]* src="\/white-l.jpg"/);
   const plain = renderCategory("Shirts", {}, picturedCatalog).html;
   assert.equal((plain.match(/href="\/p\/variants"/g) || []).length, 2);
   assert.doesNotMatch(plain, /\?color=/);
 });
 
-function renderProduct(product, initialColor, initialSize, extras = []) {
+function renderProduct(product, initialColor, initialSize, extras = [], fromQuantityOffer = false) {
   const { ProductView } = load("components/ProductView.tsx", {
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/navigation": { useRouter: () => ({}) },
@@ -218,6 +269,8 @@ function renderProduct(product, initialColor, initialSize, extras = []) {
     "@/lib/catalog-context": { useCatalog: () => ({ product: (id) => [product, ...extras].find((p) => p.id === id), category: () => ({ name: "Work" }), products: [product, ...extras] }) },
     "@/lib/colors": colors,
     "@/lib/product-selection": productSelection,
+    "@/lib/quantity-offers": load("lib/quantity-offers.ts"),
+    "@/lib/use-cart-quote": { useCartQuote: () => ({ pending: false }) },
     "@/lib/product-recommendations": { complementaryAccessories: () => extras, similarProducts: () => [] },
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, saleBadge: () => "Sale" },
@@ -225,15 +278,29 @@ function renderProduct(product, initialColor, initialSize, extras = []) {
     "./icons": { IconCheck: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
     "./ProductTile": { ProductTile },
   });
-  return renderToStaticMarkup(React.createElement(ProductView, { id: product.id, initialColor, initialSize }));
+  return renderToStaticMarkup(React.createElement(ProductView, { id: product.id, initialColor, initialSize, fromQuantityOffer }));
 }
+
+test("entering a quantity offer preselects its quantity while a packed product stays at one", () => {
+  const shirt = { ...picturedCatalog[0], name: "חולצת אוברסייז - 2 חולצות ב-140 ש״ח", price: 89 };
+  assert.match(renderProduct(shirt, undefined, undefined, [], true), /class="qty"[\s\S]*?<span>2<\/span>/);
+  const mixed = renderProduct(shirt, undefined, undefined, [], true);
+  assert.match(mixed, /aria-label="צבע ליחידה 1"/);
+  assert.match(mixed, /aria-label="מידה ליחידה 2"/);
+  assert.match(mixed, /בחרו מידה לכל יחידה/);
+  assert.equal((mixed.match(/<fieldset/g) || []).length, 2);
+  assert.match(renderProduct(shirt), /class="qty"[\s\S]*?<span>1<\/span>/);
+  const pack = { ...shirt, name: "מארז שתי חולצות בייסיק", price: 99, was: 119 };
+  assert.match(renderProduct(pack, undefined, undefined, [], true), /class="qty"[\s\S]*?<span>1<\/span>/);
+  assert.doesNotMatch(renderProduct(pack, undefined, undefined, [], true), /צבע ליחידה/);
+});
 
 test("product opens with the linked color selected and its photo first in both galleries", () => {
   for (const [requested, label, image] of [["לבן", "לבן", "/white-l.jpg"], ["navy", "כחול כהה", "/navy-m.jpg"]]) {
     const html = renderProduct(picturedCatalog[0], requested);
     assert.ok(html.includes(`aria-label="${label}" aria-pressed="true"`));
-    assert.ok(html.includes(`<div class="g-main"><img src="${image}"`));
-    assert.ok(html.includes(`<div class="m-gal scroller"><div class="m-slide"><img src="${image}"`));
+    assert.equal(html.match(/<div class="g-main"><img[^>]* src="([^"]+)"/)[1], image);
+    assert.equal(html.match(/<div class="m-gal scroller"><div class="m-slide"><img[^>]* src="([^"]+)"/)[1], image);
   }
 });
 
@@ -256,7 +323,7 @@ test("unknown URL colors fall back safely and a missing color photo uses the mai
   const noPhoto = { ...p, choices: p.choices.map((choice) => ({ ...choice, image: choice.color === "white" ? undefined : choice.image })) };
   const html = renderProduct(noPhoto, "white");
   assert.match(html, /aria-label="לבן" aria-pressed="true"/);
-  assert.match(html, /<div class="g-main"><img src="\/default.jpg"/);
+  assert.match(html, /<div class="g-main"><img[^>]* src="\/default.jpg"/);
   assert.match(renderProduct(p, "unknown"), /aria-label="כחול כהה" aria-pressed="true"/);
 });
 
@@ -305,7 +372,7 @@ test("bundle main-product image follows the selected color while accessory image
   const accessory = { ...products[0], id: "hat", name: "Hat", imgs: ["/hat.jpg"] };
   for (const [color, image] of [["white", "/white-l.jpg"], ["navy", "/navy-m.jpg"]]) {
     const html = renderProduct(picturedCatalog[0], color, undefined, [accessory]);
-    const bundleImages = [...html.matchAll(/<div class="mini-ph"><img src="([^"]+)"/g)].map((match) => match[1]);
+    const bundleImages = [...html.matchAll(/<div class="mini-ph"><img[^>]* src="([^"]+)"/g)].map((match) => match[1]);
     assert.deepEqual(bundleImages, [image, "/hat.jpg"]);
   }
 });
@@ -320,7 +387,7 @@ function renderQuick(product, qColor, qSize) {
     "@/lib/product-selection": productSelection,
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, cartMath: () => ({ byP: {}, total: 0 }) },
-    "@/lib/store": { useStore: () => ({ cart: [], sheet: "quick", quickId: product.id, qColor, qSize }) },
+    "@/lib/store": { useStore: () => ({ cart: [], pricing: { byP: {}, total: 0, savings: 0 }, cartQuote: { pending: false }, sheet: "quick", quickId: product.id, qColor, qSize }) },
     "./icons": { IconCheck: () => null, IconSearch: () => null },
   });
   return renderToStaticMarkup(React.createElement(Overlays)).match(/<section class="sheet quick-sheet"[\s\S]*?<\/section>/)[0];
@@ -331,7 +398,7 @@ test("quick sheet shows the selected color, size, and matching variant image", (
     const html = renderQuick(picturedCatalog[0], color, size);
     assert.ok(html.includes(`aria-label="${label}" aria-pressed="true"`));
     assert.ok(html.includes(`aria-pressed="true" class="size on">${size}</button>`));
-    assert.ok(html.includes(`<img src="${image}"`));
+    assert.equal(html.match(/<img[^>]* src="([^"]+)"/)[1], image);
     assert.doesNotMatch(html, />בחרו מידה<\/button>/);
   }
 });
@@ -341,7 +408,7 @@ test("quick sheet keeps unavailable sizes unselected and falls back when color p
   assert.doesNotMatch(invalid, /class="size on"/);
   assert.match(invalid, />בחרו מידה<\/button>/);
   const noPhoto = { ...picturedCatalog[0], choices: picturedCatalog[0].choices.map((choice) => ({ ...choice, image: undefined })) };
-  assert.match(renderQuick(noPhoto, 1, "L"), /<img src="\/default.jpg"/);
+  assert.match(renderQuick(noPhoto, 1, "L"), /<img[^>]* src="\/default.jpg"/);
 });
 
 test("cart photos follow each line's variant, including unavailable variants and normalized aliases", () => {
@@ -374,7 +441,7 @@ test("cart drawer and checkout show separate color photos for multiple lines of 
     "@/lib/product-selection": productSelection,
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, cartMath: () => ({ byP: {}, total: 200, count: 4, savings: 0 }) },
-    "@/lib/store": { useStore: () => ({ cart, cartOpen: true }) },
+    "@/lib/store": { useStore: () => ({ cart, cartOpen: true, pricing: { byP: {}, regular: 200, total: 200, count: 4, savings: 0 }, cartQuote: { pending: false } }) },
     "./icons": { IconCheck: () => null, IconSearch: () => null },
   };
   const { Overlays } = load("components/Overlays.tsx", dependencies);
@@ -382,6 +449,6 @@ test("cart drawer and checkout show separate color photos for multiple lines of 
   const drawer = renderToStaticMarkup(React.createElement(Overlays)).match(/<aside class="drawer cart[\s\S]*?<\/aside>/)[0];
   const checkout = renderToStaticMarkup(React.createElement(CheckoutView)).match(/<aside class="aside-box"[\s\S]*?<\/aside>/)[0];
   for (const html of [drawer, checkout]) {
-    assert.deepEqual([...html.matchAll(/<img src="([^"]+)"/g)].map((match) => match[1]), ["/navy-m.jpg", "/white-l.jpg", "/white-xxl.jpg"]);
+    assert.deepEqual([...html.matchAll(/<img[^>]* src="([^"]+)"/g)].map((match) => match[1]), ["/navy-m.jpg", "/white-l.jpg", "/white-xxl.jpg"]);
   }
 });

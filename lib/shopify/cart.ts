@@ -20,6 +20,7 @@ type RawCart = {
     nodes?: {
       id: string;
       quantity: number;
+      cost?: RawCart["cost"];
       merchandise?: { id?: string; title?: string; product?: { title?: string } | null } | null;
     }[];
   };
@@ -105,6 +106,8 @@ function mapLine(line: NonNullable<NonNullable<RawCart["lines"]>["nodes"]>[numbe
   return {
     id: line.id,
     quantity: line.quantity,
+    subtotal: money(line.cost?.subtotalAmount),
+    total: money(line.cost?.totalAmount),
     merchandiseId: line.merchandise?.id ?? null,
     title: title || null,
   };

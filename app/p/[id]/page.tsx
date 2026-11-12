@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ProductView } from "@/components/ProductView";
 import { loadShopCatalog } from "@/lib/shopify/load-catalog";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ color?: string | string[]; size?: string | string[] }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ color?: string | string[]; size?: string | string[]; "quantity-offer"?: string | string[] }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -18,5 +18,5 @@ export default async function Page({ params, searchParams }: Props) {
   const handle = decodeURIComponent(id);
   const catalog = await loadShopCatalog();
   if (!catalog.products.some((item) => item.id === handle)) notFound();
-  return <ProductView id={handle} initialColor={typeof query.color === "string" ? query.color : undefined} initialSize={typeof query.size === "string" ? query.size : undefined} />;
+  return <ProductView id={handle} fromQuantityOffer={query["quantity-offer"] === "1"} initialColor={typeof query.color === "string" ? query.color : undefined} initialSize={typeof query.size === "string" ? query.size : undefined} />;
 }

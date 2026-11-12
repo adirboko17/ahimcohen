@@ -31,8 +31,10 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-check/types/**/*.ts",
     ".next-dev/turbopack-3000/types/**/*.ts",
     ".next-dev/turbopack-3001/types/**/*.ts",
+    ".next-dev/turbopack-3108/types/**/*.ts",
     ".next-dev/webpack-3100/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts"

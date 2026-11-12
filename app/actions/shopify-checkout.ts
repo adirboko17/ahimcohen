@@ -6,10 +6,38 @@ import { createCart } from "@/lib/shopify/cart";
 import { ShopifyError } from "@/lib/shopify/config";
 import { findVariantForSelection } from "@/lib/shopify/products";
 import type { CartLineDraft } from "@/lib/shopify/types";
+import { cartQuote } from "@/lib/cart-quote";
+import { checkoutReceipt } from "@/lib/shopify/checkout-status";
 
 type CheckoutLine = { pid: string; color: string; size: string; qty: number; variantId?: string };
 
-export async function beginShopifyCheckout(lines: CheckoutLine[]) {
+export async function beginShopifyCheckout(lines: CheckoutLine[], expectedTotal?: number) {
+  const result = await prepareCart(lines);
+  if (!result.ok) return result;
+  if (expectedTotal !== undefined) {
+    try {
+      const quote = cartQuote(result.cart, result.drafts);
+      if (!Number.isFinite(expectedTotal) || Math.abs(quote.total - expectedTotal) > .01) {
+        return { ok: false as const, error: "המחיר התעדכן. בדקו את הסכום המעודכן ואשרו שוב את המעבר לתשלום." };
+      }
+    } catch {
+      return { ok: false as const, error: "הכמות או המחיר השתנו. עדכנו את הסל ונסו שוב." };
+    }
+  }
+  return { ok: true as const, checkoutUrl: result.cart.checkoutUrl, receipt: checkoutReceipt(result.cart.id) };
+}
+
+export async function quoteShopifyCart(lines: CheckoutLine[]) {
+  const result = await prepareCart(lines);
+  if (!result.ok) return result;
+  try {
+    return { ok: true as const, quote: cartQuote(result.cart, result.drafts) };
+  } catch {
+    return { ok: false as const, error: "לא ניתן לאמת את המחיר או הכמות המבוקשת. נסו לעדכן את הסל." };
+  }
+}
+
+async function prepareCart(lines: CheckoutLine[]) {
   try {
     if (!Array.isArray(lines) || lines.length === 0 || lines.length > 50) {
       return { ok: false as const, error: "הסל ריק." };
@@ -20,7 +48,7 @@ export async function beginShopifyCheckout(lines: CheckoutLine[]) {
     for (const line of lines) {
       const product = PM[line.pid];
       const qty = Number(line.qty);
-      if (!Number.isInteger(qty) || qty < 1) {
+      if (!Number.isInteger(qty) || qty < 1 || qty > 250) {
         return { ok: false as const, error: "אחד הפריטים בסל לא זמין." };
       }
       const directId = line.variantId?.trim() ?? "";
@@ -62,8 +90,9 @@ export async function beginShopifyCheckout(lines: CheckoutLine[]) {
         ].filter((attribute): attribute is { key: string; value: string } => attribute !== null),
       });
     }
-    const cart = await createCart(mergeDrafts(drafts), buyerIp);
-    return { ok: true as const, checkoutUrl: cart.checkoutUrl };
+    const merged = mergeDrafts(drafts);
+    const cart = await createCart(merged, buyerIp);
+    return { ok: true as const, cart, drafts: merged };
   } catch (error) {
     if (error instanceof ShopifyError) return { ok: false as const, error: hebrewShopifyError(error.message) };
     return { ok: false as const, error: "לא הצלחנו לפתוח את הקופה של Shopify." };

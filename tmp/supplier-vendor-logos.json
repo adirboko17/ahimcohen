@@ -1,0 +1,224 @@
+[
+  {
+    "id": "jeep",
+    "name": "Jeep",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=JEEP",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "medop",
+    "name": "MEDOP",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=MEDOP",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "kayo",
+    "name": "KAYO",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=KAYO",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "neri",
+    "name": "Neri",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=NERI%20ITALY",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "tiger-grip",
+    "name": "TIGER GRIP",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=TIGER%20GRIP",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "australian",
+    "name": "AUSTRALIAN",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=AUSTRALIAN",
+    "status": 200,
+    "logos": [
+      {
+        "src": "//www.worker.co.il/cdn/shop/files/Australian_logo.png?v=1767687979&width=100",
+        "alt": "AUSTRALIAN"
+      }
+    ]
+  },
+  {
+    "id": "smartfeet",
+    "name": "SMARTFEET",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=SMARTFEET",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "trackstone",
+    "name": "TRACKSTONE",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=TRACKSTONE",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "gaoma",
+    "name": "GAOMA",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=GAOMA",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "spasciani",
+    "name": "SPASCIANI",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=SPASCIANI",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "alexandra",
+    "name": "ALEXANDRA",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=ALEXANDRA",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "delta-plus",
+    "name": "DELTA PLUS",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=DELTA%20PLUS",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "tarway",
+    "name": "TARWAY",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=TARWAY",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "top-glove",
+    "name": "TOP GLOVE",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=TOP%20GLOVE",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "toffeln",
+    "name": "TOFFELN",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=TOFFELN",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "portwest",
+    "name": "PORTWEST",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=PORTWEST",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "dian",
+    "name": "DIAN",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=DIAN",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "alba",
+    "name": "ALBA",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=ALBA",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "outback",
+    "name": "OUTBACK",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=OUTBACK",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "allen-cooper",
+    "name": "ALLEN COOPER",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=ALLEN%20COOPER",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "majestic",
+    "name": "MAJESTIC",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=MAJESTIC",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "koudx",
+    "name": "KOUDX",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=KOUDX",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "mure-peyrot",
+    "name": "MURE PEYROT",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=MURE%20PEYROT",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "fortune-hong-kong",
+    "name": "FORTUNE HONG KONG",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=FORTUNE%20HONG%20KONG",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "wypall",
+    "name": "WYPALL",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=WYPALL",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "workpro",
+    "name": "WORKPRO",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=WORKPRO",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "everbrite",
+    "name": "EverBrite",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=EVERBRITE",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "arad",
+    "name": "ערד",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=%D7%A2%D7%A8%D7%93",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "justrite",
+    "name": "Justrite",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=JUSTRITE",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "rayovac",
+    "name": "RAYOVAC",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=RAYOVAC",
+    "status": 200,
+    "logos": []
+  },
+  {
+    "id": "regeltex",
+    "name": "REGELTEX",
+    "url": "https://www.worker.co.il/collections/all?filter.p.vendor=REGELTEX",
+    "status": 200,
+    "logos": []
+  }
+]

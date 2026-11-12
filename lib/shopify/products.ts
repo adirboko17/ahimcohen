@@ -1,7 +1,7 @@
 import "server-only";
 import { storefront, withStorefrontFallback } from "./client";
 import { metafieldIdentifiers, ShopifyError } from "./config";
-import { collectionProductsQuery, productsQuery, VARIANTS_BY_SKU_QUERY } from "./operations";
+import { collectionProductsQuery, productsByHandlesQuery, productsQuery, VARIANTS_BY_SKU_QUERY } from "./operations";
 import type {
   ShopifyImage,
   ShopifyMetafield,
@@ -47,6 +47,22 @@ type ProductConnection = {
     nodes: RawProduct[];
   };
 };
+
+export async function fetchProductsByHandles(handles: string[]): Promise<ShopifyProduct[]> {
+  if (!handles.length) return [];
+  if (handles.length > 10) throw new ShopifyError("Too many product handles.", 400);
+  const identifiers = metafieldIdentifiers();
+  const variables = Object.fromEntries(handles.map((handle, index) => [`handle${index}`, handle]));
+  const data = await withStorefrontFallback(
+    flags => storefront<Record<string, RawProduct | null>>(
+      productsByHandlesQuery(handles.length, flags.inventory, flags.metafields),
+      { ...variables, ...(flags.metafields ? { identifiers } : {}) },
+    ),
+    identifiers.length > 0,
+  );
+  // Deleted or unpublished products return null and must not be resurrected from the audit.
+  return Object.values(data).filter((product): product is RawProduct => product !== null).map(mapProduct);
+}
 
 export async function fetchProductsPage(input: {
   first?: number;

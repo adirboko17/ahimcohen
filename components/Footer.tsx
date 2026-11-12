@@ -54,6 +54,7 @@ export function Footer() {
           </div>
           <div className="col">
             <span style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>קטגוריות</span>
+            <Link href="/quantity-offers">מבצעי כמות</Link>
             {categories.slice(0, 6).map((c) => (
               <Link key={c.id} href={`/c/${c.id}`}>
                 {c.name}

@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "realUnpaidShopifyReturn": true,
+  "syntheticSignedWebhook": true,
+  "redisTestDouble": true,
+  "confirmedPaymentClearedCart": true,
+  "freshLoadPaidReturnClearedCart": true,
+  "reloadStayedEmpty": true,
+  "actualOrderPlaced": false
+}

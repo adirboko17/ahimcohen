@@ -125,13 +125,6 @@ export const PROFESSIONS = [
   { name: "מרפאות ומעבדות", desc: "ביגוד ואביזרים חד פעמיים", id: "disp" },
 ];
 
-export const BRANDS = [
-  { name: "REDBACK", id: "redback" },
-  { name: "FORCE®", id: "pro" },
-  { name: "ALL AUSSIE GEAR", id: "shoes" },
-  { name: "WORKER", id: "pro" },
-];
-
 export const SERVICES = [
   { t: "הדפסה", d: "הדפסת לוגו על חולצות, סווטשירטים ופליזים.", bg: "#111", fg: "#fff" },
   { t: "רקמה", d: "רקמת לוגו על חולצות, מעילים וכובעים.", bg: "#F4F4F2", fg: "#111" },

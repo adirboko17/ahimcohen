@@ -72,6 +72,8 @@ export type ShopifyPage<T> = {
 export type ShopifyCartLine = {
   id: string;
   quantity: number;
+  subtotal: ShopifyMoney | null;
+  total: ShopifyMoney | null;
   merchandiseId: string | null;
   title: string | null;
 };

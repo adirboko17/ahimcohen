@@ -1,11 +1,15 @@
 "use client";
 
+import { ProductImage } from "./ProductImage";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { FREE_SHIPPING, phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { uniqueColors } from "@/lib/colors";
+import { offerCartQuantity, quantityOffer } from "@/lib/quantity-offers";
+import { useCartQuote } from "@/lib/use-cart-quote";
 import { fmt, priceFor, saleBadge } from "@/lib/pricing";
 import { complementaryAccessories, similarProducts } from "@/lib/product-recommendations";
 import { productColorIndex, productGalleryImages } from "@/lib/product-selection";
@@ -13,18 +17,20 @@ import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
 import { IconCheck, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
+import { QuantityUnitPicker } from "./QuantityUnitPicker";
+import { quantitySelection, type QuantityUnit } from "@/lib/quantity-selection";
+import type { AddItem } from "@/lib/types";
 
-function bundleOf(p: Product, extras: Product[]): [string, number][] {
-  const q = p.deal ? p.deal[0] : 1;
+function bundleOf(p: Product, extras: Product[], q: number): [string, number][] {
   const rest = extras.filter((item) => item.id !== p.id).slice(0, 2).map((item) => [item.id, 1] as [string, number]);
   return [[p.id, q], ...rest];
 }
 
-export function ProductView({ id, initialColor, initialSize }: { id: string; initialColor?: string; initialSize?: string }) {
-  return <ProductDetails key={JSON.stringify([id, initialColor, initialSize])} id={id} initialColor={initialColor} initialSize={initialSize} />;
+export function ProductView({ id, initialColor, initialSize, fromQuantityOffer = false }: { id: string; initialColor?: string; initialSize?: string; fromQuantityOffer?: boolean }) {
+  return <ProductDetails key={JSON.stringify([id, initialColor, initialSize, fromQuantityOffer])} id={id} fromQuantityOffer={fromQuantityOffer} initialColor={initialColor} initialSize={initialSize} />;
 }
 
-function ProductDetails({ id, initialColor, initialSize }: { id: string; initialColor?: string; initialSize?: string }) {
+function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = false }: { id: string; initialColor?: string; initialSize?: string; fromQuantityOffer?: boolean }) {
   const { product, category, products } = useCatalog();
   const p = product(id);
   const accP = useMemo(() => p ? complementaryAccessories(p, products) : [], [p, products]);
@@ -39,7 +45,17 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
   });
   const selectedOption = sizeOptions.find((option) => option.label === selectedSize && option.available);
   const size = selectedOption?.label ?? null;
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(() => p && fromQuantityOffer ? offerCartQuantity(p) : 1);
+  const offer = p ? quantityOffer(p) : null;
+  const separateUnits = offer?.kind === "quantity" && qty > 1;
+  const [unitSelections, setUnitSelections] = useState<Record<number, QuantityUnit>>({});
+  const unitPicker = useRef<HTMLDivElement>(null);
+  const units = useMemo(() => p && separateUnits ? quantitySelection(p, Array.from({ length: qty }, (_, index) =>
+    unitSelections[index] ?? { color, size: selectedSize },
+  )) : null, [p, separateUnits, qty, unitSelections, color, selectedSize]);
+  const selectionReady = separateUnits ? !!units?.complete : !!selectedOption;
+  const variant = p?.choices?.find((choice) => choice.available && choice.color === (p.colors[color] || "") && (!selectedOption || choice.size === selectedOption.value));
+  const quoteState = useCartQuote(separateUnits ? units?.quoteLines ?? [] : p && offer && variant ? [{ pid: p.id, color: variant.color, size: variant.size, qty, variantId: variant.id }] : []);
   const [sizeErr, setSizeErr] = useState(false);
   const [acc, setAcc] = useState<string | null>(() => p?.desc ? "desc" : "spec");
   const [gal, setGal] = useState(0);
@@ -63,26 +79,17 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
   const current = slides[gi];
 
   const inCart = cart.filter((l) => l.pid === p.id).reduce((a, l) => a + l.qty, 0);
-  const line = priceFor(p, qty);
-  const packs = p.deal
-    ? [1, p.deal[0], p.deal[0] * 2].map((n) => {
-        const pr = priceFor(p, n);
-        const sv = n * p.price - pr;
-        return { n, pr, sv, on: qty === n };
-      })
-    : [];
-  let feedback = "";
-  let fbColor = "#5E5E5B";
-  if (p.deal) {
-    const [q, dp] = p.deal;
-    const rem = qty % q;
-    if (qty < q) feedback = `עוד ${q - qty} יחידות ותשלמו ${dp} ₪ על ${q}`;
-    else {
-      const sv = qty * p.price - priceFor(p, qty);
-      feedback = `${qty} יחידות ב-${fmt(priceFor(p, qty))} · חסכתם ${fmt(sv)}${rem ? ` · עוד ${q - rem} לחבילה נוספת` : ""}`;
-      fbColor = "#111";
-    }
-  }
+  const line = quoteState.quote?.total ?? priceFor(p, qty);
+  const lineLabel = separateUnits && !selectionReady ? "בחרו מידה לכל יחידה" : quoteState.pending ? "מחשב מחיר…" : quoteState.error ? "המחיר יתעדכן בסל" : fmt(line);
+  const deal: [number, number] | undefined = offer?.kind === "quantity" ? [offer.quantity, offer.total] : p.deal;
+  const packs = deal ? [1, deal[0]].map((n) => {
+    const pr = n === 1 ? (variant?.price ?? p.price) : deal[1];
+    return { n, pr, sv: n * (variant?.price ?? p.price) - pr, on: qty === n };
+  }) : [];
+  const feedback = quoteState.pending ? "מעדכנים את מחיר המבצע…" : quoteState.error ? quoteState.error
+    : quoteState.quote ? `${qty} ${offer?.kind === "pack" ? "מארזים" : "יחידות"} ב־${fmt(line)}${quoteState.quote.savings > 0 ? ` · חסכתם ${fmt(quoteState.quote.savings)}` : ""}`
+    : deal ? `מבצע ${deal[0]} יחידות ב־${fmt(deal[1])}` : "";
+  const fbColor = "#111";
 
   const accs = [
     ...(p.desc ? [{ id: "desc", title: "תיאור", lines: p.desc.map((v) => ({ k: "", v: "— " + v })) }] : []),
@@ -109,29 +116,34 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
     },
   ];
 
-  const items = bundleOf(p, accP);
+  const items = bundleOf(p, accP, qty);
+  const mainItems: AddItem[] = separateUnits ? units?.items ?? [] : selectedOption ? [[p.id, color, selectedOption.value, qty]] : [];
+  const requireSelection = () => {
+    setSizeErr(true);
+    flash(separateUnits ? "בחרו צבע ומידה לכל יחידה" : "בחרו מידה");
+    unitPicker.current?.querySelector<HTMLSelectElement>('select[data-missing="true"]')?.focus();
+  };
   const add = () => {
-    if (!selectedOption) {
-      setSizeErr(true);
-      flash("בחרו מידה");
+    if (!selectionReady) {
+      requireSelection();
       return;
     }
-    addMany([[p.id, color, selectedOption.value, qty]], true);
+    addMany(mainItems, true);
   };
   const addBundle = () => {
     const sel = bRows.flatMap((row) => row?.on ? [row] : []);
     const miss = sel.some((row) => !row.isMain && !row.option?.available);
-    if (!selectedOption || miss) {
+    if (!selectionReady || miss) {
       setBErr(miss);
-      setSizeErr(!size);
-      flash(!size ? "בחרו מידה לפריט הראשי" : "בחרו מידה לכל פריט");
+      if (!selectionReady) requireSelection();
+      else flash("בחרו מידה לכל פריט");
       return;
     }
     setBErr(false);
     addMany(
-      sel.map((row) => row.isMain
-        ? [p.id, color, selectedOption.value, row.q]
-        : [row.item.id, 0, row.option!.value, row.q]),
+      sel.flatMap((row): AddItem[] => row.isMain
+        ? mainItems
+        : [[row.item.id, 0, row.option!.value, row.q]]),
       true
     );
   };
@@ -148,7 +160,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
     const multi = options.length > 1;
     const chosen = multi ? bSize[pid] || "" : options[0]?.label || "";
     const option = options.find((entry) => entry.label === chosen && entry.available);
-    const pr = priceFor(item, q);
+    const pr = isMain ? line : priceFor(item, q);
     if (on) {
       bTotal += pr;
       bRegular += q * item.price;
@@ -173,12 +185,12 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
           <div className="g-side">
             {slides.map((sl, i) => (
               <button key={i} className={`g-thumb ${i === gi ? "on" : ""}`} onClick={() => setGal(i)} aria-label="תמונה">
-                {sl.kind === "img" && <img src={sl.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />}
+                {sl.kind === "img" && <ProductImage src={sl.src} sizes="80px" maxWidth={320} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />}
                 {sl.kind !== "img" && <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#8a8a86" }}>{sl.kind === "spec" ? "מפרט" : sl.text}</span>}
               </button>
             ))}
           </div>
-          <GalleryFrame slide={current} name={p.name} deal={p.deal} was={p.was} price={p.price} />
+          <GalleryFrame slide={current} name={p.name} deal={deal} was={p.was} price={p.price} />
         </div>
         <div className="mob-block" style={{ position: "relative" }}>
           <div
@@ -193,7 +205,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
           >
             {slides.map((sl, i) => (
               <div className="m-slide" key={i}>
-                {sl.kind === "img" && <img src={sl.src} alt={p.name} />}
+                {sl.kind === "img" && <ProductImage src={sl.src} sizes="(max-width: 767px) 100vw, 50vw" maxWidth={1280} loading={i === 0 ? "eager" : "lazy"} fetchPriority={i === 0 ? "high" : "auto"} alt={p.name} />}
                 {sl.kind === "ph" && <span className="k ph-xl" style={{ fontSize: 96 }}>{sl.text}</span>}
                 {sl.kind === "spec" && (
                   <div className="spec-slide" style={{ padding: 24 }}>
@@ -214,7 +226,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
               <i key={i} style={{ width: i === gal ? 20 : 8, opacity: i === gal ? 1 : 0.25 }} />
             ))}
           </div>
-          {p.deal && <span className="badge y" style={{ position: "absolute", top: 12, right: 12 }}>{p.deal[0]} ב-{p.deal[1]} ₪</span>}
+          {deal && <span className="badge y" style={{ position: "absolute", top: 12, right: 12 }}>{deal[0]} ב-{deal[1]} ₪</span>}
           <button className="back-fab" aria-label="חזרה" onClick={() => (window.history.length > 1 ? router.back() : router.push(`/c/${p.cat}`))}>
             →
           </button>
@@ -228,9 +240,10 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
             </div>
             <h1>{p.name}</h1>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 28, fontWeight: 800 }}>{fmt(p.price)}</span>
-              {p.was && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(p.was)}</s>}
+              <span style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{offer ? lineLabel : fmt(variant?.price ?? p.price)}</span>
+              {offer ? quoteState.quote && quoteState.quote.savings > 0 && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(quoteState.quote.regular)}</s> : p.was && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(p.was)}</s>}
             </div>
+            {offer && <span className="muted" style={{ fontSize: 14 }}>מחיר כולל ל־{qty} {offer.kind === "pack" ? "מארזים" : "יחידות"}{quoteState.quote ? ` · ${fmt(quoteState.quote.total / (qty * (offer.kind === "pack" ? offer.quantity : 1)))} ${offer.unitLabel}` : ""}</span>}
             {p.std && (
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {p.std.map((t) => (
@@ -240,7 +253,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
             )}
           </div>
 
-          {p.deal && (
+          {deal && (
             <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>בחרו חבילה</span>
               {packs.map((t) => (
@@ -249,7 +262,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
                   <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800 }}>
                       {t.n === 1 ? "יחידה אחת" : `חבילת ${t.n}`}
-                      {t.n > 1 && <span className="badge y" style={{ fontSize: 12 }}>{t.n === p.deal![0] ? "מבצע" : "לצוות"}</span>}
+                      {t.n > 1 && <span className="badge y" style={{ fontSize: 12 }}>{t.n === deal![0] ? "מבצע" : "לצוות"}</span>}
                     </span>
                     <span className="muted" style={{ fontSize: 13 }}>{t.n === 1 ? `${fmt(p.price)} ליחידה` : `${fmt(t.pr / t.n)} ליחידה · חיסכון ${fmt(t.sv)}`}</span>
                   </span>
@@ -263,7 +276,19 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
             </div>
           )}
 
-          {p.colors.length > 0 && (
+          {fromQuantityOffer && offer?.kind === "pack" && <p className="buy-pad" style={{ fontSize: 14, background: "#FFF8D6" }}>מארז אחד כולל {offer.quantity} {offer.quantityLabel}. הכמות בסל היא מספר המארזים.</p>}
+          {quoteState.error && <button type="button" className="cart-edit-link" onClick={quoteState.retry}>עדכון המחיר</button>}
+
+          {separateUnits && units && <div ref={unitPicker}>
+            <QuantityUnitPicker product={p} rows={units.rows} showErrors={sizeErr} onGuide={() => setGuide(true)} onChange={(index, selection) => {
+              setUnitSelections((previous) => ({ ...previous, ...Object.fromEntries(units.rows.map((row, rowIndex) => [rowIndex, row.selection])), [index]: selection }));
+              setSizeErr(false);
+              setColor(selection.color);
+              setGal(0);
+            }} />
+          </div>}
+
+          {!separateUnits && p.colors.length > 0 && (
             <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 15 }}>
                 <b>צבע: </b>
@@ -281,7 +306,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
             </div>
           )}
 
-          <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {!separateUnits && <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 15 }}>
               <span>
                 <b>מידה: </b>
@@ -299,16 +324,16 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
               ))}
             </div>
             {sizeErr && <span className="err">יש לבחור מידה לפני ההוספה לסל</span>}
-          </div>
+          </div>}
 
           <div className="add-row buy-pad">
             <div className="qty">
-              <button onClick={() => setQty((n) => n + 1)} aria-label="הוספת יחידה">+</button>
+              <button disabled={qty >= 250} onClick={() => setQty((n) => Math.min(250, n + 1))} aria-label="הוספת יחידה">+</button>
               <span>{qty}</span>
               <button onClick={() => setQty((n) => Math.max(1, n - 1))} aria-label="הפחתת יחידה">−</button>
             </div>
             <button className="btn desk" style={{ background: addBg }} onClick={add}>
-              {size ? `הוספה לסל · ${fmt(line)}` : `בחרו מידה · ${fmt(line)}`}
+              {selectionReady ? `הוספה לסל · ${lineLabel}` : separateUnits ? "בחרו מידה לכל יחידה" : `בחרו מידה · ${lineLabel}`}
             </button>
             <span className="stock mob-flex" style={{ alignSelf: "center" }}>
               במלאי{inCart ? ` · ${inCart} כבר בסל` : " · זמין למשלוח"}
@@ -333,12 +358,12 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
                   {r.on && <IconCheck />}
                 </button>
                 <div className="mini-ph">
-                  {image ? <img src={image} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#bdbdb7" }}>{phOf(r.item)}</span>}
+                  {image ? <ProductImage src={image} sizes="100px" maxWidth={320} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#bdbdb7" }}>{phOf(r.item)}</span>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700 }}>{r.item.name}</span>
-                    <span style={{ fontSize: 15, fontWeight: 800 }}>{fmt(r.pr)}</span>
+                    <span style={{ fontSize: 15, fontWeight: 800 }}>{r.isMain ? lineLabel : fmt(r.pr)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                     <span className="muted" style={{ fontSize: 13 }}>{r.q > 1 ? `${r.q} יחידות${r.item.deal && r.q >= r.item.deal[0] ? " · מבצע כמות" : ""}` : "יחידה אחת"}</span>
@@ -348,7 +373,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
                         {r.options.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label}</option>)}
                       </select>
                     )}
-                    {r.isMain && <span style={{ fontSize: 13, fontWeight: 700, direction: "ltr" }}>{size ? `מידה ${size}` : "בחרו מידה למעלה"}</span>}
+                    {r.isMain && <span style={{ fontSize: 13, fontWeight: 700 }}>{separateUnits ? selectionReady ? "לפי הבחירות לכל יחידה" : "בחרו מידות למעלה" : size ? `מידה ${size}` : "בחרו מידה למעלה"}</span>}
                   </div>
                 </div>
               </div>
@@ -356,7 +381,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
             })}
             <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span style={{ fontSize: 22, fontWeight: 800 }}>{fmt(bTotal)}</span>
+                <span style={{ fontSize: 22, fontWeight: 800 }}>{separateUnits && !selectionReady ? "בחרו מידות למעלה" : quoteState.pending ? "מחשב מחיר…" : quoteState.error ? "המחיר יתעדכן בסל" : fmt(bTotal)}</span>
                 {bRegular - bTotal > 0 && <s style={{ fontSize: 14, color: "#8a8a86" }}>{fmt(bRegular)}</s>}
               </span>
               <button className="btn" style={{ height: 48, padding: "0 20px", fontSize: 15 }} onClick={addBundle}>
@@ -422,10 +447,10 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
 
       <div className="buybar mob-flex">
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, paddingInlineStart: 4 }}>
-          <span style={{ fontSize: 18, fontWeight: 800 }}>{fmt(line)}</span>
-          <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>{qty} יח׳{size ? ` · ${size}` : ""}</span>
+          <span style={{ fontSize: 18, fontWeight: 800 }}>{lineLabel}</span>
+          <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>{qty} יח׳{separateUnits ? " · לפי הבחירות שלכם" : size ? ` · ${size}` : ""}</span>
         </div>
-        <button className="btn" style={{ background: addBg }} onClick={add}>{size ? "הוספה לסל" : "בחרו מידה"}</button>
+        <button className="btn" style={{ background: addBg }} onClick={add}>{selectionReady ? "הוספה לסל" : separateUnits ? "בחרו מידות" : "בחרו מידה"}</button>
       </div>
 
       {guide && (
@@ -457,7 +482,7 @@ function ProductDetails({ id, initialColor, initialSize }: { id: string; initial
 function GalleryFrame({ slide, name, deal, was, price }: { slide: { kind: string; src?: string; text?: string; rows?: { k: string; v: string }[] }; name: string; deal?: [number, number]; was?: number; price: number }) {
   return (
     <div className="g-main">
-      {slide.kind === "img" && <img src={slide.src} alt={name} />}
+      {slide.kind === "img" && <ProductImage src={slide.src} sizes="(max-width: 767px) 100vw, 50vw" maxWidth={1280} fetchPriority="high" alt={name} />}
       {slide.kind === "ph" && <span className="k ph-xl">{slide.text}</span>}
       {slide.kind === "spec" && (
         <div className="spec-slide">

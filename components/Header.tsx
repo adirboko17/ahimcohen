@@ -25,8 +25,7 @@ export function Announcement() {
 
 export function Header() {
   const path = usePathname();
-  const { categories, category, products } = useCatalog();
-  const featured = products[0];
+  const { categories, category } = useCatalog();
   const { cart, openCart, openSearch, openMenu, auth } = useStore();
   const count = cart.reduce((a, l) => a + l.qty, 0);
   const [mega, setMega] = useState<string | null>(null);
@@ -116,11 +115,9 @@ export function Header() {
                   {c.name}
                 </Link>
               ))}
-              {featured ? (
-              <Link href={`/p/${featured.id}`} className="nav-link">
+              <Link href="/quantity-offers" className={`nav-link ${path === "/quantity-offers" ? "on" : ""}`} aria-current={path === "/quantity-offers" ? "page" : undefined} onMouseEnter={() => setMega(null)} onClick={() => setMega(null)}>
                 <span className="deal-pill">מבצעי כמות</span>
               </Link>
-              ) : null}
             </nav>
           </div>
         </div>

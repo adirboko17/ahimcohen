@@ -1,4 +1,5 @@
 export type CartLine = {
+  instanceId?: string;
   key: string;
   pid: string;
   color: string;

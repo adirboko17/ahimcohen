@@ -1,8 +1,12 @@
 "use client";
 
+import { ProductImage } from "./ProductImage";
+import { EmbroideryBanner } from "./EmbroideryBanner";
+
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BRANDS, FREE_SHIPPING, IM, KITS, PROFESSIONS, phOf, type Category, type Product } from "@/lib/catalog";
+import { FREE_SHIPPING, KITS, PROFESSIONS, phOf, type Category, type Product } from "@/lib/catalog";
+import { BrandGrid } from "./BrandGrid";
 import { useCatalog } from "@/lib/catalog-context";
 import { fmt, priceFor } from "@/lib/pricing";
 import { useScrollLock, useStore } from "@/lib/store";
@@ -37,7 +41,7 @@ function CategoryTile({ category, products }: { category: Category; products: Pr
     <Link href={`/c/${category.id}`} className="cat-tile">
       <span className={`cat-visual${artwork ? " cat-artwork" : ""}`} aria-hidden="true">
         {image && failedImage !== image ? (
-          <img src={image} alt="" loading="lazy" decoding="async" onError={() => setFailedImage(image)} />
+          <img src={artwork ? artwork.replace(".webp", "-320.webp") : image} srcSet={artwork ? `${artwork.replace(".webp", "-320.webp")} 320w, ${artwork.replace(".webp", "-640.webp")} 640w` : undefined} sizes="(max-width: 767px) 104px, 240px" alt="" loading="lazy" decoding="async" onError={() => setFailedImage(image)} />
         ) : (
           <span className="cat-placeholder"><IconBag size={56} /></span>
         )}
@@ -150,7 +154,7 @@ function DealCard({ product }: { product: Product }) {
     <Link href={`/p/${product.id}`} className="deal-card">
       <div className="deal-image">
         {image && failedImage !== image ? (
-          <img src={image} alt="" loading="lazy" decoding="async" onError={() => setFailedImage(image)} />
+          <ProductImage src={image} sizes="(max-width: 767px) 42vw, 200px" maxWidth={640} alt="" loading="lazy" decoding="async" onError={() => setFailedImage(image)} />
         ) : (
           <span className="deal-image-fallback"><IconBag size={48} /><span>תמונת המוצר תעלה בקרוב</span></span>
         )}
@@ -284,6 +288,26 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                 <span style={{ fontSize: 22, fontWeight: 700 }}>←</span>
               </Link>
               )}
+              <ul className="hero-services" aria-label="השירותים שלנו" role="list">
+                <li>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                    <path d="m8 4-6 4 3 5 3-2v10h8V11l3 2 3-5-6-4a4 4 0 0 1-8 0Z" />
+                    <path d="M10 13h4m-4 3h4" />
+                  </svg>
+                  <span>הדפסה ורקמה</span>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true" focusable="false">
+                    <circle cx="9" cy="7" r="3" />
+                    <path d="M2 21v-2a7 7 0 0 1 14 0v2M16 4a3 3 0 0 1 0 6m2 4a6 6 0 0 1 4 5v2" />
+                  </svg>
+                  <span>הזמנות לצוותים</span>
+                </li>
+                <li>
+                  <IconPin />
+                  <span>איסוף מבאר שבע</span>
+                </li>
+              </ul>
             </div>
           </div>
           <div className={`hero-campaign${heroPreview ? " hero-campaign-wide" : ""}${heroPreview === "fade" ? " hero-campaign-fade" : ""}`}>
@@ -291,14 +315,17 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               <source
                 media="(max-width: 767px)"
                 srcSet="/images/hero/workwear-wide-v2-800.webp 800w, /images/hero/workwear-wide-v2-1536.webp 1536w"
-                sizes="100vw"
+                // object-fit: cover scales this 3:2 artwork to the mobile hero's
+                // height (clamp(300px, 88vw, 440px)), not just the viewport width.
+                // Keep the original exports: the smaller v3 recompressions lose detail.
+                sizes="(max-width: 340px) 450px, (max-width: 500px) 132vw, (max-width: 660px) 660px, 100vw"
                 width={1536}
                 height={1024}
               />
             <img
-              src={heroPreview ? "/images/hero/workwear-wide-v2-1536.webp" : "/images/hero/workwear-campaign-1200.webp"}
-              srcSet={heroPreview ? "/images/hero/workwear-wide-v2-800.webp 800w, /images/hero/workwear-wide-v2-1536.webp 1536w" : "/images/hero/workwear-campaign-480.webp 480w, /images/hero/workwear-campaign-800.webp 800w, /images/hero/workwear-campaign-1200.webp 1122w"}
-              sizes="(max-width: 1023px) 100vw, 50vw"
+              src={heroPreview ? "/images/hero/workwear-wide-v3-1536.webp" : "/images/hero/workwear-campaign-1200.webp"}
+              srcSet={heroPreview ? "/images/hero/workwear-wide-v3-480.webp 480w, /images/hero/workwear-wide-v3-800.webp 800w, /images/hero/workwear-wide-v3-1200.webp 1200w, /images/hero/workwear-wide-v3-1536.webp 1536w" : "/images/hero/workwear-campaign-480.webp 480w, /images/hero/workwear-campaign-800.webp 800w, /images/hero/workwear-campaign-1200.webp 1122w"}
+              sizes="(max-width: 767px) 100vw, 50vw"
               width={heroPreview ? 1536 : 1122}
               height={heroPreview ? 1024 : 1402}
               alt="איש מקצוע בחולצת פולו כחולה, מכנסי עבודה אפורים ומגפי עבודה, על רקע בטון ופס צהוב"
@@ -315,6 +342,15 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
           <h2 id="categories-title" className="k sec-title">קטגוריות</h2>
         </div>
         <CategoryBrowser categories={categories} products={products} />
+      </section>
+
+      <section id="our-brands" className="wrap sec home-brands" aria-labelledby="brands-title">
+        <div className="sec-head">
+          <h2 id="brands-title" className="k sec-title">המותגים שלנו</h2>
+          <Link href="/brands" className="text-link">לכל המותגים <span aria-hidden="true">←</span></Link>
+        </div>
+        <p className="brands-intro">בוחרים מותג ומגלים את כל המוצרים שלו.</p>
+        <BrandGrid featured />
       </section>
 
       {deals.length > 0 && <DealsCarousel products={deals} />}
@@ -359,7 +395,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                     const img = p.imgs?.[0];
                     return (
                       <div key={pid} className="kit-th">
-                        {img ? <img src={img} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, color: "#cfcfca" }}>{phOf(p)}</span>}
+                        {img ? <ProductImage src={img} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, color: "#cfcfca" }}>{phOf(p)}</span>}
                         <span className="qty-tag">×{q}</span>
                       </div>
                     );
@@ -431,9 +467,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               לבקשת הצעת מחיר
             </Link>
           </div>
-          <div className="b2b-photo">
-            <img src={IM.k87} alt="חולצת טי עם כיס לעבודה K87" />
-          </div>
+          <EmbroideryBanner />
         </div>
       </section>
 
@@ -451,16 +485,6 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                 <span className="job-description">{pr.desc}</span>
               </span>
               <span className="job-arrow" aria-hidden="true">←</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="wrap sec">
-        <div className="brands">
-          {BRANDS.map((b) => (
-            <Link key={b.name} href={categories.some((item) => item.id === b.id) ? `/c/${b.id}` : shop ? `/c/${shop.id}` : "/"} className="brand">
-              {b.name}
             </Link>
           ))}
         </div>
@@ -588,7 +612,7 @@ function KitSheet(props: {
                   {r.on && <IconCheck />}
                 </button>
                 <div className="mini-ph" style={{ width: 64, height: 70 }}>
-                  {r.p.imgs?.[0] ? <img src={r.p.imgs[0]} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#bdbdb7" }}>{phOf(r.p)}</span>}
+                  {r.p.imgs?.[0] ? <ProductImage src={r.p.imgs[0]} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#bdbdb7" }}>{phOf(r.p)}</span>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>

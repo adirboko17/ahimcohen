@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo } from "react";
 import { CATS, PRODUCTS, productsInCategory as staticProductsInCategory, type Category, type Product } from "./catalog";
+import { unpackCatalog, type CatalogWire } from "./catalog-wire";
 
 export type CatalogSnapshot = {
   categories: Category[];
@@ -18,8 +19,11 @@ type CatalogView = {
 
 const Ctx = createContext<CatalogView | null>(null);
 
-export function CatalogProvider({ catalog, children }: { catalog: CatalogSnapshot; children: React.ReactNode }) {
-  const view = useMemo(() => makeView(catalog.categories, catalog.products, false), [catalog]);
+export function CatalogProvider({ catalog, children }: { catalog: CatalogWire; children: React.ReactNode }) {
+  const view = useMemo(() => {
+    const snapshot = unpackCatalog(catalog);
+    return makeView(snapshot.categories, snapshot.products, false);
+  }, [catalog]);
   return <Ctx.Provider value={view}>{children}</Ctx.Provider>;
 }
 

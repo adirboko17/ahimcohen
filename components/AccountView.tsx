@@ -1,5 +1,7 @@
 "use client";
 
+import { ProductImage } from "./ProductImage";
+
 import { useEffect, useRef, useState } from "react";
 import { ORDERS, phOf, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
@@ -257,7 +259,7 @@ export function AccountView() {
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {lines.map((l) => (
                       <span key={JSON.stringify([l.pid, l.orderedColor, l.sz])} style={{ position: "relative", width: 64, height: 64, background: "#F4F4F2", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {l.item.imgs?.[0] ? <img src={l.item.imgs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} /> : <span className="k" style={{ color: "#8a8a86", fontSize: 22 }}>{phOf(l.item)}</span>}
+                        {l.item.imgs?.[0] ? <ProductImage sizes="160px" maxWidth={480} src={l.item.imgs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} /> : <span className="k" style={{ color: "#8a8a86", fontSize: 22 }}>{phOf(l.item)}</span>}
                         <span style={{ position: "absolute", bottom: 0, left: 0, background: "#111", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 5px" }}>×{l.q}</span>
                       </span>
                     ))}

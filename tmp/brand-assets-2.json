@@ -1,0 +1,112 @@
+{
+  "dian": {
+    "url": "https://www.dian.es/",
+    "status": 200,
+    "imgs": []
+  },
+  "gaoma": {
+    "url": "https://en.jsgaoma.com/",
+    "status": 200,
+    "imgs": []
+  },
+  "arad": {
+    "url": "https://www.aradtextile.com/",
+    "status": 200,
+    "imgs": [
+      "<img width=\"207\" height=\"61\" src=\"https://www.aradtextile.com/wp-content/uploads/2023/05/logo-1.png\" class=\"custom-logo\" alt=\"ערד טקסטיל\" decoding=\"async\" />",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2026/09/2026_06_29_ARAD3822.jpg\" alt=\"נעלי בית דמוי פרווה\" onclick='productClick({\"name\":\"\\u05e0\\u05e2\\u05dc\\u05d9 \\u05d1\\u05d9\\u05ea \\u05d3\\u05de\\u05d5\\u05d9 \\u05e4\\u05e8\\u05d5\\u05d5\\u05d4\",\"id\":141287,\"price\":\"99\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":1,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%97%d7%93%d7%a8-%d7%a9%d7%99%d7%a0%d7%94\\/%d7%a0%d7%a2%d7%9c%d7%99-%d7%91%d7%99%d7%aa-%d7%92%d7%95%d7%a8%d7%9f\\/\",\"variant\":\"Variant\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2025/02/HOTEL-LINE-PREMIUM_cream.jpg\" alt=\"סט מצעי כותנה פרקל בית מלון 400 חוטים\" onclick='productClick({\"name\":\"\\u05e1\\u05d8 \\u05de\\u05e6\\u05e2\\u05d9 \\u05db\\u05d5\\u05ea\\u05e0\\u05d4 \\u05e4\\u05e8\\u05e7\\u05dc \\u05d1\\u05d9\\u05ea \\u05de\\u05dc\\u05d5\\u05df 400 \\u05d7\\u05d5\\u05d8\\u05d9\\u05dd\",\"id\":142504,\"price\":\"1009\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":2,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%9e%d7%91%d7%a6%d7%a2-%d7%a4%d7%a8%d7%9e%d7%99%d7%95%d7%9d-mami\\/%d7%a1%d7%98-%d7%9e%d7%a6%d7%a2%d7%99-%d7%9b%d7%95%d7%aa%d7%a0%d7%94-%d7%a4%d7%a8%d7%a7%d7%9c-%d7%91%d7%99%d7%aa-%d7%9e%d7%9c%d7%95%d7%9f\\/\",\"variant\":\"Variant\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2026/10/2026_07_07_ARAD4491.jpg\" alt=\"סט סאטן מלא יוקרתי כותנה מצרית ובמבוק\" onclick='productClick({\"name\":\"\\u05e1\\u05d8 \\u05e1\\u05d0\\u05d8\\u05df \\u05de\\u05dc\\u05d0 \\u05d9\\u05d5\\u05e7\\u05e8\\u05ea\\u05d9 \\u05db\\u05d5\\u05ea\\u05e0\\u05d4 \\u05de\\u05e6\\u05e8\\u05d9\\u05ea \\u05d5\\u05d1\\u05de\\u05d1\\u05d5\\u05e7\",\"id\":143048,\"price\":\"1199\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":3,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%97%d7%93%d7%a8-%d7%a9%d7%99%d7%a0%d7%94\\/%d7%9e%d7%a6%d7%a2%d7%99%d7%9d\\/%d7%a1%d7%98-%d7%9e%d7%a6%d7%a2%d7%99%d7%9d-%d7%a1%d7%90%d7%98%d7%9f-%d7%9e%d7%9c%d7%90-%d7%99%d7%95%d7%a7%d7%a8%d7%aa%d7%99\\/\",\"variant\":\"Variant\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2026/10/2026_07_07_ARAD4526-Copy.jpg\" alt=\"סט מצעים כותנה סאטן קלאוד סופט\" onclick='productClick({\"name\":\"\\u05e1\\u05d8 \\u05de\\u05e6\\u05e2\\u05d9\\u05dd \\u05db\\u05d5\\u05ea\\u05e0\\u05d4 \\u05e1\\u05d0\\u05d8\\u05df \\u05e7\\u05dc\\u05d0\\u05d5\\u05d3 \\u05e1\\u05d5\\u05e4\\u05d8\",\"id\":143072,\"price\":\"899\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":4,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%97%d7%93%d7%a8-%d7%a9%d7%99%d7%a0%d7%94\\/%d7%9e%d7%a6%d7%a2%d7%99%d7%9d\\/%d7%a1%d7%98-%d7%9e%d7%a6%d7%a2%d7%99%d7%9d-%d7%9b%d7%95%d7%aa%d7%a0%d7%94-%d7%a1%d7%90%d7%98%d7%9f-%d7%a7%d7%9c%d7%90%d7%95%d7%93-%d7%a1%d7%95%d7%a4%d7%98\\/\",\"variant\":\"Variant\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2026/09/HOTEL-LINE_PERCALE180_GABRIELLE.jpg\" alt=\"סט מצעי כותנה פרקל גבריאלה\" onclick='productClick({\"name\":\"\\u05e1\\u05d8 \\u05de\\u05e6\\u05e2\\u05d9 \\u05db\\u05d5\\u05ea\\u05e0\\u05d4 \\u05e4\\u05e8\\u05e7\\u05dc \\u05d2\\u05d1\\u05e8\\u05d9\\u05d0\\u05dc\\u05d4\",\"id\":140986,\"price\":\"519\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":5,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%97%d7%93%d7%a8-%d7%a9%d7%99%d7%a0%d7%94\\/%d7%9e%d7%a6%d7%a2%d7%99%d7%9d\\/%d7%a1%d7%98-%d7%9e%d7%a6%d7%a2%d7%99-%d7%9b%d7%95%d7%aa%d7%a0%d7%94-%d7%a4%d7%a8%d7%a7%d7%9c-%d7%92%d7%91%d7%a8%d7%99%d7%90%d7%9c%d7%94\\/\",\"variant\":\"Variant\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2026/06/THE-LEGACY_Embroided-Percale300_RITA-WHITE_3.jpg\" alt=\"סט מצעי כותנה פרקל ריטה\" onclick='productClick({\"name\":\"\\u05e1\\u05d8 \\u05de\\u05e6\\u05e2\\u05d9 \\u05db\\u05d5\\u05ea\\u05e0\\u05d4 \\u05e4\\u05e8\\u05e7\\u05dc \\u05e8\\u05d9\\u05d8\\u05d4\",\"id\":134759,\"price\":\"789\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":6,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%97%d7%93%d7%a8-%d7%a9%d7%99%d7%a0%d7%94\\/%d7%9e%d7%a6%d7%a2%d7%99%d7%9d\\/%d7%a1%d7%98-%d7%9e%d7%a6%d7%a2%d7%99-%d7%9b%d7%95%d7%aa%d7%a0%d7%94-%d7%a4%d7%a8%d7%a7%d7%9c-%d7%a8%d7%99%d7%98%d7%94\\/\",\"variant\":\"Variant\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">",
+      "<img src=\"https://www.aradtextile.com/wp-content/uploads/2026/07/2022_08_29_ARAD51335_02.jpeg\" alt=\"מגבת פרמיום דגם רומא &#8211; מגבת גוף\" onclick='productClick({\"name\":\"\\u05de\\u05d2\\u05d1\\u05ea \\u05e4\\u05e8\\u05de\\u05d9\\u05d5\\u05dd \\u05d3\\u05d2\\u05dd \\u05e8\\u05d5\\u05de\\u05d0 &#8211; \\u05de\\u05d2\\u05d1\\u05ea \\u05d2\\u05d5\\u05e3\",\"id\":137497,\"price\":\"299\",\"brand\":\"\\u05d8\\u05e7\\u05e1\\u05d8\\u05d9\\u05dc \\u05e2\\u05e8\\u05d3\",\"category\":true,\"list\":\"\\u05d3\\u05e3 \\u05d4\\u05d1\\u05d9\\u05ea\",\"position\":7,\"url\":\"https:\\/\\/www.aradtextile.com\\/product\\/%d7%97%d7%93%d7%a8-%d7%a8%d7%97%d7%a6%d7%94\\/%d7%9e%d7%92%d7%91%d7%95%d7%aa\\/%d7%9e%d7%92%d7%91%d7%aa-%d7%a4%d7%a8%d7%9e%d7%99%d7%95%d7%9d-%d7%93%d7%92%d7%9d-%d7%a8%d7%95%d7%9e%d7%90-%d7%9e%d7%92%d7%91%d7%aa-%d7%92%d7%95%d7%a3\\/\"})' class=\"product-item__image\" width=\"375px\" height=\"630px\">"
+    ]
+  },
+  "everbrite": {
+    "url": "https://www.everbrite-lighting.com/about/everbrite.html",
+    "status": 200,
+    "imgs": [
+      "<img src=\"/static/front/images/logo.svg\" alt=\"EverBrite Lighting\">",
+      "<img src=\"/static/front/images/logo.svg\" alt=\"EverBrite Lighting\">",
+      "<img src=\"/static/front/images/logo.svg\" alt=\"EverBrite Logo\">",
+      "<img src=\"/static/front/images/logo.svg\" alt=\"EverBrite Lighting\">"
+    ]
+  },
+  "regeltex": {
+    "url": "https://www.pentaesp.com/en-gb/exp/",
+    "status": 200,
+    "imgs": [
+      "<img alt=\"PENTA - Electric Safety Products\"\n                     src=\"https://www.pentaesp.com/build/charte/logo-header-penta.svg\">",
+      "<img alt=\"panier\" class=\"logo_panier\"\n                     src=\"https://www.pentaesp.com/build/charte/picto_liste_plus.svg\">",
+      "<img alt=\"Penta\" src=\"https://www.pentaesp.com/build/charte/logo-header-penta.svg\">",
+      "<img alt=\"panier\" class=\"logo-panier\"\n                             src=\"https://www.pentaesp.com/build/charte/picto_liste_plus.svg\">",
+      "<img alt=\"penta\" class=\"img-fluid\"\n                 src=\"https://www.pentaesp.com/build/charte/logo-header-penta.svg\"/>"
+    ]
+  },
+  "majestic": {
+    "url": "https://www.majesticglove.com/",
+    "status": 200,
+    "imgs": []
+  },
+  "workpro": {
+    "url": "https://workprotools.com/",
+    "status": 200,
+    "imgs": [
+      "<img\n            srcset=\"//workprotools.com/cdn/shop/files/WORKPRO__R__png1.png?v=1784619486&width=110 1x, //workprotools.com/cdn/shop/files/WORKPRO__R__png1.png?v=1784619486&width=220 2x\"\n            src=\"//workprotools.com/cdn/shop/files/WORKPRO__R__png1.png?v=1784619486&width=110\"\n            loading=\"eager\"\n            width=\"3071\"\n            height=\"531\"\n            alt=\"WORKPRO Logo with a small registered trademark symbol\"\n            class=\"logo header__logo--mobile md:hidden\"\n          >",
+      "<img\n          srcset=\"//workprotools.com/cdn/shop/files/WORKPRO__R__png1.png?v=1784619486&width=250 1x, //workprotools.com/cdn/shop/files/WORKPRO__R__png1.png?v=1784619486&width=500 2x\"\n          src=\"//workprotools.com/cdn/shop/files/WORKPRO__R__png1.png?v=1784619486&width=250\"\n          loading=\"eager\"\n          width=\"3071\"\n          height=\"531\"\n          alt=\"WORKPRO Logo with a small registered trademark symbol\"\n          class=\"logo header__logo--desktop md:block hidden\"\n        >",
+      "<img src=\"//workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132\" alt=\"WORKPRO 7 Pcs Multifunction Pliers Set with Walmart brand, innovation quality and durable heat-treated tips\" srcset=\"//workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132&amp;width=352 352w, //workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132&amp;width=832 832w, //workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132&amp;width=1000 1000w\" width=\"1000\" height=\"1000\" loading=\"lazy\" class=\"motion-reduce hover-scale-up\" is=\"image-lazy\">",
+      "<img src=\"//workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116\" alt=\"Multitool with hammer head and plier components, branded &#39;WORKPRO&#39;, on a white background\" srcset=\"//workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=352 352w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=832 832w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=1200 1200w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=1920 1920w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=2000 2000w\" width=\"2000\" height=\"2000\" loading=\"lazy\" class=\"motion-reduce hover-scale-up\" is=\"image-lazy\">",
+      "<img src=\"//workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132\" alt=\"WORKPRO 7 Pcs Multifunction Pliers Set with Walmart brand, innovation quality and durable heat-treated tips\" srcset=\"//workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132&amp;width=352 352w, //workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132&amp;width=832 832w, //workprotools.com/cdn/shop/files/W001306BM-M1-SMT1.jpg?v=1785836132&amp;width=1000 1000w\" width=\"1000\" height=\"1000\" loading=\"lazy\" class=\"motion-reduce hover-scale-up\" is=\"image-lazy\">",
+      "<img src=\"//workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116\" alt=\"Multitool with hammer head and plier components, branded &#39;WORKPRO&#39;, on a white background\" srcset=\"//workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=352 352w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=832 832w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=1200 1200w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=1920 1920w, //workprotools.com/cdn/shop/files/W000328AE-M1-2-US1a.jpg?v=1786604116&amp;width=2000 2000w\" width=\"2000\" height=\"2000\" loading=\"lazy\" class=\"motion-reduce hover-scale-up\" is=\"image-lazy\">",
+      "<img src=\"//workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=2800\" alt=\"Green cordless garden tools with batteries and chargers on grass, with innovation and quality shown in branding\" srcset=\"//workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=300 300w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=400 400w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=500 500w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=600 600w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=700 700w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=800 800w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=900 900w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=1000 1000w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=1200 1200w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=1300 1300w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=1400 1400w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=1600 1600w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=1800 1800w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=2000 2000w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=2200 2200w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=2400 2400w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=2600 2600w, //workprotools.com/cdn/shop/files/1_7d0a4bbc-9f0d-4ed4-bdcb-5f2fa0513830.jpg?v=1775012441&amp;width=2800 2800w\" width=\"2800\" height=\"1000.0\" loading=\"lazy\" fetchpriority=\"auto\" sizes=\"100vw\" is=\"image-lazy\">",
+      "<img src=\"//workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=1100\" alt=\"Workbench with tools and blue stool, with visible WORKPRO branding and organized storage on shelves\" srcset=\"//workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=165 165w, //workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=360 360w, //workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=535 535w, //workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=750 750w, //workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=940 940w, //workprotools.com/cdn/shop/files/W082088.jpg?v=1760605138&amp;width=1100 1100w\" width=\"1100\" height=\"1100\" loading=\"lazy\" fetchpriority=\"auto\" class=\"motion-reduce hover-scale-up\" is=\"image-lazy\">"
+    ]
+  },
+  "koudx": {
+    "error": "fetch failed"
+  },
+  "jeep": {
+    "url": "https://jeep-footwear.com/",
+    "status": 200,
+    "imgs": [
+      "<img class=\"logo__image\" src=\"//jeep-footwear.com/cdn/shop/files/jeep_footwear_new_69776bc8-0648-4dab-addd-b29c50dfecdb.png?v=1709667915&width=190\" alt=\"Jeep Footwear\" itemprop=\"logo\" width=\"100\" height=\"83\" loading=\"eager\" />"
+    ]
+  },
+  "justrite": {
+    "url": "https://www.justrite.com/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://www.justrite.com/media/logo/resized/380x72/1627507374_logo/stores/1/Justrite_Logo.png\"\n             title=\"Justrite&#x20;logo\"\n             alt=\"Justrite&#x20;logo\"\n             width=\"190\"             height=\"36\"        />",
+      "<img style=\"width: 200px; height: 38px;\" src=\"/media/wysiwyg/footer_logo.png\" alt=\"justrite\" loading=\"lazy\">",
+      "<img src=\"/media/wysiwyg/footer/justrite_footer_logo.png\" alt=\"Justrite Footer Logo\" loading=\"lazy\" width=\"200\" height=\"38\" />",
+      "<img src=\"${p.small_image?.url || 'https://www.justrite.com/media/logo/stores/1/Justrite_Logo.png'}\"\r\n                  alt=\"${escapeHtml(p.name)}\" style=\"max-height:100%;max-width:100%;object-fit:contain;\" />"
+    ]
+  },
+  "tiger-grip": {
+    "url": "https://www.isb-group.com/safety-footwear/tiger-grip/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://www.isb-group.com/wp-content/uploads/2023/10/menu-logo.png\">",
+      "<img data-id=\"1388\" src=\"https://www.isb-group.com/wp-content/uploads/2021/10/double-circle_logo_blue.png\" class=\"lazy \" alt=\"iSB Group: Tiger Grip\" />",
+      "<img src=\"https://www.isb-group.com/wp-content/uploads/2022/08/NQA-ISO-9001-Logo-UKAS.jpg\"\n                             alt=\"ISO 9001\" width=\"106\" height=\"80\" class=\"footer-iso9001-logo\" loading=\"lazy\"/>"
+    ]
+  },
+  "rayovac": {
+    "url": "https://rayovac.com/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://rayovac.com/wp-content/uploads/2024/06/ROV_Logo.png\" srcset=\"https://rayovac.com/wp-content/uploads/2024/06/ROV_Logo.png 1x\" width=\"188\" height=\"53\" alt=\"Rayovac Logo\" data-retina_logo_url=\"\" class=\"fusion-standard-logo\" />",
+      "<img width=\"188\" height=\"53\" src=\"data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27188%27%20height%3D%2753%27%20viewBox%3D%270%200%20188%2053%27%3E%3Crect%20width%3D%27188%27%20height%3D%2753%27%20fill-opacity%3D%220%22%2F%3E%3C%2Fsvg%3E\" class=\"image wp-image-3155  attachment-full size-full lazyload\" alt=\"\" style=\"max-width: 100%; height: auto;\" decoding=\"async\" data-orig-src=\"https://rayovac.com/wp-content/uploads/2024/06/ROV_Logo.png\" />"
+    ]
+  },
+  "alexandra": {
+    "url": "https://workforgood.co.uk/businesses/alexandra-workwear/",
+    "status": 200,
+    "imgs": [
+      "<img src=\"https://cdn.workforgood.co.uk/images/uploads/2025/11/pdj8xZ3p.png\" alt=\"Alexandra Workwear\" class=\"profile-page__logo\" />",
+      "<img src=\"/static/images/logos/givey.d159dfee81bd.png\" alt=\"\">",
+      "<img src=\"/static/images/logos/fundraising-regulator.162192cfea7e.png\" alt=\"\">"
+    ]
+  }
+}

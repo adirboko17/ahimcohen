@@ -95,5 +95,86 @@ Validation:
   home/category/product in 264/156/147 ms, without another blocking cold load.
 - These are complete HTTP response times, not browser paint metrics. Local and
   remote environments differ, so this is not a measured production speedup.
-  The first empty-cache load still needs to fetch Shopify. Production release
-  and a follow-up remote measurement are required to confirm the live result.
+  The first empty-cache load still needs to fetch Shopify.
+
+After the user manually deployed, read-only measurements of the same production
+URLs returned HTTP 200 with no detected server-render error:
+
+| Complete HTTP response | Before release | After manual release |
+| --- | ---: | ---: |
+| Home | 5,747 ms | 1,252 ms |
+| Category `/c/shoes` | 5,141 ms | 714 ms |
+| Product `/p/perth-nylon` | 5,056 ms | 832 ms |
+| Repeated home | 4,996 ms | 834 ms |
+
+This small sample shows about 78–86% shorter complete response times. It is not
+a browser rendering benchmark or a guarantee for cold requests. No deployment
+was performed by the agent; verification only read the public pages.
+
+## Responsive media and catalog transfer — 2026-11-12
+
+Product images now request responsive widths directly from Shopify's image CDN.
+The shared `ProductImage` defaults to lazy loading and asynchronous decoding;
+the first two category cards and first mobile gallery slide load eagerly, with
+high priority. Desktop gallery images remain lazy so the hidden desktop gallery
+does not compete with the mobile image. Thumbnails use smaller width limits.
+Existing CSS reserves image space. Unsupported/signed URLs pass through intact.
+
+Category artwork has 320/640-pixel derivatives. The hero has 480/800/1200/1536
+variants at a lower WebP quality, while retaining the existing composition.
+Rebuild local derivatives with `node scripts/optimize-storefront-images.cjs`.
+
+Measured file sizes (bytes, not page-load durations):
+
+| Asset | Previous | Optimized |
+| --- | ---: | ---: |
+| All nine category artworks, 320px mobile set | 1,565,942 | 60,858 |
+| Hero at 800px | 90,840 | 39,446 |
+| Hero at 1536px | 324,544 | 140,610 |
+| Fleece photo, original vs CDN 480px | 357,720 | 16,446 |
+| Two-shirt pack photo, original vs CDN 480px | 106,908 | 36,519 |
+
+CDN measurements used a browser-style image Accept header; returned formats
+varied between JPEG and WebP. The browser selects width according to layout and
+pixel density. Not all nine category images load on initial view.
+
+The RSC catalog payload also deduplicates variant photos/color/size strings and
+uses compact variant tuples. It is expanded once per snapshot in CatalogProvider.
+All products and fields remain available immediately for search, quick-add,
+filters and restored carts; no extra client fetch is introduced.
+
+| Complete HTML response | Live baseline bytes | Local optimized bytes | Baseline gzip | Optimized gzip |
+| --- | ---: | ---: | ---: | ---: |
+| Home | 2,563,482 | 1,645,039 | 267,135 | 245,099 |
+| Shoes | 2,550,807 | 1,626,570 | 264,601 | 242,166 |
+| PERTH product | 2,559,809 | 1,647,279 | 265,770 | 244,070 |
+
+About 36% less uncompressed HTML and 8% less under the same local gzip settings.
+Actual CDN transfer compression can differ. Catalog snapshots were fetched
+separately and their display order can differ. Local warm category/product HTTP
+responses were 147/152 ms; the initial empty-cache home still took 7.5 seconds.
+These local timings are not a production mobile speed score.
+
+Validation: 95 tests passed, TypeScript and the production build passed. Added
+lossless catalog round-trip and CDN URL regression coverage. Browser checks at
+390px verified home, category, gallery, color selection, add/remove from cart and
+search; no horizontal overflow or captured console errors. The mobile hero
+selected the 480px file at the test browser's pixel density, category artwork
+selected 320px, and later gallery slides remained unloaded. The desktop gallery
+also loaded correctly at 1440px. No CPU/network throttling or real-phone LCP/INP
+measurement was performed. Changes still require the user's manual deployment.
+
+## Mobile hero quality correction — 2026-11-13
+
+The mobile hero now uses the original 800/1536px v2 exports. The lower-quality
+v3 recompressions remain available for the existing desktop preview, but are
+no longer selected by the mobile picture source. Its `sizes` now accounts for
+the 3:2 artwork covering `clamp(300px, 88vw, 440px)` in height: the image's
+painted width is larger than its clipped container. At 390px and 453px browser
+viewports (DPR 1), the browser selected the original 800px file instead of the
+480px recompression. This intentionally trades some transfer size for detail.
+
+The homepage brand section is directly below categories. All 12 logo assets
+loaded, and all 12 destinations showed the matching brand and product count.
+Mobile 390px and desktop 1440px checks showed no horizontal overflow. The six
+brand and responsive-media tests passed. No production deployment was performed.
