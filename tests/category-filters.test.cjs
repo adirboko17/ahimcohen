@@ -22,6 +22,9 @@ function load(file, dependencies = {}) {
       : name === "@/lib/cart-groups" ? load("lib/cart-groups.ts", { "./quantity-offers": load("lib/quantity-offers.ts") })
       : name === "./CheckoutButton" ? load("components/CheckoutButton.tsx", { "@/app/actions/shopify-checkout": { beginShopifyCheckout: () => { throw new Error("Unexpected checkout during rendering"); } }, ...dependencies })
       : name === "./ProductImage" ? load("components/ProductImage.tsx", dependencies)
+      : name === "./MobileFilterSheet" ? load("components/MobileFilterSheet.tsx", dependencies)
+      : name === "./ProductBrand" ? load("components/ProductBrand.tsx", { "@/lib/brands": load("lib/brands.ts") })
+      : name === "@/lib/brands" ? load("lib/brands.ts")
       : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
       : name === "@/lib/quantity-selection" ? load("lib/quantity-selection.ts", { "./sizes": sizes })
       : name === "@/lib/checkout-return" ? load("lib/checkout-return.ts")
@@ -102,6 +105,29 @@ test("subcategory filters contain only its products, including secondary subcate
   assert.match(html, /data-product="shirt"/);
   assert.match(html, /data-product="shared"/);
   assert.doesNotMatch(html, /data-product="pants"|data-product="shoe"/);
+});
+
+test("brand aliases share one filter and restored aliases still match all corresponding products", () => {
+  const catalog = [
+    { ...products[0], id: 'worker-a', brand: 'WORKER' },
+    { ...products[0], id: 'worker-b', brand: ' worker ' },
+    { ...products[0], id: 'supplier-only', brand: 'worker.co.il' },
+    { ...products[0], id: 'redback-a', brand: 'REDBACK' },
+    { ...products[0], id: 'redback-b', brand: 'redback.co.il' },
+  ];
+  const { sidebar } = renderCategory(null, {}, catalog);
+  assert.equal((sidebar.match(/WORKER/g) || []).length, 1);
+  assert.equal((sidebar.match(/Redback/g) || []).length, 1);
+  assert.doesNotMatch(sidebar, /worker\.co\.il|redback\.co\.il/);
+  const worker = renderCategory(null, { brands: [' worker ', 'WORKER'] }, catalog).html;
+  assert.match(worker, /data-product="worker-a"/);
+  assert.match(worker, /data-product="worker-b"/);
+  assert.doesNotMatch(worker, /data-product="supplier-only"|data-product="redback/);
+  const redback = renderCategory(null, { brands: ['redback.co.il'] }, catalog).html;
+  assert.match(redback, /data-product="redback-a"/);
+  assert.match(redback, /data-product="redback-b"/);
+  assert.doesNotMatch(redback, /data-product="worker/);
+  assert.match(renderCategory(null, { brands: ['worker.co.il'] }, catalog).html, /data-product="supplier-only"/);
 });
 
 test("all-category filters include sibling products but exclude other categories", () => {

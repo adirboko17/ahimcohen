@@ -1,6 +1,7 @@
 "use client";
 
 import { ProductImage } from "./ProductImage";
+import { ProductBrand } from "./ProductBrand";
 
 import Link from "next/link";
 import { phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
@@ -30,6 +31,7 @@ export function ProductTile({ p, imageSrc, selectedColor, selectedSize, priority
           {p.was && <span className="badge b">{saleBadge(p)}</span>}
           {!p.was && !p.deal && !!p.best && <span className="badge w">רב מכר</span>}
         </div>
+        <ProductBrand name={p.brand} />
         <button
           className="quick"
           aria-label="הוספה מהירה לסל"

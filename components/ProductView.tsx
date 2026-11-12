@@ -1,6 +1,8 @@
 "use client";
 
 import { ProductImage } from "./ProductImage";
+import { ProductBrand } from "./ProductBrand";
+import { brandByName } from "@/lib/brands";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -235,7 +237,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
         <div className="buy">
           <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 600 }} className="muted">
-              <span>{p.brand || "האחים כהן"}</span>
+              {brandByName(p.brand) ? <ProductBrand name={p.brand} inline /> : <span>{p.brand || "האחים כהן"}</span>}
               <span dir="ltr">{p.sku ? `מק״ט ${p.sku}` : ""}</span>
             </div>
             <h1>{p.name}</h1>
@@ -361,6 +363,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
                   {image ? <ProductImage src={image} sizes="100px" maxWidth={320} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#bdbdb7" }}>{phOf(r.item)}</span>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                  <ProductBrand name={r.item.brand} inline />
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700 }}>{r.item.name}</span>
                     <span style={{ fontSize: 15, fontWeight: 800 }}>{r.isMain ? lineLabel : fmt(r.pr)}</span>

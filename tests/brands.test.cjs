@@ -10,13 +10,14 @@ function load(path, dependencies = {}) {
   new Function('require', 'module', 'exports', source)(name => { assert.ok(name in dependencies, name); return dependencies[name]; }, module, module.exports);
   return module.exports;
 }
-const { productBrand } = load('../lib/shopify/product-brand.ts', { 'server-only': {}, '@/lib/brand-products.json': index });
-const { BRANDS, brandById } = load('../lib/brands.ts');
+const brands = load('../lib/brands.ts');
+const { productBrand } = load('../lib/shopify/product-brand.ts', { 'server-only': {}, '@/lib/brand-products.json': index, '@/lib/brands': brands });
+const { BRANDS, brandById, canonicalBrandName, uniqueBrandNames } = brands;
 
 test('supplier imports resolve to audited manufacturers without blanket assignment', () => {
   assert.equal(productBrand({ handle: 'כפפות-showa-376', vendor: 'worker.co.il' }), 'SHOWA');
   assert.equal(productBrand({ handle: 'מגף-הוברט-o2-src-חום-כהה', vendor: 'worker.co.il' }), 'Steel Blue');
-  assert.equal(productBrand({ handle: 'unknown-import', vendor: 'worker.co.il' }), 'worker.co.il');
+  assert.equal(productBrand({ handle: 'unknown-import', vendor: 'worker.co.il' }), undefined);
   assert.equal(productBrand({ handle: 'פליז-חצי-רוכסן-wecamp-20', vendor: 'worker.co.il' }), 'WECAMP');
   assert.equal(productBrand({ handle: 'כפפות-showa-376', vendor: 'Corrected manufacturer' }), 'Corrected manufacturer');
 });
@@ -32,7 +33,7 @@ test('follow-up review applies confirmed labels and keeps ambiguous imports unas
       assert.equal(productBrand({ handle: product.handle, vendor: 'worker.co.il' }), product.brand);
       assert.ok(BRANDS.some(brand => brand.name === product.brand));
     } else {
-      assert.equal(productBrand({ handle: product.handle, vendor: 'worker.co.il' }), 'worker.co.il');
+      assert.equal(productBrand({ handle: product.handle, vendor: 'worker.co.il' }), undefined);
     }
   }
   assert.equal(review.products.find(p => p.sku === '990').brand, 'JSP'); // Similar generic title is WORKER, but original kneepads visibly carry JSP.
@@ -43,6 +44,13 @@ test('follow-up review applies confirmed labels and keeps ambiguous imports unas
 test('vendor aliases group both Redback spellings and correct Carharrt', () => {
   for (const vendor of ['REDBACK', 'redback.co.il']) assert.equal(productBrand({ handle: 'new-item', vendor }), 'Redback');
   assert.equal(productBrand({ handle: 'new-item', vendor: 'Carharrt' }), 'Carhartt');
+});
+
+test('filter names are canonical and supplier domains do not impersonate a manufacturer', () => {
+  assert.deepEqual(uniqueBrandNames(['worker', 'WORKER', ' Worker ', 'worker.co.il', 'https://www.worker.co.il/', 'REDBACK', 'redback.co.il', 'Carharrt', 'Carhartt']), ['WORKER', 'Redback', 'Carhartt']);
+  assert.equal(canonicalBrandName('  Steel   Blue  '), 'Steel Blue');
+  assert.equal(canonicalBrandName(''), undefined);
+  assert.equal(canonicalBrandName('Independent manufacturer'), 'Independent manufacturer');
 });
 test('featured brand destinations contain audited products and original local logos', () => {
   assert.equal(new Set(BRANDS.map(b => b.id)).size, BRANDS.length);

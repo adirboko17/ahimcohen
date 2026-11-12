@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { swatchColor, colorLabel, type Product } from "@/lib/catalog";
-import type { Brand } from "@/lib/brands";
+import { canonicalBrandName, uniqueBrandNames, type Brand } from "@/lib/brands";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductSelection, categoryVariantFilters } from "@/lib/category-filters";
 import { matchesColorFilter, uniqueColors } from "@/lib/colors";
@@ -14,6 +14,7 @@ import { fmt } from "@/lib/pricing";
 import { useScrollLock } from "@/lib/store";
 import { IconFilter } from "./icons";
 import { ProductTile } from "./ProductTile";
+import { MobileFilterSheet } from "./MobileFilterSheet";
 
 type ListingScope = { catId: string; brand?: never } | { brand: Brand; catId?: never };
 
@@ -35,7 +36,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
   useScrollLock(sheet);
 
   const categoryProducts = useMemo(() => brand
-    ? products.filter(product => product.brand === brand.name)
+    ? products.filter(product => canonicalBrandName(product.brand) === canonicalBrandName(brand.name))
     : productsInCategory(catId), [brand, products, catId, productsInCategory]);
   const cat = useMemo(() => brand ? {
     name: brand.name,
@@ -47,7 +48,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
     colors: uniqueColors(savedFilters.colors).filter((color) => base.some((p) => matchesColorFilter(p.colors, [color]))),
     sizes: uniqueSizes(savedFilters.sizes).filter((size) => base.some((p) => matchesSizeFilter(p.sizes, [size]))),
     std: savedFilters.std.filter((standard) => base.some((p) => p.std?.includes(standard))),
-    brands: brand ? [] : savedFilters.brands.filter((name) => base.some((p) => p.brand === name)),
+    brands: brand ? [] : uniqueBrandNames(savedFilters.brands).filter((name) => base.some((p) => canonicalBrandName(p.brand) === name)),
   }), [savedFilters, base, brand]);
   const prices = base.map((p) => p.price);
   const pMin = prices.length ? Math.min(...prices) : 0;
@@ -56,12 +57,12 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
 
   const uniq = (fn: (p: Product) => string[]) => [...new Set(base.flatMap(fn))];
   const stdOpts = uniq((p) => p.std || []);
-  const brandOpts = brand ? [] : uniq((p) => (p.brand ? [p.brand] : []));
+  const brandOpts = brand ? [] : uniqueBrandNames(base.flatMap((p) => p.brand ? [p.brand] : []));
 
   const eligible = base.filter(
     (p) =>
       (!f.std.length || f.std.every((t) => (p.std || []).includes(t))) &&
-      (!f.brands.length || (!!p.brand && f.brands.includes(p.brand))) &&
+      (!f.brands.length || f.brands.includes(canonicalBrandName(p.brand) ?? "")) &&
       p.price <= pMax
   );
   const variants = categoryVariantFilters(eligible, f);
@@ -104,7 +105,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
   const fCount = f.std.length + f.colors.length + f.sizes.length + f.brands.length + (f.max != null && f.max < pTop ? 1 : 0);
   const toggle = (field: "std" | "colors" | "sizes" | "brands", val: string) => {
     setF((s) => {
-      const a = field === "colors" ? uniqueColors(s.colors) : field === "sizes" ? uniqueSizes(s.sizes) : s[field];
+      const a = field === "colors" ? uniqueColors(s.colors) : field === "sizes" ? uniqueSizes(s.sizes) : field === "brands" ? uniqueBrandNames(s.brands) : s[field];
       const n = a.includes(val) ? a.filter((x) => x !== val) : a.concat(val);
       return { ...s, [field]: n };
     });
@@ -149,7 +150,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
           {list.length} מוצרים
         </span>
       </div>
-      <div className="sub-row scroller">
+      <SubcategoryScroller selected={sub}>
         <button className={`chip ${!sub ? "on" : "off"}`} onClick={() => pickSub(null)}>
           הכל
         </button>
@@ -158,10 +159,10 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
             {name}
           </button>
         ))}
-      </div>
+      </SubcategoryScroller>
 
       <div className="filter-bar mob-grid">
-        <button className="btn" style={{ height: 48, fontSize: 15, gap: 8 }} onClick={() => setSheet(true)}>
+        <button className="btn" aria-haspopup="dialog" aria-expanded={sheet} style={{ height: 48, fontSize: 15, gap: 8 }} onClick={() => setSheet(true)}>
           <IconFilter />
           סינון{fCount ? ` (${fCount})` : ""}
         </button>
@@ -173,7 +174,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
       </div>
 
       <div className="cat-layout">
-        <aside className="filters desk">
+        <aside className="filters desk" aria-label="סינון מוצרים" tabIndex={0}>
           <FilterBody
             stdOpts={stdOpts}
             sizeOpts={sizeOpts}
@@ -244,16 +245,10 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
       </div>
 
       {sheet && (
-        <>
-          <div className="backdrop on" onClick={() => setSheet(false)} />
-          <section className="sheet" aria-label="סינון">
-            <div className="sheet-h">
-              <span style={{ fontSize: 18, fontWeight: 800 }}>סינון</span>
-              <button className="x" onClick={() => setSheet(false)} aria-label="סגירה">
-                ×
-              </button>
-            </div>
-            <div className="sheet-b">
+        <MobileFilterSheet onClose={() => setSheet(false)} footer={(close) => <>
+          <button className="btn btn-line" style={{ height: 52, padding: "0 22px" }} onClick={clear}>ניקוי</button>
+          <button className="btn" style={{ flex: 1, height: 52, fontSize: 16 }} onClick={close}>הצגת {list.length} מוצרים</button>
+        </>}>
               <FilterBody
                 stdOpts={stdOpts}
                 sizeOpts={sizeOpts}
@@ -271,20 +266,56 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
                 setStock={() => setF((s) => ({ ...s, stock: !s.stock }))}
                 bare
               />
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="btn btn-line" style={{ height: 56, padding: "0 22px" }} onClick={clear}>
-                  ניקוי
-                </button>
-                <button className="btn" style={{ flex: 1, height: 56, fontSize: 16 }} onClick={() => setSheet(false)}>
-                  הצגת {list.length} מוצרים
-                </button>
-              </div>
-            </div>
-          </section>
-        </>
+        </MobileFilterSheet>
       )}
     </main>
   );
+}
+
+function SubcategoryScroller({ children, selected }: { children: ReactNode; selected: string | null }) {
+  const track = useRef<HTMLDivElement>(null);
+  const trackId = useId();
+  const [edges, setEdges] = useState({ right: false, left: false });
+
+  useEffect(() => {
+    const row = track.current;
+    if (!row) return;
+    const measure = () => {
+      const bounds = row.getBoundingClientRect();
+      const first = row.firstElementChild?.getBoundingClientRect();
+      const last = row.lastElementChild?.getBoundingClientRect();
+      const right = !!first && first.right > bounds.right + 2;
+      const left = !!last && last.left < bounds.left - 2;
+      setEdges(previous => previous.right === right && previous.left === left ? previous : { right, left });
+    };
+    const revealSelected = () => {
+      const active = row.querySelector<HTMLElement>(".chip.on");
+      if (!active) return;
+      const bounds = row.getBoundingClientRect();
+      const chip = active.getBoundingClientRect();
+      if (chip.left < bounds.left) row.scrollBy({ left: chip.left - bounds.left, behavior: "instant" });
+      else if (chip.right > bounds.right) row.scrollBy({ left: chip.right - bounds.right, behavior: "instant" });
+    };
+    const observer = new ResizeObserver(() => { revealSelected(); measure(); });
+    observer.observe(row);
+    for (const child of row.children) observer.observe(child);
+    row.addEventListener("scroll", measure, { passive: true });
+    measure();
+    return () => { observer.disconnect(); row.removeEventListener("scroll", measure); };
+  }, [selected]);
+
+  const move = (direction: number) => {
+    const row = track.current;
+    if (!row) return;
+    row.scrollBy({ left: direction * row.clientWidth * .75, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  };
+
+  const overflow = edges.right || edges.left;
+  return <div className="sub-navigation">
+    <button type="button" className="sub-scroll-arrow" hidden={!overflow} disabled={!edges.right} aria-label="גלילת הקטגוריות ימינה" aria-controls={trackId} onClick={() => move(1)}>→</button>
+    <div ref={track} id={trackId} className="sub-row scroller" role="group" aria-label="תתי קטגוריות">{children}</div>
+    <button type="button" className="sub-scroll-arrow" hidden={!overflow} disabled={!edges.left} aria-label="גלילת הקטגוריות שמאלה" aria-controls={trackId} onClick={() => move(-1)}>←</button>
+  </div>;
 }
 
 function FilterBody(props: {

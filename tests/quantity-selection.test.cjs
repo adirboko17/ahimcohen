@@ -82,6 +82,8 @@ function productHarness() {
     "next/link": () => null,
     "next/navigation": { useRouter: () => ({}) },
     "./ProductImage": { ProductImage: () => null },
+    "./ProductBrand": { ProductBrand: () => null },
+    "@/lib/brands": load("lib/brands.ts"),
     "./ProductTile": { ProductTile: () => null },
     "./QuantityUnitPicker": { QuantityUnitPicker: function QuantityUnitPicker() {} },
     "./icons": { IconCheck: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },

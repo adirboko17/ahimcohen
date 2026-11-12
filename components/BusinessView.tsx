@@ -17,21 +17,22 @@ const BRAND_DESC: Record<string, string> = { רקמה: "לוגו רקום על �
 
 export function BusinessView() {
   const { products: catalogProducts, product } = useCatalog();
+  const products = catalogProducts.filter((item) => item.sizes.length > 0);
+  const firstProduct = products.find((item) => item.cat === "pro" && item.sizes.length > 1) ?? products[0];
   const formRef = useRef<HTMLElement>(null);
-  const [rows, setRows] = useState<Row[]>([{ pid: "p1", color: 0, sizes: {} }]);
+  const [rows, setRows] = useState<Row[]>(() => [{ pid: firstProduct?.id ?? "", color: 0, sizes: {} }]);
   const [brand, setBrand] = useState<string[]>(["רקמה"]);
   const [logo, setLogo] = useState("");
   const [step, setStep] = useState(0);
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
   const [ct, setCt] = useState({ org: "", name: "", phone: "", email: "", notes: "" });
-  const products = catalogProducts.filter((item) => item.sizes.length > 0).slice(0, 40);
   const units = rows.reduce((a, r) => a + Object.values(r.sizes).reduce((s, v) => s + (+v || 0), 0), 0);
   const brandLabel = brand.length ? brand.join(" + ") : "לא נבחר";
 
   const scrollForm = () => {
     const el = formRef.current;
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 90, behavior: "smooth" });
+    el?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
   const valid = (i: number) => (i === 0 ? units > 0 : i === 2 ? !!(ct.org && ct.name && ct.phone) : true);
   const errs = ["הזינו כמות לפחות במידה אחת", "", "מלאו שם עסק, איש קשר וטלפון", ""];
@@ -49,39 +50,38 @@ export function BusinessView() {
   };
 
   return (
-    <main>
-      <section className="wrap" style={{ paddingTop: "clamp(28px, 5vw, 72px)" }}>
-        <span className="kicker" style={{ marginBottom: 20 }}>
-          <span className="sq" />
-          הזמנות לעסקים וארגונים
-        </span>
-        <div className="hero">
-          <h1 className="k hero-title">
-            ביגוד ממותג
-            <br />
-            לכל הצוות.
+    <main className="business-page">
+      <section className="wrap business-intro" aria-labelledby="business-title">
+        <div>
+          <span className="kicker">
+            <span className="sq" />
+            הזמנות לעסקים וארגונים
+          </span>
+          <h1 id="business-title" className="k business-title">
+            ביגוד ממותג לכל הצוות.
           </h1>
-          <div style={{ display: "flex", flexDirection: "column", gap: 22, paddingBottom: 8 }}>
-            <p className="lead">ביגוד עבודה, ייצוגי ומיגון עם הדפסה או רקמה של הלוגו שלכם. מפרטים פריטים, כמויות ומידות לכל עובד — ומקבלים הצעת מחיר מסודרת.</p>
-            <div className="hero-actions" style={{ maxWidth: 480 }}>
-              <button className="btn btn-lg" onClick={scrollForm}>לטופס הצעת מחיר</button>
-              <a href="tel:08-6233803" className="btn btn-line btn-lg" dir="ltr">08-6233803</a>
-            </div>
-          </div>
+          <p className="business-lead">ביגוד עבודה, ייצוג ומיגון עם הלוגו שלכם. בוחרים פריטים, מידות וכמויות — ומרכיבים בקשה להצעת מחיר לכל הצוות.</p>
+        </div>
+        <div className="business-intro-actions">
+          <button className="btn" onClick={scrollForm}>לבניית בקשה להצעת מחיר <IconFwd /></button>
+          <a href="tel:08-6233803">מעדיפים לדבר? <b dir="ltr">08-6233803</b></a>
         </div>
       </section>
-      <section className="wrap" style={{ paddingTop: "clamp(40px, 6vw, 80px)" }}>
-        <div className="services">
+      <section className="wrap" aria-label="פתרונות לעסק שלכם">
+        <div className="business-services">
           {SERVICES.map((sv) => (
-            <div key={sv.t} className="service" style={{ background: sv.bg, color: sv.fg }}>
+            <div key={sv.t} className="business-service">
               <span className="k">{sv.t}</span>
               <span style={{ fontSize: 15, lineHeight: 1.55, fontWeight: 500 }}>{sv.d}</span>
             </div>
           ))}
         </div>
       </section>
-      <section ref={formRef} className="wrap-s" style={{ paddingTop: "clamp(64px, 8vw, 120px)" }}>
-        <h2 className="k sec-title" style={{ marginBottom: 28 }}>בקשה להצעת מחיר</h2>
+      <section ref={formRef} className="wrap business-request" aria-labelledby="business-request-title">
+        <div className="business-request-heading">
+          <h2 id="business-request-title" className="k">בקשה להצעת מחיר</h2>
+          <span className="muted">פריטים, מיתוג ופרטי העסק — במקום אחד</span>
+        </div>
         {sent ? (
           <div style={{ background: "#F4F4F2", padding: "clamp(28px, 5vw, 56px)", display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
             <span style={{ width: 48, height: 48, background: "#FFD100", display: "flex", alignItems: "center", justifyContent: "center" }}><IconCheck size={22} /></span>
@@ -92,25 +92,25 @@ export function BusinessView() {
             <button className="btn btn-line" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={() => { setSent(false); setStep(3); }}>עריכת הבקשה</button>
           </div>
         ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "clamp(16px, 2.5vw, 32px)", alignItems: "flex-start" }}>
-            <div style={{ flex: "1 1 560px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
-              <ol className="b-steps">
+          <div className="business-layout">
+            <div className="business-form">
+              <ol className="b-steps" aria-label="שלבי הבקשה">
                 {LABELS.map((label, i) => (
                   <li key={label}>
-                    <button onClick={() => go(i)}>
+                    <button onClick={() => go(i)} aria-current={i === step ? "step" : undefined}>
                       <span className={`bar ${i <= step ? "on" : ""}`} />
-                      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="business-step-name">
                         <span className={`num ${i === step ? "now" : i < step ? "done" : ""}`}>{i + 1}</span>
-                        <span className={i === step ? undefined : "desk"} style={{ fontSize: 15, fontWeight: i === step ? 800 : 600, color: i <= step ? "#111" : "#8a8a86" }}>{label}</span>
+                        <span className="business-step-label" style={{ fontWeight: i === step ? 800 : 600, color: i <= step ? "#111" : "#666660" }}>{label}</span>
                       </span>
                     </button>
                   </li>
                 ))}
               </ol>
-              <div style={{ background: "#F4F4F2", padding: "clamp(20px, 3.5vw, 44px)", display: "flex", flexDirection: "column", gap: 24 }}>
-                <div>
+              <div className="business-panel">
+                <div className="business-step-heading">
                   <div className="muted" style={{ fontSize: 14, fontWeight: 700 }}>שלב {step + 1} מתוך 4</div>
-                  <div className="k" style={{ fontSize: "clamp(40px, 4.5vw, 60px)", lineHeight: 0.85, marginTop: 8 }}>{TITLES[step][0]}</div>
+                  <h3 className="k">{TITLES[step][0]}</h3>
                   <p className="muted" style={{ fontSize: 16, lineHeight: 1.55, maxWidth: "56ch" }}>{TITLES[step][1]}</p>
                 </div>
                 {step === 0 && (
@@ -152,7 +152,7 @@ export function BusinessView() {
                         </div>
                       );
                     })}
-                    <button className="btn btn-line" style={{ alignSelf: "flex-start", height: 46, padding: "0 18px", borderStyle: "dashed" }} onClick={() => setRows((all) => all.concat({ pid: "p3", color: 0, sizes: {} }))}>+ הוספת פריט</button>
+                    <button className="btn btn-line" disabled={!products.length} style={{ alignSelf: "flex-start", height: 44, padding: "0 18px", borderStyle: "dashed" }} onClick={() => setRows((all) => all.concat({ pid: firstProduct?.id ?? "", color: 0, sizes: {} }))}>+ הוספת פריט</button>
                   </div>
                 )}
                 {step === 1 && (
@@ -226,10 +226,10 @@ export function BusinessView() {
                     </div>
                   </div>
                 )}
-                {err && <span className="err">{err}</span>}
-                <div style={{ display: "flex", gap: 8, borderTop: "1px solid #DCDCD8", paddingTop: 20 }}>
-                  {step > 0 && <button className="btn btn-line" style={{ height: 58, padding: "0 24px" }} onClick={() => { setStep(step - 1); setErr(""); scrollForm(); }}><IconBack /> חזרה</button>}
-                  <button className="btn" style={{ flex: 1, height: 58, fontSize: 16 }} onClick={() => {
+                {err && <span className="err" role="alert">{err}</span>}
+                <div className="business-form-actions">
+                  {step > 0 && <button className="btn btn-line" style={{ padding: "0 24px" }} onClick={() => { setStep(step - 1); setErr(""); scrollForm(); }}><IconBack /> חזרה</button>}
+                  <button className="btn" style={{ flex: 1, fontSize: 16 }} onClick={() => {
                     if (step < 3) { go(step + 1); return; }
                     for (let j = 0; j < 3; j++) if (!valid(j)) { setStep(j); setErr(errs[j]); return; }
                     setSent(true);
@@ -241,7 +241,7 @@ export function BusinessView() {
                 </div>
               </div>
             </div>
-            <aside style={{ flex: "1 1 280px", position: "sticky", top: 160, display: "flex", flexDirection: "column", gap: 8 }}>
+            <aside className="business-summary" aria-label="סיכום הבקשה">
               <div className="summary-card">
                 <span style={{ fontSize: 15, fontWeight: 700 }}>הבקשה שלכם</span>
                 <span style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
@@ -268,7 +268,7 @@ export function BusinessView() {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "12px 0", borderBottom: "1px solid #333", fontSize: 14 }}>
+    <span className="business-summary-row">
       <span style={{ color: "#b5b5b0" }}>{k}</span>
       <span style={{ fontWeight: 700, textAlign: "left" }}>{v}</span>
     </span>

@@ -47,3 +47,27 @@ export const BRANDS: Brand[] = [
 ];
 
 export const brandById = (id: string) => BRANDS.find(brand => brand.id === id);
+
+const brandsByName = new Map(BRANDS.map(brand => [brand.name.toLowerCase(), brand]));
+const brandAliases: Record<string, string> = {
+  "redback.co.il": "Redback",
+  "carharrt": "Carhartt",
+  "ahim cohen": "האחים כהן",
+  "ahim cohenn": "האחים כהן",
+  "האחים כהן – ביגוד והלבשה": "האחים כהן",
+};
+
+export function canonicalBrandName(name?: string): string | undefined {
+  const clean = name?.trim().replace(/\s+/g, " ");
+  if (!clean) return undefined;
+  const key = clean.toLowerCase();
+  // This supplier sells many manufacturers; an unidentified import is not a WORKER product.
+  if (/^(?:https?:\/\/)?(?:www\.)?worker\.co\.il\/?$/.test(key)) return undefined;
+  return brandAliases[key] ?? brandsByName.get(key)?.name ?? clean;
+}
+
+export const uniqueBrandNames = (names: string[]) => [...new Set(names.map(canonicalBrandName).filter((name): name is string => !!name))];
+export const brandByName = (name?: string) => {
+  const canonical = canonicalBrandName(name);
+  return canonical ? brandsByName.get(canonical.toLowerCase()) : undefined;
+};

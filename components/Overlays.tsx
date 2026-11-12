@@ -1,6 +1,7 @@
 "use client";
 
 import { ProductImage } from "./ProductImage";
+import { ProductBrand } from "./ProductBrand";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -188,6 +189,7 @@ function QuickSheet() {
         <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: 14, alignItems: "center" }}>
           <div className="line-ph">{img && <ProductImage sizes="160px" maxWidth={480} src={img} alt="" />}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+            <ProductBrand name={p.brand} inline />
             <span style={{ fontSize: 16, fontWeight: 700 }}>{p.name}</span>
             <span style={{ fontSize: 17, fontWeight: 800 }}>{fmt(p.price)}</span>
             {p.deal && <span className="badge y">{p.deal[0]} ב-{p.deal[1]} ₪</span>}
@@ -280,6 +282,7 @@ function SearchModal() {
                     {x.imgs?.[0] && <ProductImage sizes="160px" maxWidth={480} src={x.imgs[0]} alt="" />}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                    <ProductBrand name={x.brand} inline />
                     <span style={{ fontSize: 16, fontWeight: 700 }}>{x.name}</span>
                     <span className="muted" style={{ fontSize: 13 }}>
                       {category(x.cat)?.name}

@@ -1,11 +1,13 @@
 "use client";
 
 import { ProductImage } from "./ProductImage";
+import { ProductBrand } from "./ProductBrand";
+import { HeroDeals } from "./HeroDeals";
 import { EmbroideryBanner } from "./EmbroideryBanner";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FREE_SHIPPING, KITS, PROFESSIONS, phOf, type Category, type Product } from "@/lib/catalog";
+import { FREE_SHIPPING, KITS, phOf, type Category, type Product } from "@/lib/catalog";
 import { BrandGrid } from "./BrandGrid";
 import { useCatalog } from "@/lib/catalog-context";
 import { fmt, priceFor } from "@/lib/pricing";
@@ -117,30 +119,7 @@ function quantityOffer(product: Product) {
   return deal && Number.isInteger(deal[0]) && deal[0] > 1 && deal[1] > 0 && deal[1] < product.price * deal[0] ? deal : null;
 }
 
-function ProfessionIcon({ id }: { id: string }) {
-  return (
-    <svg viewBox="0 0 32 32" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      {id === "shoes" && <>
-        <path d="M6 22v-5a10 10 0 0 1 20 0v5M13 15V5h6v10M8 14l-2-2m18 2 2-2" />
-        <rect x="3" y="22" width="26" height="5" rx="1" />
-      </>}
-      {id === "kitchen" && <>
-        <path d="M8 20v-5a5 5 0 0 1 1-10 8 8 0 0 1 14 0 5 5 0 0 1 1 10v5M8 20h16v7H8zM13 20v-5m6 5v-5" />
-      </>}
-      {id === "rep" && <>
-        <path d="m11 5-8 5 4 8 3-2v11h12V16l3 2 4-8-8-5M11 5l5 5 5-5M11 5l-1 8 6-3 6 3-1-8M16 10v17" />
-      </>}
-      {id === "safety" && <>
-        <path d="m13 5-6 20h18L19 5zM3 25h26v4H3zM11 12h10M9 19h14" />
-      </>}
-      {id === "disp" && <>
-        <path d="M11 4h10M13 4v10L5 26a2 2 0 0 0 2 3h18a2 2 0 0 0 2-3l-8-12V4M10 20h12M13 24h1m5 2h1" />
-      </>}
-    </svg>
-  );
-}
-
-function DealCard({ product }: { product: Product }) {
+function DealCard({ product, duplicate = false }: { product: Product; duplicate?: boolean }) {
   const bundle = quantityOffer(product);
   const price = bundle ? bundle[1] : product.price;
   const previous = bundle ? product.price * bundle[0] : product.was ?? product.price;
@@ -151,7 +130,7 @@ function DealCard({ product }: { product: Product }) {
   const [failedImage, setFailedImage] = useState<string | null>(null);
 
   return (
-    <Link href={`/p/${product.id}`} className="deal-card">
+    <Link href={`/p/${product.id}`} className="deal-card" aria-hidden={duplicate || undefined} tabIndex={duplicate ? -1 : undefined}>
       <div className="deal-image">
         {image && failedImage !== image ? (
           <ProductImage src={image} sizes="(max-width: 767px) 42vw, 200px" maxWidth={640} alt="" loading="lazy" decoding="async" onError={() => setFailedImage(image)} />
@@ -159,6 +138,7 @@ function DealCard({ product }: { product: Product }) {
           <span className="deal-image-fallback"><IconBag size={48} /><span>תמונת המוצר תעלה בקרוב</span></span>
         )}
         <span className="deal-badge">{bundle ? "מבצע כמות" : percent > 0 ? `${percent}% הנחה` : "במבצע"}</span>
+        <ProductBrand name={product.brand} />
       </div>
       <div className="deal-body">
         <h3 dir="auto">{product.name}</h3>
@@ -179,10 +159,49 @@ function DealCard({ product }: { product: Product }) {
 function DealsCarousel({ products }: { products: Product[] }) {
   const track = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState({ start: 0, count: 3 });
+  const [paused, setPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(true);
+  const playing = !paused && !reducedMotion;
+  const looping = products.length > range.count;
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => setReducedMotion(preference.matches);
+    syncMotion();
+    preference.addEventListener("change", syncMotion);
+    return () => {
+      preference.removeEventListener("change", syncMotion);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!playing || products.length <= range.count) return;
+    const timer = window.setInterval(() => {
+      const row = track.current;
+      const card = row?.firstElementChild;
+      if (!row || !card) return;
+      const step = card.getBoundingClientRect().width + (parseFloat(getComputedStyle(row).columnGap) || 0);
+      row.scrollBy({ left: -step, behavior: "smooth" });
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [playing, products.length, range.count]);
 
   useEffect(() => {
     const row = track.current;
     if (!row) return;
+    let settleTimer: ReturnType<typeof setTimeout>;
+    // The second set continues the first. Once scrolling settles there, shift
+    // to the identical position in the first set without a visible rewind.
+    const normalize = () => {
+      const card = row.firstElementChild;
+      if (!card || !looping) return;
+      const step = card.getBoundingClientRect().width + (parseFloat(getComputedStyle(row).columnGap) || 0);
+      const cycle = step * products.length;
+      const position = Math.abs(row.scrollLeft);
+      if (cycle > 0 && position >= cycle - 1) {
+        row.scrollTo({ left: -Math.max(0, position - cycle), behavior: "instant" });
+      }
+    };
     const sync = () => {
       const card = row.firstElementChild;
       if (!card) return;
@@ -190,8 +209,10 @@ function DealsCarousel({ products }: { products: Product[] }) {
       const step = card.getBoundingClientRect().width + gap;
       if (!step) return;
       const count = Math.max(1, Math.round((row.clientWidth + gap) / step));
-      const start = Math.min(Math.max(0, products.length - count), Math.round(Math.abs(row.scrollLeft) / step));
+      const start = Math.round(Math.abs(row.scrollLeft) / step) % products.length;
       setRange((current) => current.start === start && current.count === count ? current : { start, count });
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(normalize, 150);
     };
     sync();
     const observer = new ResizeObserver(sync);
@@ -199,34 +220,48 @@ function DealsCarousel({ products }: { products: Product[] }) {
     row.addEventListener("scroll", sync, { passive: true });
     return () => {
       observer.disconnect();
+      clearTimeout(settleTimer);
       row.removeEventListener("scroll", sync);
     };
-  }, [products.length]);
+  }, [products.length, looping]);
 
   const move = (direction: number) => {
     const row = track.current;
     const card = row?.firstElementChild;
     if (!row || !card) return;
     const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
-    row.scrollBy({ left: direction * range.count * (card.getBoundingClientRect().width + gap) });
+    const step = card.getBoundingClientRect().width + gap;
+    const distance = range.count * step;
+    // Going backward across the start uses the matching copy first.
+    if (direction > 0 && Math.abs(row.scrollLeft) < distance) {
+      row.scrollTo({ left: row.scrollLeft - products.length * step, behavior: "instant" });
+    }
+    row.scrollBy({ left: direction * distance, behavior: reducedMotion ? "instant" : "smooth" });
   };
-  const end = Math.min(products.length, range.start + range.count);
 
   return (
-    <section className="deals-band" aria-labelledby="deals-title">
-      <div className="wrap">
-        <div className="deals-head">
-          <h2 id="deals-title" className="k sec-title">המבצעים שלנו</h2>
-          <p className="deals-intro">מוצרים לעבודה. מחירים שעושים את ההבדל.</p>
+    <section className="deals-band" aria-labelledby="deals-title" data-playing={playing}>
+      <div className="deals-marquee" aria-hidden="true">
+        <div className="deals-marquee-track">
+          {[0, 1].map(copy => <div className="deals-marquee-group" key={copy}>
+            {[0, 1, 2, 3].map(item => <span className="k" key={item}>המבצעים שלנו <i>✦</i></span>)}
+          </div>)}
         </div>
-        <div id="home-deals" ref={track} className="deal-row" role="region" aria-label="מוצרים במבצע" tabIndex={0}>
+      </div>
+      <div className="wrap">
+        <h2 id="deals-title" className="deals-accessible-title">המבצעים שלנו</h2>
+        <div id="home-deals" ref={track} className="deal-row" role="region" aria-roledescription="קרוסלה" aria-label="מוצרים במבצע" tabIndex={0}>
           {products.map((product) => <DealCard key={product.id} product={product} />)}
+          {looping && products.map((product) => <DealCard key={`loop-${product.id}`} product={product} duplicate />)}
         </div>
         <div className="deals-navigation">
-          <span aria-live="polite" aria-atomic="true">{end === range.start + 1 ? <>מבצע {end} מתוך {products.length}</> : <>מציגים <bdi>{range.start + 1}–{end}</bdi> מתוך {products.length} מבצעים</>}</span>
+          <span aria-live={playing ? "off" : "polite"} aria-atomic="true">מבצע {range.start + 1} מתוך {products.length}</span>
           <div className="deals-buttons">
-            <button type="button" aria-label="המבצעים הקודמים" aria-controls="home-deals" disabled={range.start === 0} onClick={() => move(1)}>→</button>
-            <button type="button" className="deals-next" aria-label="מבצעים נוספים" aria-controls="home-deals" disabled={end === products.length} onClick={() => move(-1)}>מבצעים נוספים <span aria-hidden="true">←</span></button>
+            {!reducedMotion && <button type="button" className="deals-play" aria-label={paused ? "הפעלת תנועת המבצעים" : "עצירת תנועת המבצעים"} aria-pressed={paused} onClick={() => setPaused(value => !value)}>
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{paused ? <path d="M4 2 13 8 4 14Z" fill="currentColor" /> : <path d="M5 3v10M11 3v10" stroke="currentColor" strokeWidth="3" />}</svg>
+            </button>}
+            <button type="button" aria-label="המבצעים הקודמים" aria-controls="home-deals" disabled={!looping} onClick={() => move(1)}>→</button>
+            <button type="button" className="deals-next" aria-label="מבצעים נוספים" aria-controls="home-deals" disabled={!looping} onClick={() => move(-1)}>מבצעים נוספים <span aria-hidden="true">←</span></button>
           </div>
         </div>
       </div>
@@ -241,7 +276,6 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
   const deals = products.filter((item) => quantityOffer(item) || (item.was && item.was > item.price)).slice(0, 7);
   const best = (pictured.length ? pictured : products).slice(0, 8);
   const shop = categories[0];
-  const featured = deals[0] ?? products[0];
   const kits = KITS.filter((kit) => kit.items.every(([pid]) => product(pid)));
   const [kitId, setKitId] = useState<string | null>(null);
   const [kOff, setKOff] = useState<Record<string, boolean>>({});
@@ -271,23 +305,14 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
             </div>
             <div className="hero-conversion">
               <div className="hero-actions">
-                <Link href={shop ? `/c/${shop.id}` : "/"} className="btn btn-lg">
-                  לקנייה באתר
+                <Link href="/offers" className="btn btn-lg">
+                  למבצעים שלנו
                 </Link>
                 <Link href="/business" className="btn btn-line btn-lg">
                   הצעת מחיר לעסק
                 </Link>
               </div>
-              {featured && (
-              <Link href={`/p/${featured.id}`} className="hero-deal">
-                <b className="k">{Math.round(featured.price)}</b>
-                <span className="hero-deal-copy">
-                  <span className="hero-deal-name">{featured.name}</span>
-                  <span className="hero-deal-description">{featured.was ? `${fmt(featured.price)} במקום ${fmt(featured.was)}` : fmt(featured.price)}</span>
-                </span>
-                <span style={{ fontSize: 22, fontWeight: 700 }}>←</span>
-              </Link>
-              )}
+              <HeroDeals products={products} />
               <ul className="hero-services" aria-label="השירותים שלנו" role="list">
                 <li>
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -344,6 +369,8 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         <CategoryBrowser categories={categories} products={products} />
       </section>
 
+      {deals.length > 0 && <DealsCarousel products={deals} />}
+
       <section id="our-brands" className="wrap sec home-brands" aria-labelledby="brands-title">
         <div className="sec-head">
           <h2 id="brands-title" className="k sec-title">המותגים שלנו</h2>
@@ -352,8 +379,6 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         <p className="brands-intro">בוחרים מותג ומגלים את כל המוצרים שלו.</p>
         <BrandGrid featured />
       </section>
-
-      {deals.length > 0 && <DealsCarousel products={deals} />}
 
       <section className="wrap sec">
         <div className="sec-head">
@@ -397,6 +422,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                       <div key={pid} className="kit-th">
                         {img ? <ProductImage src={img} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, color: "#cfcfca" }}>{phOf(p)}</span>}
                         <span className="qty-tag">×{q}</span>
+                        <ProductBrand name={p.brand} />
                       </div>
                     );
                   })}
@@ -471,24 +497,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         </div>
       </section>
 
-      <section className="wrap sec professions" aria-labelledby="professions-title">
-        <div className="professions-head">
-          <h2 id="professions-title" className="k sec-title">לפי מקצוע</h2>
-          <p>מה לובשים לעבודה שלכם? בחרו תחום ומצאו את הציוד המתאים.</p>
-        </div>
-        <div className="jobs">
-          {PROFESSIONS.map((pr) => (
-            <Link key={pr.id} href={categories.some((item) => item.id === pr.id) ? `/c/${pr.id}` : shop ? `/c/${shop.id}` : "/"} className="job">
-              <span className="job-icon"><ProfessionIcon id={pr.id} /></span>
-              <span className="job-copy">
-                <span className="job-name">{pr.name}</span>
-                <span className="job-description">{pr.desc}</span>
-              </span>
-              <span className="job-arrow" aria-hidden="true">←</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+
 
       <section className="wrap" style={{ paddingTop: "clamp(56px, 7vw, 96px)" }}>
         <div className="trust">
@@ -497,8 +506,8 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               <IconTruck />
             </span>
             <span>
-              <b style={{ display: "block", fontSize: 17 }}>משלוח עד הבית</b>
-              <span className="muted" style={{ fontSize: 14 }}>חינם בהזמנות מעל {fmt(FREE_SHIPPING)}</span>
+              <b className="trust-title">משלוח עד הבית</b>
+              <span className="muted trust-detail">חינם בהזמנות מעל {fmt(FREE_SHIPPING)}</span>
             </span>
           </div>
           <div className="trust-item">
@@ -506,8 +515,8 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               <IconPin />
             </span>
             <span>
-              <b style={{ display: "block", fontSize: 17 }}>סניף בבאר שבע</b>
-              <span className="muted" style={{ fontSize: 14 }}>הפועלים 20 — מוזמנים למדוד</span>
+              <b className="trust-title">סניף בבאר שבע</b>
+              <span className="muted trust-detail">הפועלים 20 — מוזמנים למדוד</span>
             </span>
           </div>
           <div className="trust-item">
@@ -515,8 +524,8 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               <IconLock />
             </span>
             <span>
-              <b style={{ display: "block", fontSize: 17 }}>תשלום מאובטח</b>
-              <span className="muted" style={{ fontSize: 14 }}>כל אמצעי התשלום המקובלים</span>
+              <b className="trust-title">תשלום מאובטח</b>
+              <span className="muted trust-detail">כל אמצעי התשלום המקובלים</span>
             </span>
           </div>
           <div className="trust-item">
@@ -524,7 +533,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               <IconPhone />
             </span>
             <span>
-              <b style={{ display: "block", fontSize: 17 }}>ייעוץ בטלפון</b>
+              <b className="trust-title">ייעוץ בטלפון</b>
               <a href="tel:08-6233803" style={{ fontSize: 14, fontWeight: 700, direction: "ltr", textAlign: "right", textDecoration: "underline" }}>
                 08-6233803
               </a>
@@ -615,6 +624,7 @@ function KitSheet(props: {
                   {r.p.imgs?.[0] ? <ProductImage src={r.p.imgs[0]} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#bdbdb7" }}>{phOf(r.p)}</span>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                  <ProductBrand name={r.p.brand} inline />
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <span style={{ fontSize: 15, fontWeight: 700 }}>{r.p.name}</span>
                     <span style={{ fontSize: 15, fontWeight: 800 }}>{fmt(r.pr)}</span>
