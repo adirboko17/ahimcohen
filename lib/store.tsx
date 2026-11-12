@@ -1,0 +1,278 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { pickVariant } from "./catalog";
+import { useCatalog } from "./catalog-context";
+import type { AddItem, CartLine } from "./types";
+
+type Sheet = null | "quick";
+
+type Store = {
+  cart: CartLine[];
+  cartOpen: boolean;
+  menuOpen: boolean;
+  menuCat: string | null;
+  searchOpen: boolean;
+  query: string;
+  sheet: Sheet;
+  quickId: string;
+  qColor: number;
+  qSize: string | null;
+  toast: string;
+  toastOn: boolean;
+  auth: boolean;
+  phone: string;
+  extraLock: boolean;
+  anyOverlay: boolean;
+  openCart: () => void;
+  openMenu: () => void;
+  openSearch: () => void;
+  openQuick: (id: string) => void;
+  closeAll: () => void;
+  setMenuCat: (id: string | null) => void;
+  setQuery: (q: string) => void;
+  setQColor: (i: number) => void;
+  setQSize: (size: string) => void;
+  addMany: (list: AddItem[], openCart?: boolean) => void;
+  setQtyLine: (key: string, delta: number) => void;
+  flash: (msg: string) => void;
+  login: (phone: string) => void;
+  logout: () => void;
+  setExtraLock: (on: boolean) => void;
+};
+
+const Ctx = createContext<Store | null>(null);
+
+export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const catalog = useCatalog();
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuCat, setMenuCat] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [quickId, setQuickId] = useState("p1");
+  const [qColor, setQColor] = useState(0);
+  const [qSize, setQSize] = useState<string | null>(null);
+  const [toast, setToast] = useState("");
+  const [toastOn, setToastOn] = useState(false);
+  const [auth, setAuth] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [extraLock, setExtraLock] = useState(false);
+  const [ready, setReady] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ahim-cart");
+      if (raw) {
+        const parsed = JSON.parse(raw) as CartLine[];
+        if (Array.isArray(parsed)) setCart(parsed.filter((l) => l && catalogRef.current.product(l.pid) && l.qty > 0));
+      }
+      const savedPhone = localStorage.getItem("ahim-phone");
+      if (localStorage.getItem("ahim-auth") === "1" && savedPhone) {
+        setAuth(true);
+        setPhone(savedPhone);
+      }
+    } catch {
+      /* ignore broken storage */
+    }
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (ready) localStorage.setItem("ahim-cart", JSON.stringify(cart));
+  }, [cart, ready]);
+
+  const anyOverlay = cartOpen || menuOpen || searchOpen || !!sheet || extraLock;
+
+  useEffect(() => {
+    document.body.style.overflow = anyOverlay ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [anyOverlay]);
+
+  const flash = useCallback((msg: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    setToast(msg);
+    setToastOn(true);
+    timer.current = setTimeout(() => setToastOn(false), 2200);
+  }, []);
+
+  const closeAll = useCallback(() => {
+    setCartOpen(false);
+    setMenuOpen(false);
+    setSearchOpen(false);
+    setSheet(null);
+    setMenuCat(null);
+  }, []);
+
+  const openCart = useCallback(() => {
+    setCartOpen(true);
+    setMenuOpen(false);
+    setSearchOpen(false);
+    setSheet(null);
+  }, []);
+
+  const openMenu = useCallback(() => {
+    setMenuOpen(true);
+    setMenuCat(null);
+    setCartOpen(false);
+    setSearchOpen(false);
+    setSheet(null);
+  }, []);
+
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    setCartOpen(false);
+    setMenuOpen(false);
+    setSheet(null);
+  }, []);
+
+  const openQuick = useCallback((id: string) => {
+    const p = catalog.product(id);
+    if (!p) return;
+    setQuickId(id);
+    setQColor(0);
+    setQSize(p.sizes.length === 1 ? p.sizes[0] : null);
+    setSheet("quick");
+    setCartOpen(false);
+    setMenuOpen(false);
+    setSearchOpen(false);
+  }, [catalog]);
+
+  const addMany = useCallback(
+    (list: AddItem[], open = false) => {
+      setCart((prev) => {
+        const next = prev.slice();
+        list.forEach(([pid, ci, size, qty]) => {
+          const p = catalog.product(pid);
+          if (!p || qty <= 0) return;
+          const color = p.colors[ci] || "";
+          const variant = pickVariant(p, color, size);
+          const key = `${pid}|${color}|${size}`;
+          const i = next.findIndex((l) => l.key === key);
+          if (i >= 0) next[i] = { ...next[i], qty: next[i].qty + qty };
+          else next.push({ key, pid, color, size, qty, variantId: variant?.id, unitPrice: variant?.price ?? p.price });
+        });
+        return next;
+      });
+      setSheet(null);
+      setMenuOpen(false);
+      setSearchOpen(false);
+      setCartOpen(open);
+      flash(list.length > 1 ? `${list.length} פריטים נוספו לסל` : "נוסף לסל");
+    },
+    [catalog, flash]
+  );
+
+  const setQtyLine = useCallback((key: string, delta: number) => {
+    setCart((prev) => prev.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
+  }, []);
+
+  const login = useCallback((value: string) => {
+    setAuth(true);
+    setPhone(value);
+    localStorage.setItem("ahim-auth", "1");
+    localStorage.setItem("ahim-phone", value);
+  }, []);
+
+  const logout = useCallback(() => {
+    setAuth(false);
+    localStorage.removeItem("ahim-auth");
+    flash("התנתקתם מהחשבון");
+  }, [flash]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeAll();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeAll]);
+
+  const value = useMemo<Store>(
+    () => ({
+      cart,
+      cartOpen,
+      menuOpen,
+      menuCat,
+      searchOpen,
+      query,
+      sheet,
+      quickId,
+      qColor,
+      qSize,
+      toast,
+      toastOn,
+      auth,
+      phone,
+      extraLock,
+      anyOverlay,
+      openCart,
+      openMenu,
+      openSearch,
+      openQuick,
+      closeAll,
+      setMenuCat,
+      setQuery,
+      setQColor,
+      setQSize,
+      addMany,
+      setQtyLine,
+      flash,
+      login,
+      logout,
+      setExtraLock,
+    }),
+    [
+      cart,
+      cartOpen,
+      menuOpen,
+      menuCat,
+      searchOpen,
+      query,
+      sheet,
+      quickId,
+      qColor,
+      qSize,
+      toast,
+      toastOn,
+      auth,
+      phone,
+      extraLock,
+      anyOverlay,
+      openCart,
+      openMenu,
+      openSearch,
+      openQuick,
+      closeAll,
+      addMany,
+      setQtyLine,
+      flash,
+      login,
+      logout,
+    ]
+  );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useStore() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useStore");
+  return ctx;
+}
+
+export function useScrollLock(on: boolean) {
+  const { setExtraLock } = useStore();
+  useEffect(() => {
+    if (!on) return;
+    setExtraLock(true);
+    return () => setExtraLock(false);
+  }, [on, setExtraLock]);
+}

@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Karantina:wght@400;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#fff;color:#111;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:#111;text-decoration:none}
+a:hover{color:#5E5E5B}
+::-webkit-scrollbar{width:0;height:0}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;scroll-behavior:auto !important}}
+</style>
+</helmet>
+<div dir="rtl" lang="he" style="font-family:'Assistant',sans-serif;background:#fff;color:#111;min-height:100vh;padding-bottom:{{ padBottom }}">
+
+<sc-if value="{{ notCheckout }}" hint-placeholder-val="{{ true }}">
+<div style="background:#FFD100;color:#111;font-size:14px;font-weight:700;height:38px;display:flex;align-items:center;justify-content:center;padding:0 16px;text-align:center">{{ announcement }}</div>
+</sc-if>
+
+<sc-if value="{{ deskHeader }}" hint-placeholder-val="{{ true }}">
+<div style="height:135px"></div>
+<header onMouseLeave="{{ closeMega }}" style="position:fixed;top:0;right:0;left:0;z-index:40;background:#fff;border-bottom:1px solid #E4E4E1;box-shadow:{{ hdrShadow }};transition:box-shadow .3s">
+  <div style="max-width:1440px;margin:0 auto;padding:0 clamp(16px,3vw,40px);height:{{ hdrH }};transition:height .4s cubic-bezier(.2,.8,.2,1);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:24px">
+    <div style="display:flex;align-items:center;gap:26px;font-size:15px;font-weight:700">
+      <button onClick="{{ openSearch }}" aria-label="חיפוש" style="background:none;border:0;padding:0;cursor:pointer;display:flex;align-items:center;gap:8px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>חיפוש</button>
+      <button onClick="{{ goB2B }}" style="background:none;border:0;padding:0;cursor:pointer;display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;background:#FFD100"></span>הזמנות לעסקים</button>
+    </div>
+    <button onClick="{{ goHome }}" aria-label="האחים כהן – דף הבית" style="background:none;border:0;padding:0;cursor:pointer;justify-self:center"><img src="assets/logo.avif" alt="Cohen Brothers – Quality at Work" style="height:{{ logoH }};display:block;transition:height .4s cubic-bezier(.2,.8,.2,1)"></button>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:22px;font-size:15px;font-weight:700">
+      <button onClick="{{ goAcct }}" style="background:none;border:0;padding:0;cursor:pointer;display:flex;align-items:center;gap:8px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>{{ acctLabel }}</button>
+      <button onClick="{{ openCart }}" style="background:#111;color:#fff;border:0;height:44px;padding:0 16px;cursor:pointer;display:flex;align-items:center;gap:10px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1 12H6L5 8Z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>סל<span style="background:#FFD100;color:#111;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;padding:0 5px">{{ cartCount }}</span></button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-rows:{{ navRows }};transition:grid-template-rows .45s cubic-bezier(.2,.8,.2,1)"><div style="overflow:hidden;min-height:0">
+  <nav style="transform:translateY({{ navY }});opacity:{{ navO }};transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .35s ease;max-width:1440px;margin:0 auto;padding:0 clamp(16px,3vw,40px);height:50px;display:flex;align-items:stretch;justify-content:center;gap:clamp(16px,2vw,32px);font-size:15px;font-weight:600;overflow-x:auto;border-top:1px solid #EFEFEC">
+    <sc-for list="{{ navCats }}" as="c" hint-placeholder-count="9">
+      <button onMouseEnter="{{ c.onEnter }}" onClick="{{ c.onOpen }}" style="background:none;border:0;padding:0;cursor:pointer;white-space:nowrap;box-shadow:inset 0 -3px 0 {{ c.line }};transition:box-shadow .2s">{{ c.name }}</button>
+    </sc-for>
+    <button onClick="{{ goDeals }}" style="background:none;border:0;padding:0;cursor:pointer;white-space:nowrap;display:flex;align-items:center"><span style="background:#FFD100;padding:4px 10px;font-weight:800">מבצעי כמות</span></button>
+  </nav>
+  </div></div>
+  <sc-if value="{{ megaOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:100%;right:0;left:0;background:#fff;border-top:1px solid #E4E4E1;border-bottom:1px solid #E4E4E1;box-shadow:0 30px 50px -30px rgba(0,0,0,.25)">
+      <div style="max-width:1440px;margin:0 auto;padding:36px clamp(16px,3vw,40px) 40px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:56px">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:56px;line-height:.85">{{ mega.name }}</span>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 36px">
+            <sc-for list="{{ mega.subs }}" as="s" hint-placeholder-count="6">
+              <button onClick="{{ s.onClick }}" style="text-align:right;background:none;border:0;border-bottom:1px solid #EFEFEC;padding:12px 0;font-size:15px;cursor:pointer;display:flex;justify-content:space-between" style-hover="font-weight:700">{{ s.name }}<span style="color:#8A8A86">←</span></button>
+            </sc-for>
+          </div>
+        </div>
+        <button onClick="{{ mega.onOpen }}" style="background:#111;color:#fff;border:0;padding:28px;display:flex;flex-direction:column;justify-content:space-between;text-align:right;cursor:pointer;min-height:200px">
+          <span style="font-size:14px;font-weight:600;color:#BDBDB7">{{ mega.count }}</span>
+          <span style="display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:700">לכל המוצרים בקטגוריה<span style="background:#FFD100;color:#111;width:40px;height:40px;display:flex;align-items:center;justify-content:center">←</span></span>
+        </button>
+      </div>
+    </div>
+  </sc-if>
+</header>
+</sc-if>
+
+<sc-if value="{{ mobHeader }}" hint-placeholder-val="{{ false }}">
+<header style="position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid #E4E4E1">
+  <div style="height:58px;display:grid;grid-template-columns:96px 1fr 96px;align-items:center;padding:0 6px">
+    <div style="display:flex"><button onClick="{{ openMenu }}" aria-label="תפריט" style="width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M3 7h18M3 12h18M3 17h12"></path></svg></button></div>
+    <button onClick="{{ goHome }}" aria-label="דף הבית" style="background:none;border:0;padding:0;display:flex;justify-content:center"><img src="assets/logo.avif" alt="Cohen Brothers" style="height:24px;display:block"></button>
+    <div style="display:flex;justify-content:flex-end"><button onClick="{{ goAcct }}" aria-label="חשבון" style="width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg></button><button onClick="{{ openSearch }}" aria-label="חיפוש" style="width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></button><button onClick="{{ openCart }}" aria-label="סל" style="position:relative;width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1 12H6L5 8Z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg><sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:4px;left:2px;min-width:18px;height:18px;background:#FFD100;color:#111;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ cartCount }}</span></sc-if></button></div>
+  </div>
+</header>
+</sc-if>
+
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+<header style="border-bottom:1px solid #E4E4E1;background:#fff">
+  <div style="max-width:1160px;margin:0 auto;padding:0 clamp(16px,4vw,40px);height:68px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <button onClick="{{ goHome }}" style="background:none;border:0;padding:0;cursor:pointer"><img src="assets/logo.avif" alt="Cohen Brothers" style="height:26px;display:block"></button>
+    <div style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>תשלום מאובטח</div>
+  </div>
+</header>
+</sc-if>
+
+<!-- HOME -->
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<main data-screen-label="Home">
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(20px,3vw,40px) clamp(16px,3vw,40px) 0">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(20px,3vw,40px)">
+      <div style="display:flex;flex-direction:column;justify-content:space-between;gap:28px">
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <span style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;background:#FFD100"></span>ביגוד ומיגון לעבודה · באר שבע</span>
+          <h1 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(84px,11vw,184px);line-height:.8;letter-spacing:-.005em;margin:0">בגדי עבודה.<br>נעלי בטיחות.<br>מיתוג לעסקים.</h1>
+          <p style="font-size:clamp(17px,1.4vw,20px);line-height:1.55;color:#5E5E5B;max-width:42ch;margin:0">לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות — מאותו קטלוג, באותם מחירים.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:520px">
+            <button onClick="{{ goShop }}" style="height:56px;border:0;background:#111;color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s" style-hover="background:#333">לקנייה באתר</button>
+            <button onClick="{{ goB2B }}" style="height:56px;border:2px solid #111;background:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s" style-hover="background:#F4F4F2">הצעת מחיר לעסק</button>
+          </div>
+          <button onClick="{{ openHeroDeal }}" style="max-width:520px;border:0;background:#FFD100;padding:16px 18px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:right;cursor:pointer;transition:transform .25s" style-hover="transform:translateY(-2px)">
+            <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:58px;line-height:.8">6=100</span>
+            <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:800">חולצות דרייפיט ב-100 ₪</span><span style="font-size:14px;font-weight:500">16.67 ₪ לחולצה במקום 29 ₪</span></span>
+            <span style="font-size:22px;font-weight:700">←</span>
+          </button>
+        </div>
+      </div>
+      <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:1fr 1fr;gap:8px;min-height:clamp(520px,46vw,720px)">
+          <sc-for list="{{ heroTiles }}" as="h" hint-placeholder-count="3">
+            <button onClick="{{ h.onOpen }}" style="position:relative;grid-row:{{ h.row }};border:0;padding:0;background:#F4F4F2;overflow:hidden;cursor:pointer">
+              <img src="{{ h.img }}" alt="{{ h.name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply;transition:transform .9s cubic-bezier(.2,.7,.2,1)" style-hover="transform:scale(1.04)">
+              <span style="position:absolute;bottom:0;right:0;background:#fff;padding:10px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:right"><span style="font-size:14px;font-weight:600">{{ h.name }}</span><span style="font-size:16px;font-weight:800">{{ h.price }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isM }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px">
+          <sc-for list="{{ heroTiles }}" as="h" hint-placeholder-count="3">
+            <button onClick="{{ h.onOpen }}" style="flex:0 0 78%;scroll-snap-align:start;position:relative;aspect-ratio:1/1.1;border:0;padding:0;background:#F4F4F2;overflow:hidden">
+              <img src="{{ h.img }}" alt="{{ h.name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply">
+              <span style="position:absolute;bottom:0;right:0;background:#fff;padding:10px 14px;display:flex;flex-direction:column;align-items:flex-start;text-align:right"><span style="font-size:14px;font-weight:600">{{ h.name }}</span><span style="font-size:16px;font-weight:800">{{ h.price }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap">
+      <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.82;margin:0">קטגוריות</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <sc-for list="{{ catMore }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.onOpen }}" style="height:40px;padding:0 16px;border:1px solid #111;background:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#111;color:#fff">{{ c.name }}</button></sc-for>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(46%,400px),1fr));gap:8px">
+      <sc-for list="{{ catFeatures }}" as="c" hint-placeholder-count="6">
+        <button onClick="{{ c.onOpen }}" style="position:relative;aspect-ratio:1/1.02;border:0;padding:0;background:{{ c.bg }};color:{{ c.fg }};overflow:hidden;cursor:pointer;text-align:right">
+          <sc-if value="{{ c.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ c.img }}" alt="{{ c.name }}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply;transition:transform .9s cubic-bezier(.2,.7,.2,1)" style-hover="transform:scale(1.05)"></sc-if>
+          <sc-if value="{{ c.hasBig }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:clamp(10px,2vw,24px);right:clamp(12px,2vw,28px);font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(96px,16vw,260px);line-height:.78;letter-spacing:-.01em">{{ c.big }}</span></sc-if>
+          <span style="position:absolute;bottom:0;right:0;left:0;padding:clamp(12px,2vw,24px);display:flex;justify-content:space-between;align-items:flex-end;gap:10px">
+            <span style="display:flex;flex-direction:column;gap:4px;align-items:flex-start"><span style="font-size:clamp(17px,1.8vw,26px);font-weight:800;line-height:1.1;background:{{ c.labelBg }};padding:{{ c.labelPad }}">{{ c.name }}</span><span style="font-size:clamp(12px,1vw,14px);font-weight:500;opacity:.8">{{ c.sub }}</span></span>
+            <span style="width:clamp(34px,3vw,44px);height:clamp(34px,3vw,44px);background:{{ c.arrowBg }};color:{{ c.arrowFg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">←</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="margin-top:clamp(64px,8vw,120px);background:#FFD100;padding:clamp(40px,6vw,80px) 0">
+    <div style="max-width:1440px;margin:0 auto;padding:0 clamp(16px,3vw,40px);display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:28px">
+      <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.82;margin:0">קונים יותר.<br>משלמים פחות.</h2>
+      <p style="margin:0;font-size:16px;font-weight:600;max-width:36ch;line-height:1.5">המחיר מתעדכן לבד בסל לפי הכמות. אפשר לשלב צבעים ומידות באותו מבצע.</p>
+    </div>
+    <div style="display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 clamp(16px,3vw,40px);scroll-padding-inline:clamp(16px,3vw,40px)">
+      <sc-for list="{{ deals }}" as="d" hint-placeholder-count="5">
+        <button onClick="{{ d.onOpen }}" style="flex:0 0 clamp(250px,22vw,300px);scroll-snap-align:start;text-align:right;background:#fff;border:0;padding:22px;display:flex;flex-direction:column;gap:18px;cursor:pointer;transition:transform .3s" style-hover="transform:translateY(-4px)">
+          <span style="display:flex;align-items:flex-end;gap:10px"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:96px;line-height:.72">{{ d.q }}</span><span style="font-size:20px;font-weight:800;line-height:1.1;padding-bottom:4px">ב-{{ d.dealPrice }}</span></span>
+          <span style="display:flex;flex-direction:column;gap:6px;border-top:2px solid #111;padding-top:14px">
+            <span style="font-size:16px;font-weight:700;line-height:1.3">{{ d.name }}</span>
+            <span style="font-size:14px;color:#5E5E5B">{{ d.unit }} ליחידה במקום {{ d.price }}</span>
+            <span style="align-self:flex-start;background:#111;color:#fff;font-size:13px;font-weight:700;padding:3px 8px;margin-top:4px">חיסכון {{ d.save }}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:28px">
+      <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.82;margin:0">הנמכרים ביותר</h2>
+      <button onClick="{{ goShop }}" style="background:none;border:0;padding:0 0 4px;box-shadow:inset 0 -2px 0 #111;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap">לכל המוצרים</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(44%,max(200px,calc(25% - 8px))),1fr));gap:clamp(28px,3vw,44px) 8px">
+      <sc-for list="{{ bestCards }}" as="pc" hint-placeholder-count="4"><dc-import name="ProductTile" p="{{ pc }}" hint-size="100%,440px"></dc-import></sc-for>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:28px;flex-wrap:wrap">
+      <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.82;margin:0">ערכות עבודה</h2>
+      <p style="margin:0;font-size:16px;color:#5E5E5B;max-width:38ch;line-height:1.5">סטים מוכנים מהקטלוג, עם מבצעי הכמות כבר בפנים. בוחרים מידות ומוסיפים הכל בלחיצה.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px">
+      <sc-for list="{{ kits }}" as="k" hint-placeholder-count="3">
+        <div style="background:#F4F4F2;display:flex;flex-direction:column">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#fff">
+            <sc-for list="{{ k.thumbs }}" as="t" hint-placeholder-count="3">
+              <div style="position:relative;aspect-ratio:1/1.15;background:#F4F4F2;overflow:hidden">
+                <sc-if value="{{ t.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ t.img }}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if>
+                <sc-if value="{{ t.noImg }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:34px;color:#CFCFCA">{{ t.ph }}</span></sc-if>
+                <span style="position:absolute;top:8px;right:8px;background:#111;color:#fff;font-size:12px;font-weight:700;padding:2px 7px;direction:ltr">{{ t.qty }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:clamp(18px,2vw,26px);display:flex;flex-direction:column;gap:16px;flex:1">
+            <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:24px;font-weight:800">{{ k.name }}</span><span style="font-size:14px;color:#5E5E5B;line-height:1.5">{{ k.list }}</span></div>
+            <div style="margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <span style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:26px;font-weight:800">{{ k.total }}</span><s style="font-size:15px;color:#8A8A86">{{ k.regular }}</s></span><span style="align-self:flex-start;background:#FFD100;font-size:13px;font-weight:800;padding:3px 8px">חיסכון {{ k.save }}</span></span>
+              <button onClick="{{ k.onOpen }}" style="height:50px;padding:0 20px;border:0;background:#111;color:#fff;font-size:15px;font-weight:700;cursor:pointer" style-hover="background:#333">בחירת מידות</button>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <div style="background:#111;color:#fff;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr))">
+      <div style="padding:clamp(28px,5vw,72px);display:flex;flex-direction:column;gap:28px;justify-content:center">
+        <span style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;background:#FFD100"></span>לעסקים וארגונים</span>
+        <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(64px,8vw,128px);line-height:.8;margin:0">הלוגו שלכם.<br>על כל הצוות.</h2>
+        <p style="font-size:17px;line-height:1.6;color:#CFCFCA;margin:0;max-width:44ch">שירותי מיתוג הכוללים הדפסה ורקמה בהתאמה אישית — על חולצות, פליזים, מעילים וכובעים, בכל כמות ובשילוב מידות.</p>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px">
+          <div style="background:#1F1F1F;padding:16px;display:flex;flex-direction:column;gap:8px"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:40px;line-height:.8;color:#FFD100">01</span><span style="font-size:14px;font-weight:600;line-height:1.35">בוחרים פריטים</span></div>
+          <div style="background:#1F1F1F;padding:16px;display:flex;flex-direction:column;gap:8px"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:40px;line-height:.8;color:#FFD100">02</span><span style="font-size:14px;font-weight:600;line-height:1.35">מצרפים לוגו ומידות</span></div>
+          <div style="background:#1F1F1F;padding:16px;display:flex;flex-direction:column;gap:8px"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:40px;line-height:.8;color:#FFD100">03</span><span style="font-size:14px;font-weight:600;line-height:1.35">מקבלים הצעת מחיר</span></div>
+        </div>
+        <button onClick="{{ goB2B }}" style="align-self:flex-start;height:56px;padding:0 30px;border:0;background:#FFD100;color:#111;font-size:16px;font-weight:800;cursor:pointer" style-hover="background:#FFE04D">לבקשת הצעת מחיר</button>
+      </div>
+      <div style="position:relative;min-height:420px;background:#E9E9E6"><img src="https://ahim-cohen.co.il/cdn/shop/files/B3861.jpg?v=1762208231&amp;width=1400" alt="חולצת טי עם כיס לעבודה K87" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></div>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.82;margin:0 0 28px">לפי מקצוע</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px">
+      <sc-for list="{{ professions }}" as="pr" hint-placeholder-count="5">
+        <button onClick="{{ pr.onOpen }}" style="background:#fff;border:0;border-top:3px solid #111;padding:18px 0 8px;display:flex;flex-direction:column;gap:8px;text-align:right;cursor:pointer;transition:border-color .2s" style-hover="border-color:#FFD100">
+          <span style="display:flex;justify-content:space-between;width:100%;font-size:22px;font-weight:800">{{ pr.name }}<span>←</span></span>
+          <span style="font-size:14px;color:#5E5E5B;line-height:1.5">{{ pr.desc }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(46%,240px),1fr));gap:8px">
+      <sc-for list="{{ brands }}" as="b" hint-placeholder-count="4">
+        <button onClick="{{ b.onOpen }}" style="background:#F4F4F2;border:0;height:clamp(100px,10vw,150px);display:flex;align-items:center;justify-content:center;font-size:clamp(18px,1.8vw,24px);font-weight:800;letter-spacing:.14em;color:#5E5E5B;cursor:pointer;transition:color .2s,background .2s;direction:ltr" style-hover="color:#111;background:#EBEBE8">{{ b.name }}</button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(56px,7vw,96px) clamp(16px,3vw,40px) 0">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:4px">
+      <div style="background:#F4F4F2;padding:clamp(16px,2vw,24px);display:grid;grid-template-columns:52px minmax(0,1fr);gap:16px;align-items:center"><span style="width:52px;height:52px;background:#fff;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.7"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"></path><circle cx="7" cy="17.5" r="1.8"></circle><circle cx="17" cy="17.5" r="1.8"></circle></svg></span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:17px;font-weight:800;line-height:1.2">משלוח עד הבית</span><span style="font-size:14px;color:#5E5E5B">חינם בהזמנות מעל {{ thrLabel }}</span></span></div>
+      <div style="background:#F4F4F2;padding:clamp(16px,2vw,24px);display:grid;grid-template-columns:52px minmax(0,1fr);gap:16px;align-items:center"><span style="width:52px;height:52px;background:#fff;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.7"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg></span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:17px;font-weight:800;line-height:1.2">סניף בבאר שבע</span><span style="font-size:14px;color:#5E5E5B">הפועלים 20 — מוזמנים למדוד</span></span></div>
+      <div style="background:#F4F4F2;padding:clamp(16px,2vw,24px);display:grid;grid-template-columns:52px minmax(0,1fr);gap:16px;align-items:center"><span style="width:52px;height:52px;background:#fff;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.7"><rect x="5" y="10" width="14" height="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:17px;font-weight:800;line-height:1.2">תשלום מאובטח</span><span style="font-size:14px;color:#5E5E5B">כל אמצעי התשלום המקובלים</span></span></div>
+      <div style="background:#F4F4F2;padding:clamp(16px,2vw,24px);display:grid;grid-template-columns:52px minmax(0,1fr);gap:16px;align-items:center"><span style="width:52px;height:52px;background:#fff;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.7"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1Z"></path></svg></span><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:17px;font-weight:800;line-height:1.2">ייעוץ בטלפון</span><a href="tel:08-6233803" style="font-size:14px;font-weight:700;direction:ltr;text-align:right;text-decoration:underline">08-6233803</a></span></div>
+    </div>
+  </section>
+</main>
+</sc-if>
+<!-- CATEGORY -->
+<sc-if value="{{ isCat }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Category" style="max-width:1440px;margin:0 auto;padding:clamp(18px,3vw,36px) clamp(16px,3vw,40px) 0">
+  <div style="display:flex;gap:8px;font-size:14px;color:#5E5E5B;margin-bottom:14px"><button onClick="{{ goHome }}" style="background:none;border:0;padding:0;cursor:pointer;color:#5E5E5B">בית</button><span>/</span><span style="color:#111;font-weight:600">{{ cat.name }}</span></div>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:20px">
+    <h1 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(64px,8vw,128px);line-height:.8;margin:0">{{ cat.name }}</h1>
+    <span style="font-size:15px;font-weight:600;color:#5E5E5B">{{ resultsLabel }}</span>
+  </div>
+  <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:20px;margin-inline:calc(-1 * clamp(16px,3vw,40px));padding-inline:clamp(16px,3vw,40px)">
+    <sc-for list="{{ subChips }}" as="s" hint-placeholder-count="5"><button onClick="{{ s.onClick }}" style="flex:none;height:40px;padding:0 16px;border:1px solid {{ s.border }};background:{{ s.bg }};color:{{ s.fg }};font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">{{ s.name }}</button></sc-for>
+  </div>
+  <sc-if value="{{ isM }}" hint-placeholder-val="{{ false }}">
+    <div style="position:sticky;top:58px;z-index:20;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 0;background:#fff;margin-bottom:12px">
+      <button onClick="{{ openFilters }}" style="height:48px;border:0;background:#111;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>סינון{{ filterCountLabel }}</button>
+      <select value="{{ sort }}" onChange="{{ onSort }}" style="width:100%;height:48px;border:1px solid #111;border-radius:0;background:#fff;padding:0 14px;font-size:15px;font-weight:600;appearance:none;-webkit-appearance:none;text-align:center"><option value="pop">מיון: פופולריים</option><option value="asc">מחיר: נמוך לגבוה</option><option value="desc">מחיר: גבוה לנמוך</option></select>
+    </div>
+  </sc-if>
+  <div style="display:flex;gap:clamp(24px,3vw,48px);align-items:flex-start;border-top:1px solid #E4E4E1;padding-top:24px">
+    <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}">
+      <aside style="flex:0 0 250px;position:sticky;top:150px;display:flex;flex-direction:column;gap:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:16px"><span style="font-size:18px;font-weight:800">סינון</span><sc-if value="{{ hasFilters }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearFilters }}" style="background:none;border:0;padding:0;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer">ניקוי</button></sc-if></div>
+        <sc-if value="{{ hasStdOpts }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #E4E4E1;padding:18px 0"><span style="font-size:15px;font-weight:700">תקן בטיחות</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ stdOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.onClick }}" style="height:36px;min-width:50px;padding:0 10px;border:1px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};font-size:14px;font-weight:700;cursor:pointer">{{ o.label }}</button></sc-for></div></div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #E4E4E1;padding:18px 0"><span style="font-size:15px;font-weight:700">מידה</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ sizeOpts }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.onClick }}" style="height:36px;min-width:42px;padding:0 8px;border:1px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};font-size:14px;font-weight:600;cursor:pointer;direction:ltr">{{ o.label }}</button></sc-for></div></div>
+        <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #E4E4E1;padding:18px 0"><span style="font-size:15px;font-weight:700">צבע</span><div style="display:flex;flex-wrap:wrap;gap:9px"><sc-for list="{{ colorOpts }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.onClick }}" title="{{ o.label }}" aria-label="{{ o.label }}" style="width:28px;height:28px;border-radius:50%;border:0;padding:0;background:{{ o.hex }};box-shadow:{{ o.ring }};cursor:pointer"></button></sc-for></div></div>
+        <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid #E4E4E1;padding:18px 0"><div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:700">מחיר עד</span><span style="font-size:15px;font-weight:700">{{ priceMaxLabel }}</span></div><input type="range" min="{{ priceMin }}" max="{{ priceTop }}" value="{{ priceMax }}" onInput="{{ onPrice }}" style="width:100%;accent-color:#111"></div>
+        <sc-if value="{{ hasBrandOpts }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;border-top:1px solid #E4E4E1;padding:18px 0"><span style="font-size:15px;font-weight:700;margin-bottom:6px">מותג</span><sc-for list="{{ brandOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:10px;background:none;border:0;padding:6px 0;font-size:15px;cursor:pointer;text-align:right"><span style="width:18px;height:18px;border:2px solid #111;background:{{ o.bg }}"></span>{{ o.label }}</button></sc-for></div></sc-if>
+        <button onClick="{{ toggleStock }}" style="display:flex;align-items:center;justify-content:space-between;background:none;border:0;border-top:1px solid #E4E4E1;padding:18px 0;font-size:15px;font-weight:700;cursor:pointer">במלאי בלבד<span style="width:40px;height:22px;background:{{ stockBg }};position:relative;transition:background .2s"><span style="position:absolute;top:3px;right:{{ stockKnob }};width:16px;height:16px;background:#fff;transition:right .2s"></span></span></button>
+      </aside>
+    </sc-if>
+    <div style="flex:1;min-width:0">
+      <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px;font-size:15px">
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ activeChips }}" as="a" hint-placeholder-count="0"><button onClick="{{ a.onClick }}" style="height:34px;padding:0 12px;border:0;background:#F4F4F2;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">{{ a.label }}<span>×</span></button></sc-for></div>
+          <label style="display:flex;align-items:center;gap:10px;font-weight:600">מיון<select value="{{ sort }}" onChange="{{ onSort }}" style="height:42px;border:1px solid #111;border-radius:0;background:#fff;padding:0 12px;font-size:15px;font-weight:600;cursor:pointer"><option value="pop">פופולריים</option><option value="asc">מחיר: נמוך לגבוה</option><option value="desc">מחיר: גבוה לנמוך</option></select></label>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(44%,260px),1fr));gap:clamp(28px,3vw,44px) 8px">
+          <sc-for list="{{ catCards }}" as="pc" hint-placeholder-count="6"><dc-import name="ProductTile" p="{{ pc }}" hint-size="100%,440px"></dc-import></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:80px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;background:#F4F4F2">
+          <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:64px;line-height:.85">{{ emptyTitle }}</span>
+          <span style="font-size:16px;color:#5E5E5B;max-width:42ch">{{ emptyText }}</span>
+          <button onClick="{{ clearFilters }}" style="margin-top:8px;height:50px;padding:0 24px;border:0;background:#111;color:#fff;font-size:15px;font-weight:700;cursor:pointer">{{ emptyCta }}</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ canLoadMore }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:56px">
+          <span style="font-size:14px;font-weight:600">{{ shownLabel }}</span>
+          <div style="width:200px;height:3px;background:#E4E4E1"><div style="height:3px;background:#111;width:{{ shownPct }}"></div></div>
+          <button onClick="{{ loadMore }}" style="height:52px;padding:0 32px;border:2px solid #111;background:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px" style-hover="background:#111;color:#fff">טעינת מוצרים נוספים</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</main>
+</sc-if>
+
+<!-- PRODUCT -->
+<sc-if value="{{ isPdp }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Product" style="max-width:1440px;margin:0 auto;padding:clamp(0px,2vw,24px) clamp(0px,3vw,40px) 0">
+  <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;gap:8px;font-size:14px;color:#5E5E5B;margin-bottom:18px"><button onClick="{{ goHome }}" style="background:none;border:0;padding:0;cursor:pointer;color:#5E5E5B">בית</button><span>/</span><button onClick="{{ pdp.onCat }}" style="background:none;border:0;padding:0;cursor:pointer;color:#5E5E5B">{{ pdp.catName }}</button><span>/</span><span style="color:#111;font-weight:600">{{ pdp.name }}</span></div>
+  </sc-if>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:clamp(20px,4vw,64px);align-items:start">
+    <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}">
+      <div style="position:sticky;top:150px;display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ pdp.thumbs }}" as="t" hint-placeholder-count="2">
+            <button onClick="{{ t.onClick }}" aria-label="תמונה" style="position:relative;aspect-ratio:1/1.1;border:0;padding:0;background:#F4F4F2;overflow:hidden;cursor:pointer;box-shadow:inset 0 0 0 2px {{ t.ring }}">
+              <sc-if value="{{ t.isImg }}" hint-placeholder-val="{{ false }}"><img src="{{ t.src }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if>
+              <sc-if value="{{ t.isTxt }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:22px;color:#8A8A86">{{ t.text }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div style="position:relative;aspect-ratio:1/1.1;background:#F4F4F2;overflow:hidden">
+          <sc-if value="{{ gal.isImg }}" hint-placeholder-val="{{ false }}"><img src="{{ gal.src }}" alt="{{ pdp.name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply;cursor:zoom-in;transition:transform .8s cubic-bezier(.2,.7,.2,1)" style-hover="transform:scale(1.12)"></sc-if>
+          <sc-if value="{{ gal.isPh }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(80px,9vw,140px);color:#D2D2CD">{{ gal.text }}</span></sc-if>
+          <sc-if value="{{ gal.isSpec }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;padding:clamp(24px,3vw,44px);display:flex;flex-direction:column;justify-content:flex-end;gap:0;background:#111;color:#fff"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:72px;line-height:.8;color:#FFD100;margin-bottom:24px">מפרט</span><sc-for list="{{ gal.rows }}" as="r"><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #333;padding:14px 0;font-size:17px"><span style="color:#BDBDB7">{{ r.k }}</span><span style="font-weight:700;text-align:left">{{ r.v }}</span></div></sc-for></div></sc-if>
+          <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px">
+            <sc-if value="{{ pdp.hasDeal }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;font-size:14px;font-weight:800;padding:5px 10px">{{ pdp.dealTag }}</span></sc-if>
+            <sc-if value="{{ pdp.hasCompare }}" hint-placeholder-val="{{ false }}"><span style="background:#111;color:#fff;font-size:14px;font-weight:700;padding:5px 10px;direction:ltr">{{ pdp.pct }}</span></sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isM }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative">
+        <div onScroll="{{ onGalScroll }}" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory">
+          <sc-for list="{{ pdp.slides }}" as="sl" hint-placeholder-count="2">
+            <div style="flex:0 0 100%;scroll-snap-align:center;position:relative;aspect-ratio:1/1.1;background:#F4F4F2">
+              <sc-if value="{{ sl.isImg }}" hint-placeholder-val="{{ false }}"><img src="{{ sl.src }}" alt="{{ pdp.name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if>
+              <sc-if value="{{ sl.isPh }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:96px;color:#D2D2CD">{{ sl.text }}</span></sc-if>
+              <sc-if value="{{ sl.isSpec }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;padding:24px;display:flex;flex-direction:column;justify-content:flex-end;background:#111;color:#fff"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:60px;line-height:.8;color:#FFD100;margin-bottom:18px">מפרט</span><sc-for list="{{ sl.rows }}" as="r"><div style="display:flex;justify-content:space-between;gap:12px;border-top:1px solid #333;padding:12px 0;font-size:15px"><span style="color:#BDBDB7">{{ r.k }}</span><span style="font-weight:700;text-align:left">{{ r.v }}</span></div></sc-for></div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;bottom:14px;right:0;left:0;display:flex;justify-content:center;gap:5px;pointer-events:none"><sc-for list="{{ galDots }}" as="dt" hint-placeholder-count="2"><span style="width:{{ dt.w }};height:3px;background:#111;opacity:{{ dt.o }};transition:width .25s"></span></sc-for></div>
+        <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px"><sc-if value="{{ pdp.hasDeal }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;font-size:13px;font-weight:800;padding:4px 9px">{{ pdp.dealTag }}</span></sc-if></div>
+        <button onClick="{{ goBack }}" aria-label="חזרה" style="position:absolute;top:12px;left:12px;width:42px;height:42px;border:0;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">→</button>
+      </div>
+    </sc-if>
+
+    <div style="display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:10px;padding-inline:{{ mPad }}">
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;font-weight:600;color:#5E5E5B"><span>{{ pdp.brand }}</span><span style="direction:ltr">{{ pdp.skuLabel }}</span></div>
+        <h1 style="font-size:clamp(26px,2.6vw,38px);font-weight:800;line-height:1.15;margin:0;text-wrap:pretty">{{ pdp.name }}</h1>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-size:28px;font-weight:800">{{ pdp.priceLabel }}</span><sc-if value="{{ pdp.hasCompare }}" hint-placeholder-val="{{ false }}"><s style="font-size:18px;color:#8A8A86">{{ pdp.compareLabel }}</s></sc-if></div>
+        <sc-if value="{{ pdp.hasStd }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ pdp.std }}" as="t"><span style="font-size:13px;font-weight:800;background:#111;color:#fff;padding:4px 9px">{{ t.label }}</span></sc-for></div></sc-if>
+      </div>
+
+      <sc-if value="{{ pdp.hasPacks }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:6px;padding-inline:{{ mPad }}">
+          <span style="font-size:15px;font-weight:800;margin-bottom:4px">בחרו חבילה</span>
+          <sc-for list="{{ pdp.packs }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ t.onClick }}" style="position:relative;display:grid;grid-template-columns:22px 1fr auto;gap:14px;align-items:center;text-align:right;border:0;box-shadow:inset 0 0 0 {{ t.ringW }} #111;background:{{ t.bg }};padding:14px 16px;cursor:pointer;transition:box-shadow .15s,background .15s">
+              <span style="width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 2px #111;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{ t.dot }}"></span></span>
+              <span style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800">{{ t.label }}<sc-if value="{{ t.hasTag }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;font-size:12px;font-weight:800;padding:2px 7px">{{ t.tag }}</span></sc-if></span><span style="font-size:13px;color:#5E5E5B">{{ t.sub }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px"><span style="font-size:18px;font-weight:800">{{ t.price }}</span><sc-if value="{{ t.hasWas }}" hint-placeholder-val="{{ false }}"><s style="font-size:13px;color:#8A8A86">{{ t.was }}</s></sc-if></span>
+            </button>
+          </sc-for>
+          <span style="font-size:14px;font-weight:700;color:{{ pdp.fbColor }};margin-top:4px">{{ pdp.feedback }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pdp.hasColors }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:10px;padding-inline:{{ mPad }}">
+          <div style="font-size:15px"><span style="font-weight:800">צבע: </span>{{ pdp.colorName }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px"><sc-for list="{{ pdp.colors }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" aria-label="{{ c.name }}" title="{{ c.name }}" style="width:38px;height:38px;border-radius:50%;border:0;padding:0;background:{{ c.hex }};box-shadow:{{ c.ring }};cursor:pointer;transition:box-shadow .2s"></button></sc-for></div>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;flex-direction:column;gap:10px;padding-inline:{{ mPad }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:15px"><span><span style="font-weight:800">מידה: </span>{{ pdp.sizeName }}</span><button onClick="{{ openSizeGuide }}" style="background:none;border:0;padding:0;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer">מדריך מידות</button></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px"><sc-for list="{{ pdp.sizes }}" as="s" hint-placeholder-count="7"><button onClick="{{ s.onClick }}" style="height:50px;border:0;box-shadow:inset 0 0 0 1px {{ s.border }};background:{{ s.bg }};color:{{ s.fg }};font-size:15px;font-weight:700;cursor:pointer;direction:ltr;transition:all .15s">{{ s.label }}</button></sc-for></div>
+        <sc-if value="{{ sizeErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:700;color:#B3261E">יש לבחור מידה לפני ההוספה לסל</span></sc-if>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:stretch;padding-inline:{{ mPad }}">
+        <div style="display:flex;align-items:center;box-shadow:inset 0 0 0 1px #111;height:58px;flex:none">
+          <button onClick="{{ qtyInc }}" aria-label="הוספת יחידה" style="width:48px;height:58px;border:0;background:none;font-size:22px;cursor:pointer">+</button>
+          <span style="min-width:30px;text-align:center;font-weight:800;font-size:17px">{{ qty }}</span>
+          <button onClick="{{ qtyDec }}" aria-label="הפחתת יחידה" style="width:48px;height:58px;border:0;background:none;font-size:22px;cursor:pointer">−</button>
+        </div>
+        <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}"><button onClick="{{ addToCart }}" style="flex:1;height:58px;border:0;background:{{ addBg }};color:#fff;font-size:16px;font-weight:800;cursor:pointer;transition:background .25s">{{ addLabel }}</button></sc-if>
+        <sc-if value="{{ isM }}" hint-placeholder-val="{{ false }}"><span style="align-self:center;font-size:14px;font-weight:600;color:#1F7A3D">{{ stockLabel }}</span></sc-if>
+      </div>
+      <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#1F7A3D;margin-top:-8px"><span style="width:8px;height:8px;background:#1F7A3D"></span>{{ stockLabel }}</div></sc-if>
+
+      <div style="margin-inline:{{ mPad }};box-shadow:inset 0 0 0 1px #E4E4E1;display:flex;flex-direction:column">
+        <div style="background:#111;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="font-size:16px;font-weight:800">{{ bundle.title }}</span><sc-if value="{{ bundle.hasSave }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;color:#111;font-size:13px;font-weight:800;padding:3px 8px">חיסכון {{ bundle.save }}</span></sc-if></div>
+        <sc-for list="{{ bundle.rows }}" as="r" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:24px 60px minmax(0,1fr);gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid #E4E4E1;opacity:{{ r.op }};transition:opacity .2s">
+            <button onClick="{{ r.onToggle }}" aria-label="בחירה" style="width:22px;height:22px;border:0;padding:0;box-shadow:inset 0 0 0 2px #111;background:{{ r.boxBg }};display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff"><sc-if value="{{ r.on }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-10"></path></svg></sc-if></button>
+            <div style="position:relative;width:60px;height:66px;background:#F4F4F2;overflow:hidden"><sc-if value="{{ r.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ r.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if><sc-if value="{{ r.noImg }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:22px;color:#BDBDB7">{{ r.ph }}</span></sc-if></div>
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:14px;font-weight:700;line-height:1.3">{{ r.name }}</span><span style="font-size:15px;font-weight:800;white-space:nowrap">{{ r.price }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                <span style="font-size:13px;color:#5E5E5B">{{ r.qtyLabel }}</span>
+                <sc-if value="{{ r.needsSize }}" hint-placeholder-val="{{ false }}"><select value="{{ r.size }}" onChange="{{ r.onSize }}" style="height:34px;border:0;box-shadow:inset 0 0 0 1px {{ r.selBorder }};border-radius:0;background:#fff;padding:0 8px;font-size:13px;font-weight:600;direction:ltr;min-width:84px"><sc-for list="{{ r.sizeOpts }}" as="o"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select></sc-if>
+                <sc-if value="{{ r.isMain }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:700;direction:ltr">{{ r.mainSize }}</span></sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+        <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:22px;font-weight:800">{{ bundle.total }}</span><sc-if value="{{ bundle.hasSave }}" hint-placeholder-val="{{ false }}"><s style="font-size:14px;color:#8A8A86">{{ bundle.regular }}</s></sc-if></span>
+          <button onClick="{{ bundle.onAdd }}" style="height:48px;padding:0 20px;border:0;background:#111;color:#fff;font-size:15px;font-weight:800;cursor:pointer" style-hover="background:#333">{{ bundle.cta }}</button>
+        </div>
+        <sc-if value="{{ bundle.err }}" hint-placeholder-val="{{ false }}"><div style="padding:0 16px 14px;font-size:13px;font-weight:700;color:#B3261E">בחרו מידה לכל פריט מסומן בסט</div></sc-if>
+      </div>
+
+      <div style="display:flex;flex-direction:column;border-top:1px solid #111;margin-inline:{{ mPad }}">
+        <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid #E4E4E1;font-size:15px;line-height:1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"></path><circle cx="7" cy="17.5" r="1.8"></circle><circle cx="17" cy="17.5" r="1.8"></circle></svg><div><b style="font-weight:800">משלוח עד הבית</b> · {{ shipLine }}</div></div>
+        <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid #E4E4E1;font-size:15px;line-height:1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg><div><b style="font-weight:800">סניף באר שבע</b> · הפועלים 20 — אפשר להגיע ולמדוד</div></div>
+        <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid #E4E4E1;font-size:15px;line-height:1.5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1Z"></path></svg><div><b style="font-weight:800">התלבטות במידה?</b> · <a href="tel:08-6233803" style="text-decoration:underline">08-6233803</a></div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;margin-inline:{{ mPad }}">
+        <sc-for list="{{ pdp.accs }}" as="a" hint-placeholder-count="3">
+          <div style="border-bottom:1px solid #E4E4E1">
+            <button onClick="{{ a.onClick }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:0;padding:18px 0;font-size:16px;font-weight:800;cursor:pointer;text-align:right">{{ a.title }}<span style="font-size:22px;font-weight:400;width:22px;text-align:center">{{ a.icon }}</span></button>
+            <sc-if value="{{ a.open }}" hint-placeholder-val="{{ false }}"><div style="padding:0 0 20px;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.6"><sc-for list="{{ a.lines }}" as="ln"><div style="display:grid;grid-template-columns:{{ a.cols }};gap:12px"><span style="color:#5E5E5B">{{ ln.k }}</span><span>{{ ln.v }}</span></div></sc-for></div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <section style="padding:clamp(64px,7vw,104px) 0 0">
+    <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(48px,5.5vw,84px);line-height:.82;margin:0 0 24px;padding-inline:{{ mPad }}">עוד מהקטגוריה</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(44%,260px),1fr));gap:clamp(28px,3vw,44px) 8px;padding-inline:{{ mPad }}"><sc-for list="{{ relatedCards }}" as="pc" hint-placeholder-count="4"><dc-import name="ProductTile" p="{{ pc }}" hint-size="100%,440px"></dc-import></sc-for></div>
+  </section>
+  <section style="padding:clamp(56px,6vw,88px) 0 0">
+    <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(48px,5.5vw,84px);line-height:.82;margin:0 0 24px;padding-inline:{{ mPad }}">אביזרים משלימים</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(44%,260px),1fr));gap:clamp(28px,3vw,44px) 8px;padding-inline:{{ mPad }}"><sc-for list="{{ accCards }}" as="pc" hint-placeholder-count="4"><dc-import name="ProductTile" p="{{ pc }}" hint-size="100%,440px"></dc-import></sc-for></div>
+  </section>
+
+  <sc-if value="{{ isM }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:0;right:0;left:0;z-index:45;background:#fff;border-top:1px solid #E4E4E1;padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px">
+      <div style="display:flex;flex-direction:column;flex:none;min-width:0;padding-inline-start:4px"><span style="font-size:18px;font-weight:800;line-height:1.2">{{ lineTotal }}</span><span style="font-size:12px;font-weight:600;color:#5E5E5B">{{ stickySub }}</span></div>
+      <button onClick="{{ addToCart }}" style="flex:1;height:54px;border:0;background:{{ addBg }};color:#fff;font-size:16px;font-weight:800;transition:background .25s">{{ addLabelShort }}</button>
+    </div>
+  </sc-if>
+</main>
+</sc-if>
+<!-- ACCOUNT -->
+<sc-if value="{{ isAcct }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Account" style="max-width:1440px;margin:0 auto;padding:clamp(24px,5vw,72px) clamp(16px,3vw,40px) clamp(56px,7vw,112px)">
+  <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;max-width:1160px;margin:0 auto">
+      <div style="flex:1 1 460px;min-width:0;background:#F4F4F2;padding:clamp(24px,5vw,64px);display:flex;flex-direction:column;gap:28px">
+        <sc-if value="{{ otpPhone }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:28px">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <span style="font-size:14px;font-weight:700;color:#5E5E5B">כניסה / הרשמה</span>
+              <h1 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(52px,6vw,84px);line-height:.82;margin:0">כניסה עם קוד לנייד</h1>
+              <p style="margin:0;font-size:17px;color:#5E5E5B;line-height:1.55;max-width:44ch;text-wrap:pretty">נשלח אליכם קוד חד־פעמי ב-SMS, בלי סיסמה. אם זו הפעם הראשונה שלכם, החשבון ייפתח אוטומטית.</p>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">מספר טלפון נייד<input value="{{ phone }}" onChange="{{ onPhone }}" onKeyDown="{{ onPhoneKey }}" type="tel" inputmode="numeric" autocomplete="tel" placeholder="050-0000000" style="height:54px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit;height:60px;font-size:20px;font-weight:700;letter-spacing:.04em;direction:ltr;text-align:right;box-shadow:inset 0 0 0 {{ phoneRing }}"></label>
+            <sc-if value="{{ hasOtpErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:700;color:#B3261E;margin-top:-16px">{{ otpErr }}</span></sc-if>
+            <button onClick="{{ sendOtp }}" style="height:60px;border:0;background:#111;color:#fff;font-size:17px;font-weight:800;cursor:pointer;font-family:inherit" style-hover="background:#333">{{ sendLabel }}</button>
+            <span style="font-size:13px;color:#5E5E5B;line-height:1.5">בכניסה לחשבון אתם מאשרים את תקנון האתר ומדיניות הפרטיות.</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ otpCodeStage }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:28px">
+            <button onClick="{{ otpBack }}" style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111;text-decoration:none;align-self:flex-start;display:flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 6 6 6-6 6"></path></svg>שינוי מספר</button>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <h1 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(52px,6vw,84px);line-height:.82;margin:0">הזנת קוד אימות</h1>
+              <p style="margin:0;font-size:17px;color:#5E5E5B;line-height:1.55;display:flex;flex-wrap:wrap;gap:6px">שלחנו קוד בן 6 ספרות למספר<span style="direction:ltr;font-weight:800;color:#111">{{ phoneMasked }}</span></p>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;max-width:440px;direction:ltr">
+              <sc-for list="{{ otpBoxes }}" as="b" hint-placeholder-count="6">
+                <input ref="{{ b.ref }}" value="{{ b.val }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKey }}" onFocus="{{ b.onFocus }}" inputmode="numeric" autocomplete="one-time-code" aria-label="{{ b.aria }}" style="width:100%;min-width:0;height:clamp(56px,7vw,68px);border:0;background:#fff;box-shadow:inset 0 0 0 {{ b.ring }};text-align:center;font-size:28px;font-weight:800;font-family:inherit;padding:0;transition:box-shadow .15s">
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasOtpErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:700;color:#B3261E;margin-top:-16px">{{ otpErr }}</span></sc-if>
+            <button onClick="{{ verifyNow }}" style="height:60px;border:0;background:#111;color:#fff;font-size:17px;font-weight:800;cursor:pointer;font-family:inherit;max-width:440px" style-hover="background:#333">{{ verifyLabel }}</button>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px">
+              <span style="color:#5E5E5B">לא קיבלתם קוד?</span>
+              <sc-if value="{{ canResend }}" hint-placeholder-val="{{ false }}"><button onClick="{{ resendOtp }}" style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111">שליחה חוזרת</button></sc-if>
+              <sc-if value="{{ waitResend }}" hint-placeholder-val="{{ true }}"><span style="font-weight:700">שליחה חוזרת בעוד {{ resendIn }}</span></sc-if>
+            </div>
+            <span style="align-self:flex-start;background:#FFD100;padding:8px 12px;font-size:13px;font-weight:700">הדגמה: כל קוד בן 6 ספרות יתקבל</span>
+          </div>
+        </sc-if>
+      </div>
+      <div style="flex:1 1 320px;min-width:0;background:#111;color:#fff;padding:clamp(24px,4vw,48px);display:flex;flex-direction:column;gap:28px">
+        <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(44px,4.5vw,64px);line-height:.85;color:#FFD100">באזור האישי</span>
+        <div style="display:flex;flex-direction:column;border-top:1px solid #333">
+          <div style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #333"><span style="font-size:14px;font-weight:800;color:#FFD100">01</span><span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:17px;font-weight:800">מעקב אחרי הזמנות</span><span style="font-size:14px;color:#B5B5B0;line-height:1.5">סטטוס כל הזמנה, מהקבלה ועד המסירה.</span></span></div>
+          <div style="display:flex;gap:16px;padding:18px 0;border-bottom:1px solid #333"><span style="font-size:14px;font-weight:800;color:#FFD100">02</span><span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:17px;font-weight:800">הזמנה חוזרת בלחיצה</span><span style="font-size:14px;color:#B5B5B0;line-height:1.5">אותם פריטים, צבעים ומידות, ישר לסל.</span></span></div>
+          <div style="display:flex;gap:16px;padding:18px 0"><span style="font-size:14px;font-weight:800;color:#FFD100">03</span><span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:17px;font-weight:800">כתובות ופרטי עסק שמורים</span><span style="font-size:14px;color:#B5B5B0;line-height:1.5">קופה מהירה יותר וחשבונית על שם העסק.</span></span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ showArea }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:clamp(24px,3.5vw,44px)">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid #111;padding-bottom:clamp(16px,2.5vw,28px)">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:14px;font-weight:700;color:#5E5E5B">האזור האישי</span>
+          <h1 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.8;margin:0">שלום, אבי</h1>
+          <span style="font-size:15px;color:#5E5E5B;display:flex;flex-wrap:wrap;gap:6px">כהן בנייה ותשתיות בע״מ ·<span style="direction:ltr">{{ phoneMasked }}</span></span>
+        </div>
+        <button onClick="{{ logout }}" style="height:46px;padding:0 18px;border:2px solid #111;background:transparent;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">התנתקות</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:clamp(20px,3vw,48px);align-items:flex-start">
+        <sc-if value="{{ isD }}" hint-placeholder-val="{{ true }}">
+          <nav style="flex:0 0 240px;position:sticky;top:130px;display:flex;flex-direction:column;gap:4px">
+            <sc-for list="{{ acctNav }}" as="n" hint-placeholder-count="3"><button onClick="{{ n.onClick }}" style="background:{{ n.bg }};color:{{ n.fg }};border:0;padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;text-align:right;flex:none"><span>{{ n.label }}</span><sc-if value="{{ n.hasCount }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;color:#111;min-width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;padding:0 6px">{{ n.count }}</span></sc-if></button></sc-for>
+          </nav>
+        </sc-if>
+        <sc-if value="{{ isM }}" hint-placeholder-val="{{ false }}">
+          <nav style="flex:1 1 100%;display:flex;gap:4px;overflow-x:auto;margin:0 -16px;padding:0 16px">
+            <sc-for list="{{ acctNav }}" as="n" hint-placeholder-count="3"><button onClick="{{ n.onClick }}" style="background:{{ n.bg }};color:{{ n.fg }};border:0;padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;text-align:right;flex:none"><span>{{ n.label }}</span><sc-if value="{{ n.hasCount }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;color:#111;min-width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;padding:0 6px">{{ n.count }}</span></sc-if></button></sc-for>
+          </nav>
+        </sc-if>
+        <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:12px">
+          <sc-if value="{{ tabOrders }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ orders }}" as="o" hint-placeholder-count="3">
+              <div style="background:{{ o.bg }};box-shadow:inset 0 0 0 {{ o.ring }};padding:clamp(18px,2.5vw,28px);display:flex;flex-direction:column;gap:20px">
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:12px">
+                  <span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:18px;font-weight:800">הזמנה #{{ o.no }}</span><span style="font-size:14px;color:#5E5E5B">{{ o.date }} · {{ o.units }}</span></span>
+                  <span style="background:{{ o.pillBg }};padding:6px 12px;font-size:14px;font-weight:800">{{ o.status }}</span>
+                </div>
+                <sc-if value="{{ o.isActive }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px">
+                      <sc-for list="{{ o.track }}" as="t" hint-placeholder-count="4"><span style="display:flex;flex-direction:column;gap:8px;min-width:0"><span style="height:4px;background:{{ t.bar }}"></span><span style="font-size:13px;font-weight:{{ t.w }};color:{{ t.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span></span></sc-for>
+                    </div>
+                    <span style="font-size:15px;font-weight:700">{{ o.eta }}</span>
+                  </div>
+                </sc-if>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <sc-for list="{{ o.thumbs }}" as="th" hint-placeholder-count="2">
+                    <span style="position:relative;width:64px;height:64px;background:#F4F4F2;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center">
+                      <sc-if value="{{ th.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ th.img }}" alt="{{ th.name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if>
+                      <sc-if value="{{ th.noImg }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:22px;color:#8A8A86">{{ th.ph }}</span></sc-if>
+                      <span style="position:absolute;bottom:0;left:0;background:#111;color:#fff;font-size:11px;font-weight:800;padding:2px 5px">×{{ th.qty }}</span>
+                    </span>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ o.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;border-top:1px solid #E4E4E1">
+                    <sc-for list="{{ o.lines }}" as="l" hint-placeholder-count="2">
+                      <div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #EFEFEC;font-size:15px"><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">{{ l.name }}</span><span style="font-size:13px;color:#5E5E5B">{{ l.variant }}</span></span><span style="font-weight:700;white-space:nowrap">{{ l.price }}</span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid #E4E4E1;padding-top:16px">
+                  <span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;color:#5E5E5B">סה״כ</span><span style="font-size:22px;font-weight:800">{{ o.total }}</span></span>
+                  <span style="display:flex;align-items:center;gap:16px">
+                    <button onClick="{{ o.onToggle }}" style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111">{{ o.toggleLabel }}</button>
+                    <button onClick="{{ o.onReorder }}" style="height:46px;padding:0 18px;border:0;background:#111;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit" style-hover="background:#333">הזמנה חוזרת</button>
+                  </span>
+                </div>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ tabAddr }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:8px">
+              <div style="background:#fff;box-shadow:inset 0 0 0 2px #111;padding:24px;display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:17px;font-weight:800">משרד ראשי</span><span style="background:#FFD100;padding:4px 10px;font-size:13px;font-weight:800">ברירת מחדל</span></div>
+                <span style="font-size:15px;line-height:1.6;color:#3A3A38">אבי כהן<br>הפועלים 20<br>באר שבע</span>
+                <div style="display:flex;gap:16px;margin-top:auto"><button style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111">עריכה</button></div>
+              </div>
+              <div style="background:#F4F4F2;padding:24px;display:flex;flex-direction:column;gap:14px">
+                <span style="font-size:17px;font-weight:800">אתר עבודה – נתיבות</span>
+                <span style="font-size:15px;line-height:1.6;color:#3A3A38">מנהל עבודה: יוסי<br>אזור התעשייה<br>נתיבות</span>
+                <div style="display:flex;gap:16px;margin-top:auto"><button style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111">עריכה</button><button style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111">הגדרה כברירת מחדל</button><button style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit;color:#111">הסרה</button></div>
+              </div>
+              <button style="min-height:180px;border:2px dashed #111;background:transparent;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit">+ הוספת כתובת</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ tabDetails }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#F4F4F2;padding:clamp(20px,3.5vw,40px);display:flex;flex-direction:column;gap:24px">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px">
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">שם מלא<input defaultValue="אבי כהן" autocomplete="name" style="height:54px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit"></label>
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">אימייל<input defaultValue="avi@cohen-build.co.il" type="email" autocomplete="email" style="height:54px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit;direction:ltr;text-align:right"></label>
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700"><span style="display:flex;justify-content:space-between;align-items:center">טלפון נייד<span style="font-size:12px;font-weight:800;background:#111;color:#fff;padding:2px 8px">מאומת</span></span><input value="{{ phoneFmt }}" readOnly="{{ true }}" style="height:54px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit;background:#EAEAE6;color:#5E5E5B;direction:ltr;text-align:right"></label>
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">שם העסק לחשבונית<input defaultValue="כהן בנייה ותשתיות בע״מ" autocomplete="organization" style="height:54px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit"></label>
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">ח.פ / ע.מ<input defaultValue="515000000" inputmode="numeric" style="height:54px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit;direction:ltr;text-align:right"></label>
+              </div>
+              <label style="display:flex;align-items:center;gap:12px;font-size:15px;font-weight:600;cursor:pointer"><input type="checkbox" defaultChecked="{{ true }}" style="width:20px;height:20px;accent-color:#111;margin:0">עדכונים על מבצעי כמות ב-SMS</label>
+              <button onClick="{{ saveDetails }}" style="align-self:flex-start;height:56px;padding:0 32px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit" style-hover="background:#333">שמירת פרטים</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</main>
+</sc-if>
+<!-- B2B -->
+<sc-if value="{{ isB2B }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Business">
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(28px,5vw,72px) clamp(16px,3vw,40px) 0">
+    <span style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="width:10px;height:10px;background:#FFD100"></span>הזמנות לעסקים וארגונים</span>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:clamp(24px,4vw,64px);align-items:end">
+      <h1 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(84px,11vw,184px);line-height:.8;margin:0">ביגוד ממותג<br>לכל הצוות.</h1>
+      <div style="display:flex;flex-direction:column;gap:22px;padding-bottom:8px">
+        <p style="font-size:clamp(17px,1.4vw,20px);line-height:1.55;color:#5E5E5B;margin:0;max-width:44ch">ביגוד עבודה, ייצוגי ומיגון עם הדפסה או רקמה של הלוגו שלכם. מפרטים פריטים, כמויות ומידות לכל עובד — ומקבלים הצעת מחיר מסודרת.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:480px">
+          <button onClick="{{ scrollToForm }}" style="height:56px;border:0;background:#111;color:#fff;font-size:16px;font-weight:700;cursor:pointer">לטופס הצעת מחיר</button>
+          <a href="tel:08-6233803" style="height:56px;border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;direction:ltr">08-6233803</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section style="max-width:1440px;margin:0 auto;padding:clamp(40px,6vw,80px) clamp(16px,3vw,40px) 0">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:8px">
+      <sc-for list="{{ services }}" as="sv" hint-placeholder-count="4">
+        <div style="background:{{ sv.bg }};color:{{ sv.fg }};padding:clamp(20px,2.4vw,32px);display:flex;flex-direction:column;justify-content:space-between;gap:48px;min-height:260px">
+          <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:72px;line-height:.75">{{ sv.t }}</span>
+          <span style="font-size:15px;line-height:1.55;font-weight:500">{{ sv.d }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+  <section ref="{{ formRef }}" style="max-width:1160px;margin:0 auto;padding:clamp(64px,8vw,120px) clamp(16px,3vw,40px) 0">
+    <h2 style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(56px,7vw,104px);line-height:.82;margin:0 0 28px">בקשה להצעת מחיר</h2>
+    <sc-if value="{{ b2bSent }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#F4F4F2;padding:clamp(28px,5vw,56px);display:flex;flex-direction:column;gap:14px;align-items:flex-start">
+        <span style="width:48px;height:48px;background:#FFD100;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><path d="m5 12 5 5 9-10"></path></svg></span>
+        <span style="font-size:28px;font-weight:800">הבקשה מוכנה לשליחה</span>
+        <span style="font-size:16px;color:#5E5E5B;line-height:1.6;max-width:52ch">{{ b2bSummary }}. בסביבת ההדגמה הטופס אינו נשלח בפועל — בגרסה החיה הוא יועבר לצוות ההזמנות ב-Hazmanot@ahim-cohen.co.il.</span>
+        <button onClick="{{ b2bReset }}" style="margin-top:8px;height:50px;padding:0 24px;border:2px solid #111;background:transparent;font-size:15px;font-weight:700;cursor:pointer">עריכת הבקשה</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ b2bForm }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-wrap:wrap;gap:clamp(16px,2.5vw,32px);align-items:flex-start">
+        <div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:20px">
+          <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">
+            <sc-for list="{{ bSteps }}" as="st" hint-placeholder-count="4">
+              <li style="min-width:0"><button onClick="{{ st.onClick }}" style="width:100%;background:none;border:0;padding:0;text-align:right;display:flex;flex-direction:column;gap:12px;cursor:pointer;font-family:inherit">
+                <span style="display:block;height:4px;background:{{ st.bar }};transition:background .35s"></span>
+                <span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ st.numBg }};color:{{ st.numFg }};box-shadow:inset 0 0 0 1.5px {{ st.ring }};font-size:14px;font-weight:800;transition:background .3s,color .3s">{{ st.num }}</span><span style="display:{{ st.labelDisp }};font-size:15px;font-weight:{{ st.w }};color:{{ st.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ st.label }}</span></span>
+              </button></li>
+            </sc-for>
+          </ol>
+          <div style="background:#F4F4F2;padding:clamp(20px,3.5vw,44px);display:flex;flex-direction:column;gap:24px">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:14px;font-weight:700;color:#5E5E5B">{{ bStepOf }}</span>
+              <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(40px,4.5vw,60px);line-height:.85">{{ bTitle }}</span>
+              <span style="font-size:16px;color:#5E5E5B;line-height:1.55;max-width:56ch;text-wrap:pretty">{{ bSub }}</span>
+            </div>
+            <sc-if value="{{ bS0 }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ b2bRows }}" as="r" hint-placeholder-count="1">
+            <div style="background:#fff;padding:16px;display:flex;flex-direction:column;gap:14px">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">פריט<select value="{{ r.pid }}" onChange="{{ r.onPid }}" style="height:48px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;border-radius:0;background:#fff;padding:0 12px;font-size:15px;font-weight:500"><sc-for list="{{ b2bProducts }}" as="o"><option value="{{ o.id }}">{{ o.name }}</option></sc-for></select></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">צבע<select value="{{ r.color }}" onChange="{{ r.onColor }}" style="height:48px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;border-radius:0;background:#fff;padding:0 12px;font-size:15px;font-weight:500"><sc-for list="{{ r.colors }}" as="o"><option value="{{ o.v }}">{{ o.name }}</option></sc-for></select></label>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:14px;font-weight:700">כמות לפי מידה</span>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px"><sc-for list="{{ r.sizes }}" as="s" hint-placeholder-count="7"><label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:700;direction:ltr">{{ s.label }}<input type="number" min="0" inputmode="numeric" value="{{ s.val }}" onChange="{{ s.onChange }}" placeholder="0" style="width:100%;height:46px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;text-align:center;font-size:16px;font-weight:700"></label></sc-for></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span style="font-weight:700">{{ r.total }}</span><sc-if value="{{ r.canRemove }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.onRemove }}" style="background:none;border:0;padding:0;font-weight:600;text-decoration:underline;cursor:pointer;font-size:14px">הסרה</button></sc-if></div>
+            </div>
+          </sc-for>
+          <button onClick="{{ b2bAddRow }}" style="align-self:flex-start;height:46px;padding:0 18px;border:2px dashed #111;background:transparent;font-size:15px;font-weight:700;cursor:pointer">+ הוספת פריט</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ bS1 }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:20px">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:8px">
+                  <sc-for list="{{ bBrandCards }}" as="o" hint-placeholder-count="3">
+                    <button onClick="{{ o.onClick }}" style="text-align:right;background:#fff;border:0;box-shadow:inset 0 0 0 {{ o.ringW }} #111;padding:20px;display:flex;flex-direction:column;gap:14px;cursor:pointer;font-family:inherit;transition:box-shadow .2s">
+                      <span style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:{{ o.boxBg }};box-shadow:inset 0 0 0 1.5px #111"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{ o.check }}" stroke-width="3"><path d="m5 12 5 5 9-10"></path></svg></span>
+                      <span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:18px;font-weight:800">{{ o.label }}</span><span style="font-size:14px;color:#5E5E5B;line-height:1.45">{{ o.desc }}</span></span>
+                    </button>
+                  </sc-for>
+                </div>
+                <label style="display:flex;align-items:center;gap:16px;background:#fff;padding:22px;cursor:pointer;box-shadow:inset 0 0 0 1px #CFCFCA" style-hover="box-shadow:inset 0 0 0 1.5px #111">
+                  <span style="width:52px;height:52px;background:#FFD100;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg></span>
+                  <span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:16px;font-weight:800;overflow-wrap:anywhere">{{ logoLabel }}</span><span style="font-size:13px;color:#5E5E5B">PNG, JPG, PDF, AI או SVG · לא חובה בשלב זה</span></span>
+                  <input type="file" accept=".png,.jpg,.jpeg,.pdf,.ai,.svg,.eps" onChange="{{ onLogo }}" style="display:none">
+                </label>
+              </div>
+            </sc-if>
+            <sc-if value="{{ bS2 }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px">
+                  <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">שם העסק / הארגון *<input value="{{ ctOrg }}" onChange="{{ setOrg }}" autocomplete="organization" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit"></label>
+                  <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">איש קשר *<input value="{{ ctName }}" onChange="{{ setName }}" autocomplete="name" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit"></label>
+                  <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">טלפון *<input value="{{ ctPhone }}" onChange="{{ setPhone }}" type="tel" inputmode="tel" autocomplete="tel" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit;direction:ltr;text-align:right"></label>
+                  <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">אימייל<input value="{{ ctEmail }}" onChange="{{ setEmail }}" type="email" autocomplete="email" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;font-family:inherit;direction:ltr;text-align:right"></label>
+                </div>
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:700">הערות — מועד אספקה רצוי, מיקום הלוגו<textarea value="{{ ctNotes }}" onChange="{{ setNotes }}" rows="4" style="border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:14px;font-size:16px;font-family:inherit;resize:vertical"></textarea></label>
+              </div>
+            </sc-if>
+            <sc-if value="{{ bS3 }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="background:#fff;padding:20px;display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:16px;font-weight:800">פריטים</span><button onClick="{{ bEdit0 }}" style="background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit">עריכה</button></div>
+                  <sc-for list="{{ bReview }}" as="rv" hint-placeholder-count="1">
+                    <div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #EFEFEC;padding-top:12px"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:15px;font-weight:700">{{ rv.name }}</span><span style="font-size:14px;color:#5E5E5B;direction:ltr;text-align:right">{{ rv.sizes }}</span></span><span style="font-size:15px;font-weight:800;white-space:nowrap">{{ rv.units }}</span></div>
+                  </sc-for>
+                </div>
+                <div style="background:#fff;padding:20px;display:flex;justify-content:space-between;gap:16px"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:16px;font-weight:800">מיתוג</span><span style="font-size:15px;color:#5E5E5B;overflow-wrap:anywhere">{{ bBrandLine }}</span></span><button onClick="{{ bEdit1 }}" style="align-self:flex-start;background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit">עריכה</button></div>
+                <div style="background:#fff;padding:20px;display:flex;justify-content:space-between;gap:16px"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:16px;font-weight:800">פרטי התקשרות</span><span style="font-size:15px;color:#5E5E5B;line-height:1.55;overflow-wrap:anywhere">{{ bContactLine }}</span></span><button onClick="{{ bEdit2 }}" style="align-self:flex-start;background:none;border:0;padding:0;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit">עריכה</button></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasBErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:700;color:#B3261E">{{ bErr }}</span></sc-if>
+            <div style="display:flex;gap:8px;border-top:1px solid #DCDCD8;padding-top:20px">
+              <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ bBack }}" style="height:58px;padding:0 24px;border:2px solid #111;background:transparent;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 6 6 6-6 6"></path></svg>חזרה</button></sc-if>
+              <button onClick="{{ bNext }}" style="flex:1;height:58px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px" style-hover="background:#333">{{ bNextLabel }}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
+            </div>
+          </div>
+        </div>
+        <aside style="flex:1 1 280px;max-width:100%;position:sticky;top:130px;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#111;color:#fff;padding:28px;display:flex;flex-direction:column;gap:20px">
+            <span style="font-size:15px;font-weight:700">הבקשה שלכם</span>
+            <span style="display:flex;align-items:flex-end;gap:10px"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:96px;line-height:.72;color:#FFD100">{{ bUnitsNum }}</span><span style="font-size:16px;font-weight:700;padding-bottom:4px">יחידות</span></span>
+            <div style="display:flex;flex-direction:column;border-top:1px solid #333">
+              <span style="display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #333;font-size:14px"><span style="color:#B5B5B0">פריטים</span><span style="font-weight:700">{{ bItemsCount }}</span></span>
+              <span style="display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #333;font-size:14px"><span style="color:#B5B5B0">מיתוג</span><span style="font-weight:700;text-align:left">{{ bBrandShort }}</span></span>
+              <span style="display:flex;justify-content:space-between;gap:12px;padding:12px 0;font-size:14px"><span style="color:#B5B5B0">לוגו</span><span style="font-weight:700;text-align:left;overflow-wrap:anywhere">{{ bLogoShort }}</span></span>
+            </div>
+          </div>
+          <a href="tel:08-6233803" style="background:#F4F4F2;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;font-weight:700"><span>מעדיפים לדבר?</span><span style="direction:ltr;font-size:16px;font-weight:800">08-6233803</span></a>
+        </aside>
+      </div>
+    </sc-if>
+  </section>
+</main>
+</sc-if>
+
+<!-- CHECKOUT -->
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Checkout" style="max-width:1160px;margin:0 auto;padding:clamp(20px,4vw,48px) clamp(16px,4vw,40px) 64px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:clamp(20px,4vw,56px);align-items:start">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px"><sc-for list="{{ steps }}" as="st" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:8px"><div style="height:4px;background:{{ st.bar }}"></div><span style="font-size:14px;color:{{ st.fg }};font-weight:700">{{ st.label }}</span></div></sc-for></div>
+      <sc-if value="{{ step1 }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:22px;font-weight:800">פרטים וכתובת</span>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">שם מלא<input autocomplete="name" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">טלפון נייד<input type="tel" inputmode="tel" autocomplete="tel" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;direction:ltr;text-align:right"></label>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">אימייל<input type="email" autocomplete="email" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px;direction:ltr;text-align:right"></label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">עיר<input autocomplete="address-level2" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">רחוב ומספר<input autocomplete="street-address" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:16px"></label>
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600"><input type="checkbox" style="width:20px;height:20px;accent-color:#111">הזמנה עבור עסק — שם עסק וח.פ. לחשבונית</label>
+          <button onClick="{{ toStep2 }}" style="height:58px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px">המשך לבחירת משלוח</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ step2 }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:22px;font-weight:800;margin-bottom:4px">אופן קבלת ההזמנה</span>
+          <sc-for list="{{ shipOpts }}" as="o" hint-placeholder-count="2">
+            <button onClick="{{ o.onClick }}" style="display:grid;grid-template-columns:22px 1fr auto;gap:14px;align-items:center;text-align:right;border:0;box-shadow:inset 0 0 0 {{ o.ringW }} #111;background:{{ o.bg }};padding:18px;cursor:pointer">
+              <span style="width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 2px #111;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{ o.dot }}"></span></span>
+              <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:800">{{ o.t }}</span><span style="font-size:14px;color:#5E5E5B">{{ o.d }}</span></span>
+              <span style="font-size:15px;font-weight:800">{{ o.p }}</span>
+            </button>
+          </sc-for>
+          <div style="display:flex;gap:8px;margin-top:8px"><button onClick="{{ toStep1 }}" style="height:58px;padding:0 24px;border:2px solid #111;background:#fff;font-size:15px;font-weight:700;cursor:pointer">חזרה</button><button onClick="{{ toStep3 }}" style="flex:1;height:58px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer">המשך לתשלום</button></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ step3 }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:22px;font-weight:800">תשלום</span>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">מספר כרטיס<input inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 14px;font-size:17px;direction:ltr;text-align:right;letter-spacing:.06em"></label>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">תוקף<input inputmode="numeric" placeholder="MM/YY" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 12px;font-size:16px;direction:ltr;text-align:right;min-width:0"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">CVV<input inputmode="numeric" placeholder="123" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 12px;font-size:16px;direction:ltr;text-align:right;min-width:0"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700">ת.ז.<input inputmode="numeric" style="height:52px;border:0;box-shadow:inset 0 0 0 1px #CFCFCA;background:#fff;padding:0 12px;font-size:16px;direction:ltr;text-align:right;min-width:0"></label>
+          </div>
+          <sc-if value="{{ demoDone }}" hint-placeholder-val="{{ false }}"><div style="background:#FFD100;padding:14px 16px;font-size:15px;font-weight:600;line-height:1.55">סביבת הדגמה: לא בוצע חיוב ולא נוצרה הזמנה. בגרסה החיה הלחיצה תעביר לסליקה מאובטחת.</div></sc-if>
+          <div style="display:flex;gap:8px;margin-top:6px"><button onClick="{{ toStep2 }}" style="height:58px;padding:0 24px;border:2px solid #111;background:#fff;font-size:15px;font-weight:700;cursor:pointer">חזרה</button><button onClick="{{ payDemo }}" style="flex:1;height:58px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer">תשלום {{ grandTotal }}</button></div>
+        </div>
+      </sc-if>
+    </div>
+    <aside style="background:#F4F4F2;padding:clamp(18px,3vw,28px);display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:17px;font-weight:800">סיכום הזמנה · {{ cartCountLabel }}</span>
+      <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="2">
+        <div style="display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center">
+          <div style="position:relative;width:58px;height:64px;background:#E9E9E6;overflow:hidden"><sc-if value="{{ l.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ l.img }}" alt="" style="width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if><span style="position:absolute;top:0;left:0;min-width:20px;height:20px;background:#111;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ l.qty }}</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:700;line-height:1.35">{{ l.name }}</span><span style="font-size:13px;color:#5E5E5B">{{ l.variant }}</span></div>
+          <span style="font-size:15px;font-weight:700">{{ l.lineLabel }}</span>
+        </div>
+      </sc-for>
+      <div style="border-top:1px solid #D6D6D1;padding-top:14px;display:flex;flex-direction:column;gap:8px;font-size:15px">
+        <div style="display:flex;justify-content:space-between"><span>סכום ביניים</span><span>{{ subtotal }}</span></div>
+        <sc-if value="{{ hasSavings }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;font-weight:800"><span style="background:#FFD100;padding:0 6px">מבצעי כמות</span><span style="direction:ltr">{{ savingsLabel }}</span></div></sc-if>
+        <div style="display:flex;justify-content:space-between"><span>משלוח</span><span>{{ shipCost }}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;border-top:2px solid #111;padding-top:12px;margin-top:4px"><span>סה״כ</span><span>{{ grandTotal }}</span></div>
+      </div>
+    </aside>
+  </div>
+</main>
+</sc-if>
+
+<!-- FOOTER -->
+<sc-if value="{{ notCheckout }}" hint-placeholder-val="{{ true }}">
+<footer style="margin-top:clamp(80px,10vw,150px);background:#111;color:#fff">
+  <div style="max-width:1440px;margin:0 auto;padding:clamp(40px,6vw,80px) clamp(16px,3vw,40px) 28px;display:flex;flex-direction:column;gap:56px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:28px;align-items:end">
+      <span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(52px,6vw,96px);line-height:.82">5% הנחה<br>על הקנייה הראשונה.</span>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;color:#BDBDB7">הרשמו למבצעים והטבות במייל.</span><div style="display:flex;gap:6px"><input type="email" placeholder="כתובת אימייל" style="flex:1;min-width:0;height:56px;border:0;background:#222;color:#fff;padding:0 18px;font-size:16px"><button style="height:56px;padding:0 26px;border:0;background:#FFD100;color:#111;font-size:16px;font-weight:800;cursor:pointer">הרשמה</button></div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(46%,200px),1fr));gap:32px 24px;border-top:1px solid #2A2A2A;padding-top:40px">
+      <div style="display:flex;flex-direction:column;gap:16px"><img src="assets/logo.avif" alt="Cohen Brothers" style="height:30px;width:auto;align-self:flex-start;filter:invert(1)"><span style="font-size:15px;line-height:1.8;color:#BDBDB7">הפועלים 20, באר שבע<br><a href="tel:08-6233803" style="color:#fff;direction:ltr;display:inline-block">08-6233803</a><br><a href="mailto:Hazmanot@ahim-cohen.co.il" style="color:#fff">Hazmanot@ahim-cohen.co.il</a></span></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:800;margin-bottom:4px">קטגוריות</span><sc-for list="{{ footCats }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onOpen }}" style="background:none;border:0;padding:0;text-align:right;cursor:pointer;font-size:15px;color:#BDBDB7" style-hover="color:#fff">{{ c.name }}</button></sc-for></div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:15px"><span style="font-weight:800;margin-bottom:4px">שירות</span><button onClick="{{ goB2B }}" style="background:none;border:0;padding:0;text-align:right;cursor:pointer;font-size:15px;color:#BDBDB7">הזמנות לעסקים</button><a href="#" style="color:#BDBDB7">משלוחים והחזרות</a><a href="#" style="color:#BDBDB7">שאלות נפוצות</a><a href="#" style="color:#BDBDB7">צור קשר</a><a href="#" style="color:#BDBDB7">החשבון שלי</a></div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:15px"><span style="font-weight:800;margin-bottom:4px">מידע</span><a href="#" style="color:#BDBDB7">תקנון האתר</a><a href="#" style="color:#BDBDB7">מדיניות פרטיות</a><a href="#" style="color:#BDBDB7">הצהרת נגישות</a><a href="https://www.instagram.com/ahim.cohen" style="color:#BDBDB7">אינסטגרם</a><a href="https://www.facebook.com/ahimcohen100/" style="color:#BDBDB7">פייסבוק</a></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;color:#8A8A86;border-top:1px solid #2A2A2A;padding-top:20px"><span>© האחים כהן · כל הזכויות שמורות</span><span style="letter-spacing:.2em;font-weight:700">QUALITY AT WORK</span></div>
+  </div>
+</footer>
+</sc-if>
+
+<!-- MOBILE TAB BAR -->
+<sc-if value="{{ showTabs }}" hint-placeholder-val="{{ false }}">
+<nav style="position:fixed;bottom:0;right:0;left:0;z-index:45;background:#fff;border-top:1px solid #E4E4E1;display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom)">
+  <button onClick="{{ tabHome }}" style="height:62px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:{{ tabW.home }};color:{{ tabC.home }};box-shadow:inset 0 3px 0 {{ tabL.home }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"></path></svg>בית</button>
+  <button onClick="{{ openMenu }}" style="height:62px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:{{ tabW.cat }};color:{{ tabC.cat }};box-shadow:inset 0 3px 0 {{ tabL.cat }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7"></rect><rect x="13" y="4" width="7" height="7"></rect><rect x="4" y="13" width="7" height="7"></rect><rect x="13" y="13" width="7" height="7"></rect></svg>קטגוריות</button>
+  <button onClick="{{ openSearch }}" style="height:62px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:#5E5E5B"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>חיפוש</button>
+  <button onClick="{{ goB2B }}" style="height:62px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:{{ tabW.b2b }};color:{{ tabC.b2b }};box-shadow:inset 0 3px 0 {{ tabL.b2b }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="18" height="12"></rect><path d="M9 8V5h6v3M3 13h18"></path></svg>לעסקים</button>
+  <button onClick="{{ openCart }}" style="position:relative;height:62px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:#5E5E5B"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1 12H6L5 8Z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>סל<sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:8px;left:calc(50% - 20px);min-width:17px;height:17px;background:#FFD100;color:#111;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ cartCount }}</span></sc-if></button>
+</nav>
+</sc-if>
+<div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);opacity:{{ bdOpacity }};pointer-events:{{ bdPointer }};transition:opacity .3s"></div>
+
+<aside aria-label="סל הקניות" style="position:fixed;top:0;bottom:0;left:0;z-index:70;width:min(460px,100vw);background:#fff;display:flex;flex-direction:column;transform:{{ cartTf }};transition:transform .45s cubic-bezier(.2,.75,.2,1)">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 12px 0 20px;height:66px;border-bottom:1px solid #E4E4E1;flex:none"><span style="font-size:19px;font-weight:800">הסל שלך <span style="font-weight:500;color:#5E5E5B">({{ cartCount }})</span></span><button onClick="{{ closeAll }}" aria-label="סגירה" style="width:44px;height:44px;border:0;background:none;font-size:26px;cursor:pointer">×</button></div>
+  <div style="padding:14px 20px;background:#F4F4F2;display:flex;flex-direction:column;gap:8px;flex:none">
+    <span style="font-size:14px;font-weight:700">{{ freeShipMsg }}</span>
+    <div style="height:4px;background:#DCDCD7"><div style="height:4px;background:#111;width:{{ freeShipPct }};transition:width .4s"></div></div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:4px 20px 16px">
+    <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:64px 8px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:64px;line-height:.85">הסל ריק</span><span style="font-size:15px;color:#5E5E5B">שווה להתחיל ממבצעי הכמות — 6 חולצות דרייפיט ב-100 ₪.</span><button onClick="{{ goShopClose }}" style="margin-top:8px;height:50px;padding:0 24px;border:0;background:#111;color:#fff;font-size:15px;font-weight:700;cursor:pointer">להתחיל לקנות</button></div>
+    </sc-if>
+    <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="0">
+      <div style="display:grid;grid-template-columns:80px 1fr;gap:14px;padding:16px 0;border-bottom:1px solid #E4E4E1">
+        <div style="position:relative;width:80px;height:88px;background:#F4F4F2;overflow:hidden"><sc-if value="{{ l.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ l.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if><sc-if value="{{ l.noImg }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:24px;color:#BDBDB7">{{ l.ph }}</span></sc-if></div>
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+          <div style="display:flex;justify-content:space-between;gap:10px"><span style="font-size:15px;font-weight:700;line-height:1.3">{{ l.name }}</span><span style="font-size:15px;font-weight:800;white-space:nowrap">{{ l.lineLabel }}</span></div>
+          <span style="font-size:13px;color:#5E5E5B">{{ l.variant }}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <div style="display:flex;align-items:center;box-shadow:inset 0 0 0 1px #CFCFCA;height:38px"><button onClick="{{ l.inc }}" aria-label="הוספה" style="width:38px;height:38px;border:0;background:none;cursor:pointer;font-size:17px">+</button><span style="min-width:24px;text-align:center;font-size:15px;font-weight:800">{{ l.qty }}</span><button onClick="{{ l.dec }}" aria-label="הפחתה" style="width:38px;height:38px;border:0;background:none;cursor:pointer;font-size:17px">−</button></div>
+            <button onClick="{{ l.remove }}" style="background:none;border:0;padding:0;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer">הסרה</button>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ dealNotes }}" as="dn" hint-placeholder-count="0">
+      <div style="margin-top:10px;background:{{ dn.bg }};padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:14px;font-weight:700;line-height:1.4">{{ dn.text }}</span>
+        <div style="height:4px;background:rgba(0,0,0,.12)"><div style="height:4px;background:#111;width:{{ dn.pct }}"></div></div>
+      </div>
+    </sc-for>
+  </div>
+  <sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}">
+    <div style="border-top:1px solid #E4E4E1;padding:16px 20px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;flex:none">
+      <sc-if value="{{ hasSavings }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800"><span style="background:#FFD100;padding:0 6px">חסכתם במבצעי כמות</span><span style="direction:ltr">{{ savingsLabel }}</span></div></sc-if>
+      <div style="display:flex;justify-content:space-between;font-size:19px;font-weight:800"><span>סה״כ</span><span>{{ cartTotal }}</span></div>
+      <button onClick="{{ goCheckout }}" style="height:58px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer" style-hover="background:#333">מעבר לתשלום</button>
+    </div>
+  </sc-if>
+</aside>
+
+<aside aria-label="תפריט" style="position:fixed;top:0;bottom:0;right:0;z-index:70;width:min(420px,90vw);background:#fff;display:flex;flex-direction:column;transform:{{ menuTf }};transition:transform .45s cubic-bezier(.2,.75,.2,1)">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 8px 0 16px;height:60px;border-bottom:1px solid #E4E4E1;flex:none">
+    <sc-if value="{{ menuRoot }}" hint-placeholder-val="{{ true }}"><img src="assets/logo.avif" alt="Cohen Brothers" style="height:22px"></sc-if>
+    <sc-if value="{{ menuSub }}" hint-placeholder-val="{{ false }}"><button onClick="{{ menuBack }}" style="background:none;border:0;padding:0;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">→ חזרה</button></sc-if>
+    <button onClick="{{ closeAll }}" aria-label="סגירה" style="width:44px;height:44px;border:0;background:none;font-size:26px">×</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px 20px 24px">
+    <sc-if value="{{ menuRoot }}" hint-placeholder-val="{{ true }}">
+      <sc-for list="{{ menuCats }}" as="c" hint-placeholder-count="9"><button onClick="{{ c.onDrill }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:0;border-bottom:1px solid #EFEFEC;padding:0;height:58px;font-size:18px;font-weight:700;text-align:right">{{ c.name }}<span style="font-size:16px;color:#8A8A86">←</span></button></sc-for>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:22px">
+        <button onClick="{{ goB2B }}" style="height:54px;border:0;background:#111;color:#fff;font-size:15px;font-weight:700">הזמנות לעסקים</button>
+        <button onClick="{{ goDeals }}" style="height:54px;border:0;background:#FFD100;font-size:15px;font-weight:800">מבצעי כמות</button>
+      </div>
+      <div style="margin-top:26px;font-size:15px;line-height:1.8;color:#5E5E5B">הפועלים 20, באר שבע<br><a href="tel:08-6233803" style="font-weight:700">08-6233803</a></div>
+    </sc-if>
+    <sc-if value="{{ menuSub }}" hint-placeholder-val="{{ false }}">
+      <span style="display:block;font-family:'Karantina',sans-serif;font-weight:700;font-size:60px;line-height:.85;margin:6px 0 14px">{{ menuCatName }}</span>
+      <button onClick="{{ menuAll }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:0;border-bottom:1px solid #EFEFEC;height:56px;font-size:17px;font-weight:800;text-align:right">כל המוצרים<span>←</span></button>
+      <sc-for list="{{ menuSubs }}" as="s" hint-placeholder-count="5"><button onClick="{{ s.onClick }}" style="width:100%;display:flex;align-items:center;background:none;border:0;border-bottom:1px solid #EFEFEC;height:54px;font-size:17px;text-align:right">{{ s.name }}</button></sc-for>
+    </sc-if>
+  </div>
+</aside>
+
+<section aria-label="{{ sheetTitle }}" style="position:fixed;bottom:0;right:0;left:0;z-index:70;margin:0 auto;max-width:600px;max-height:90vh;background:#fff;display:flex;flex-direction:column;transform:{{ sheetTf }};transition:transform .45s cubic-bezier(.2,.75,.2,1)">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px 6px 20px;border-bottom:1px solid #E4E4E1;flex:none"><span style="font-size:18px;font-weight:800">{{ sheetTitle }}</span><button onClick="{{ closeAll }}" aria-label="סגירה" style="width:44px;height:44px;border:0;background:none;font-size:26px;cursor:pointer">×</button></div>
+  <div style="overflow-y:auto;padding:18px 20px 20px;display:flex;flex-direction:column;gap:20px">
+    <sc-if value="{{ sheetQuick }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:80px 1fr;gap:14px;align-items:center">
+        <div style="position:relative;width:80px;height:88px;background:#F4F4F2;overflow:hidden"><sc-if value="{{ qv.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ qv.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if></div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start"><span style="font-size:16px;font-weight:700;line-height:1.3">{{ qv.name }}</span><span style="font-size:17px;font-weight:800">{{ qv.price }}</span><sc-if value="{{ qv.hasDeal }}" hint-placeholder-val="{{ false }}"><span style="background:#FFD100;font-size:13px;font-weight:800;padding:2px 8px">{{ qv.deal }}</span></sc-if></div>
+      </div>
+      <sc-if value="{{ qv.hasColors }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px"><span style="font-weight:800">צבע: </span>{{ qv.colorName }}</span><div style="display:flex;flex-wrap:wrap;gap:10px"><sc-for list="{{ qv.colors }}" as="c"><button onClick="{{ c.onClick }}" aria-label="{{ c.name }}" style="width:36px;height:36px;border-radius:50%;border:0;padding:0;background:{{ c.hex }};box-shadow:{{ c.ring }};cursor:pointer"></button></sc-for></div></div></sc-if>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:800">מידה</span><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px"><sc-for list="{{ qv.sizes }}" as="s"><button onClick="{{ s.onClick }}" style="height:50px;border:0;box-shadow:inset 0 0 0 1px {{ s.border }};background:{{ s.bg }};color:{{ s.fg }};font-size:15px;font-weight:700;cursor:pointer;direction:ltr">{{ s.label }}</button></sc-for></div></div>
+      <div style="display:flex;gap:6px"><button onClick="{{ qv.onDetails }}" style="height:56px;padding:0 18px;border:2px solid #111;background:#fff;font-size:15px;font-weight:700;cursor:pointer">לפרטי המוצר</button><button onClick="{{ qv.onAdd }}" style="flex:1;height:56px;border:0;background:{{ qv.addBg }};color:#fff;font-size:16px;font-weight:800;cursor:pointer">{{ qv.addLabel }}</button></div>
+    </sc-if>
+    <sc-if value="{{ sheetKit }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ kitView.rows }}" as="r" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:24px 64px minmax(0,1fr);gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #E4E4E1;opacity:{{ r.op }}">
+            <button onClick="{{ r.onToggle }}" aria-label="בחירה" style="width:22px;height:22px;border:0;padding:0;box-shadow:inset 0 0 0 2px #111;background:{{ r.boxBg }};display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff"><sc-if value="{{ r.on }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-10"></path></svg></sc-if></button>
+            <div style="position:relative;width:64px;height:70px;background:#F4F4F2;overflow:hidden"><sc-if value="{{ r.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ r.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if><sc-if value="{{ r.noImg }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Karantina',sans-serif;font-weight:700;font-size:22px;color:#BDBDB7">{{ r.ph }}</span></sc-if></div>
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:15px;font-weight:700;line-height:1.3">{{ r.name }}</span><span style="font-size:15px;font-weight:800;white-space:nowrap">{{ r.price }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span style="font-size:13px;color:#5E5E5B">{{ r.qtyLabel }}</span><sc-if value="{{ r.needsSize }}" hint-placeholder-val="{{ false }}"><select value="{{ r.size }}" onChange="{{ r.onSize }}" style="height:36px;border:0;box-shadow:inset 0 0 0 1px {{ r.selBorder }};border-radius:0;background:#fff;padding:0 8px;font-size:14px;font-weight:600;direction:ltr;min-width:88px"><sc-for list="{{ r.sizeOpts }}" as="o"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select></sc-if></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{ kitView.err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:700;color:#B3261E">בחרו מידה לכל פריט מסומן בערכה</span></sc-if>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;bottom:0;background:#fff;padding-top:8px">
+        <span style="display:flex;flex-direction:column"><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:24px;font-weight:800">{{ kitView.total }}</span><s style="font-size:15px;color:#8A8A86">{{ kitView.regular }}</s></span><span style="font-size:13px;font-weight:700">חיסכון {{ kitView.save }}</span></span>
+        <button onClick="{{ kitView.onAdd }}" style="flex:1;max-width:280px;height:56px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800;cursor:pointer">{{ kitView.cta }}</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ sheetFilters }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ hasStdOpts }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:800">תקן בטיחות</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ stdOpts }}" as="o"><button onClick="{{ o.onClick }}" style="height:46px;min-width:58px;padding:0 12px;border:1px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};font-size:15px;font-weight:700">{{ o.label }}</button></sc-for></div></div></sc-if>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:800">מידה</span><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px"><sc-for list="{{ sizeOpts }}" as="o"><button onClick="{{ o.onClick }}" style="height:46px;border:1px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};font-size:15px;font-weight:600;direction:ltr">{{ o.label }}</button></sc-for></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:800">צבע</span><div style="display:flex;flex-wrap:wrap;gap:12px"><sc-for list="{{ colorOpts }}" as="o"><button onClick="{{ o.onClick }}" aria-label="{{ o.label }}" style="width:38px;height:38px;border-radius:50%;border:0;padding:0;background:{{ o.hex }};box-shadow:{{ o.ring }}"></button></sc-for></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800"><span>מחיר עד</span><span>{{ priceMaxLabel }}</span></div><input type="range" min="{{ priceMin }}" max="{{ priceTop }}" value="{{ priceMax }}" onInput="{{ onPrice }}" style="width:100%;height:30px;accent-color:#111"></div>
+      <div style="display:flex;gap:6px;position:sticky;bottom:0;background:#fff;padding-top:8px"><button onClick="{{ clearFilters }}" style="height:56px;padding:0 22px;border:2px solid #111;background:#fff;font-size:15px;font-weight:700">ניקוי</button><button onClick="{{ closeAll }}" style="flex:1;height:56px;border:0;background:#111;color:#fff;font-size:16px;font-weight:800">הצגת {{ resultsLabel }}</button></div>
+    </sc-if>
+    <sc-if value="{{ sheetSize }}" hint-placeholder-val="{{ false }}">
+      <p style="margin:0;font-size:15px;line-height:1.65">המידות הזמינות לפריט: <b style="direction:ltr;display:inline-block">{{ sizeGuideList }}</b>. כך מודדים לפני שבוחרים:</p>
+      <div style="display:flex;flex-direction:column;border-top:2px solid #111">
+        <div style="display:grid;grid-template-columns:44px 1fr;padding:14px 0;border-bottom:1px solid #E4E4E1;font-size:15px;line-height:1.55"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:32px;line-height:.9">01</span><span><b>היקף חזה</b> — מודדים בנקודה הרחבה ביותר, מתחת לבתי השחי.</span></div>
+        <div style="display:grid;grid-template-columns:44px 1fr;padding:14px 0;border-bottom:1px solid #E4E4E1;font-size:15px;line-height:1.55"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:32px;line-height:.9">02</span><span><b>אורך</b> — מהתפר העליון בכתף ועד שולי הבגד, על בגד קיים שמתאים לכם.</span></div>
+        <div style="display:grid;grid-template-columns:44px 1fr;padding:14px 0;border-bottom:1px solid #E4E4E1;font-size:15px;line-height:1.55"><span style="font-family:'Karantina',sans-serif;font-weight:700;font-size:32px;line-height:.9">03</span><span><b>בין שתי מידות?</b> לעבודה פיזית ולשכבות מתחת — עדיף לבחור את הגדולה.</span></div>
+      </div>
+      <a href="tel:08-6233803" style="height:54px;border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700">ייעוץ מידות בטלפון · 08-6233803</a>
+    </sc-if>
+  </div>
+</section>
+
+<sc-if value="{{ searchOpen }}" hint-placeholder-val="{{ false }}">
+<div role="dialog" aria-label="חיפוש" style="position:fixed;top:0;right:0;left:0;bottom:{{ searchBottom }};max-height:{{ searchMaxH }};z-index:80;background:#fff;overflow-y:auto;box-shadow:0 30px 60px -20px rgba(0,0,0,.3)">
+  <div style="max-width:1000px;margin:0 auto;padding:clamp(12px,3vw,40px) clamp(16px,4vw,40px) 40px">
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #111;padding-bottom:8px">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <input ref="{{ searchRef }}" value="{{ q }}" onInput="{{ onQ }}" placeholder="מה מחפשים?" enterkeyhint="search" style="flex:1;min-width:0;height:60px;border:0;background:transparent;font-family:'Karantina',sans-serif;font-weight:700;font-size:clamp(40px,5vw,64px);outline:none">
+      <button onClick="{{ closeAll }}" aria-label="סגירה" style="width:44px;height:44px;border:0;background:none;font-size:28px;cursor:pointer">×</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:18px;align-items:center"><span style="font-size:14px;font-weight:700;margin-inline-end:6px">חיפושים נפוצים</span><sc-for list="{{ quickTerms }}" as="t"><button onClick="{{ t.onClick }}" style="height:38px;padding:0 14px;border:0;background:#F4F4F2;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#FFD100">{{ t.label }}</button></sc-for></div>
+    <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:28px;font-size:14px;font-weight:700">{{ searchCount }}</div>
+      <div style="display:flex;flex-direction:column;margin-top:8px">
+        <sc-for list="{{ searchResults }}" as="r" hint-placeholder-count="0">
+          <button onClick="{{ r.onOpen }}" style="display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;background:none;border:0;border-bottom:1px solid #E4E4E1;padding:12px 0;text-align:right;cursor:pointer" style-hover="background:#F4F4F2">
+            <div style="position:relative;width:64px;height:70px;background:#F4F4F2;overflow:hidden"><sc-if value="{{ r.hasImg }}" hint-placeholder-val="{{ false }}"><img src="{{ r.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply"></sc-if></div>
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:16px;font-weight:700">{{ r.name }}</span><span style="font-size:13px;color:#5E5E5B">{{ r.cat }}</span></div>
+            <span style="font-size:16px;font-weight:800">{{ r.price }}</span>
+          </button>
+        </sc-for>
+        <sc-if value="{{ noSearch }}" hint-placeholder-val="{{ false }}"><div style="padding:40px 0;font-size:16px;color:#5E5E5B">לא נמצאו תוצאות. נסו שם מוצר, מק״ט או תקן (למשל S3).</div></sc-if>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<div role="status" style="position:fixed;z-index:90;bottom:{{ toastBottom }};right:50%;transform:translateX(50%) translateY({{ toastY }});opacity:{{ toastO }};transition:all .35s cubic-bezier(.2,.75,.2,1);background:#111;color:#fff;padding:14px 20px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap"><span style="width:22px;height:22px;background:#FFD100;color:#111;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-10"></path></svg></span>{{ toast }}</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;freeShipping&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[299,999],&quot;default&quot;:299,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Store rules&quot;},&quot;quickAdd&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Product cards&quot;},&quot;tabBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Mobile&quot;}}">
+const H='https://ahim-cohen.co.il/cdn/shop/files/';
+const IM={dry:H+'135.jpg?v=1711113189&width=1000',fleece:H+'72975860185642.jpg?v=1791458391&width=1000',soft1:H+'PHOTO-2026-10-07-09-25-59.jpg?v=1791412066&width=1400',soft2:H+'PHOTO-2026-10-07-09-32-10.jpg?v=1791412071&width=1400',leg:H+'102482001-no-plus.jpg?v=1762206453&width=1000',k87:H+'B3861.jpg?v=1762208231&width=1000'};
+const HEX={'אפור עכבר':'#8A8B8D','כחול כהה':'#1F2A44','לבן':'#FFFFFF','שחור':'#1A1A1A','ירוק כהה':'#2F4A36','ירוק זוהר':'#C8E64A','כתום':'#E8742A','ירוק בקבוק':'#1E4D3A',"מלאנז'":'#B9B7B2','רויאל':'#2849A8','אדום':'#B23A32','צהוב':'#E9C23B','חום':'#6B4A32','זית':'#6B6B3E','בז׳':'#D8C8A8','ירוק':'#4E6B3A','ברונזה':'#8C6A3F','כחול':'#2F5597','Shadow':'#3C3F42'};
+const CATS=[
+{id:'shoes',name:'נעלי עבודה ובטיחות',subs:['נעלי בטיחות','נעלי עבודה ללא מגן','מגפי עבודה ובטיחות','נעלי מלונאות ומטבחים','אביזרי הנעלה ורפידות']},
+{id:'winter',name:'ביגוד חורף',subs:['מעילים','חליפות גשם','חרמוניות',"סווטשירטים וקפוצ'ונים",'ביגוד תרמי','חולצות ארוכות']},
+{id:'pro',name:'ביגוד מקצועי',subs:['חולצות','מכנסיים','מקטורונים | טוניקות','אפודים זוהרים','סרבלים']},
+{id:'safety',name:'מוצרי בטיחות',subs:['הגנת ראש','כפפות עבודה','הגנת ראייה ופנים','הגנת נשימה','הגנת שמיעה','ציוד לעבודה בגובה','הגנת גוף','ציוד בטיחות נלווה','משטפות עינים ומקלחות חירום','ציוד להגנת הסביבה','בטיחות בדרכים','נראות גבוהה']},
+{id:'rep',name:'ביגוד ייצוגי',subs:['חולצות ייצוגיות','מכנסיים ייצוגיים',"ג'קטים",'חצאיות','אקססוריז']},
+{id:'kitchen',name:'מטבח ומזון',subs:["ג'קט שף",'כובעי שף','מכנסי שף | מכנסי טבחים','סינרים']},
+{id:'disp',name:'חד פעמי',subs:['ביגוד מקצועי חד פעמי','אביזרים חד פעמי']},
+{id:'acc',name:'אביזרים',subs:['מוצרי ניקיון','תיקים','אביזרים למטבח','הלבשה תחתונה','כובעים','מגבות','סרטי הדבקה וסימון','אביזרים נלווים']},
+{id:'redback',name:'REDBACK',subs:['גרביים','חגורות','חולצות','מכנסיים','מעילים']}];
+const SZ=['S','M','L','XL','2XL','3XL','4XL'],SH=['39','40','41','42','43','44','45','46'],ONE=['מידה אחת'];
+const sh=(id,name,price,color,std,o)=>Object.assign({id,name,cat:'shoes',sub:'נעלי בטיחות',price,colors:[color],sizes:SH,std},o||{});
+const P=[
+{id:'p1',name:'חולצת דרייפיט מנדפת זיעה',cat:'pro',sub:'חולצות',price:29,deal:[6,100],colors:['אפור עכבר','כחול כהה','לבן','שחור','ירוק כהה','ירוק זוהר','כתום'],sizes:SZ,sku:'135-4',brand:'worker.co.il',imgs:[IM.dry],best:1,desc:['בד 100% פוליאסטר נעים במיוחד ללבישה','גזרה נוחה לעבודה','יכולת נידוף זיעה גבוהה המתאימה לאקלים הישראלי'],specs:[['תקן','נידוף זיעה · מעבדת שנקר'],['הרכב בד','100% פוליאסטר'],['משקל בד','140 גרם למ״ר']]},
+{id:'p7',name:'זקט פליז',cat:'winter',sub:'מעילים',price:69,was:85,deal:[10,490],colors:['שחור','אפור עכבר','כחול כהה'],sizes:SZ,imgs:[IM.fleece],best:1},
+{id:'p8',name:'מעיל סופטשל טקטי עם כובע נשלף',cat:'winter',sub:'מעילים',price:119,was:150,colors:['שחור'],sizes:['S','M','L','XL','2XL','3XL'],sku:'15741',brand:'Ahim Cohen',imgs:[IM.soft1,IM.soft2],best:1,desc:['מעיל סופטשל עם עמידות למים ורוחות','בטנת פרווה מחממת','כובע מתפרק'],specs:[['הרכב בד','100% פוליאסטר'],['עמידות','מים ורוחות'],['בטנה','פרווה מחממת']]},
+{id:'p3',name:'סווטשירט',cat:'winter',sub:"סווטשירטים וקפוצ'ונים",price:49,deal:[3,120],colors:['אדום','אפור עכבר','ירוק בקבוק','כחול כהה','לבן',"מלאנז'",'צהוב','רויאל','שחור'],sizes:SZ,best:1},
+{id:'p2',name:'חולצת טריקו שרוול ארוך',cat:'winter',sub:'חולצות ארוכות',price:35,deal:[4,99],colors:['אפור עכבר','ירוק בקבוק','כחול כהה','לבן',"מלאנז'",'רויאל','שחור'],sizes:SZ},
+{id:'p6',name:"קפוצ'ון קנגורו",cat:'winter',sub:"סווטשירטים וקפוצ'ונים",price:65,deal:[3,150],colors:['כחול כהה',"מלאנז'",'שחור'],sizes:SZ},
+{id:'p5',name:"קפוצ'ון טריקו ש.א. עם כיס",cat:'winter',sub:"סווטשירטים וקפוצ'ונים",price:45,deal:[3,99],colors:['אפור עכבר','כחול כהה',"מלאנז'",'רויאל'],sizes:SZ},
+{id:'p4',name:'טישירט FORCE® עם כיס ולוגו',cat:'pro',sub:'חולצות',price:129,deal:[2,220],colors:['בז׳','לבן','ירוק','שחור','חום','כחול כהה','ברונזה','כחול'],sizes:SZ,sku:'106652',brand:'FORCE'},
+{id:'p9',name:'מעיל דובון',cat:'winter',sub:'מעילים',price:140,colors:['כחול כהה'],sizes:SZ},
+{id:'p10',name:'חליפת גשם ניילון',cat:'winter',sub:'חליפות גשם',price:99,colors:['ירוק בקבוק','כחול כהה','צהוב'],sizes:SZ},
+{id:'p11',name:'חולצת טי עם כיס לעבודה K87',cat:'rep',sub:'חולצות ייצוגיות',price:95,colors:['כחול'],sizes:SZ,sku:'103296.412',imgs:[IM.k87]},
+{id:'p12',name:'מכנסי FORCE BROXTON CARGO',cat:'pro',sub:'מכנסיים',price:295,colors:['Shadow'],sizes:['W30/L30'],sku:'104200.029',brand:'FORCE'},
+{id:'p13',name:'WOMENS FORCE UTILITY LEGGING',cat:'pro',sub:'מכנסיים',price:329,colors:['שחור'],sizes:['XS'],sku:'102482.001',brand:'FORCE',imgs:[IM.leg]},
+sh('s1',"מגף צ'לסי ¾ חום S3 ESD SRC",299,'חום',['S3','ESD','SRC'],{was:350,sub:'מגפי עבודה ובטיחות',best:1}),
+sh('s12','נעל עבודה BLAZE AAG בתקן S3',379,'שחור',['S3'],{brand:'Redback',sku:'786',sizes:['EU 39','EU 40','EU 41','EU 42','EU 43','EU 44','EU 45','EU 46','EU 47'],desc:['נעל גבוהה בעלת רפידת קוולאר מיוחדת','נעל בטיחות בתקן S3','נעליים אנטיסטטיות','כיפת מגן העשויה מחומרים מורכבים','נגד חדירת מים','סוליה בעלת עמידות גבוהה כנגד נקבים'],best:1}),
+sh('s2','דיגר ¾ שחור S3 SRC',159,'שחור',['S3','SRC']),
+sh('s3','דיגר ¾ שחור SB SRC',159,'שחור',['SB','SRC']),
+sh('s4','הידרה ¾ חום S3 WR CI SRC',435,'חום',['S3','WR','CI','SRC']),
+sh('s5','נעל יוניטרק S3 SRC',380,'שחור',['S3','SRC']),
+sh('s6','נעל פלרמו ¾ S3 SRC ESD',395,'חום',['S3','SRC','ESD']),
+sh('s7','נעל STROM חום S3 SRC',395,'חום',['S3','SRC']),
+sh('s8','נעל אלבני עם רוכסן S3',350,'צהוב',['S3']),
+sh('s9','מגף קניון ¾ חום SB SRC',195,'חום',['SB','SRC'],{sub:'מגפי עבודה ובטיחות'}),
+sh('s10','PARKES ZIP מגף בטיחות S3 עם שרוך ורוכסן',650,'חום',['S3'],{sub:'מגפי עבודה ובטיחות'}),
+sh('s11','דטרויט 8 אינץ׳ חום S3 SRC',795,'חום',['S3','SRC']),
+sh('s13','מגף S3',99,'שחור',['S3'],{sub:'מגפי עבודה ובטיחות'}),
+{id:'a1',name:'כובע דרייפיט קל',cat:'acc',sub:'כובעים',price:19,colors:['אדום','אפור עכבר','כחול כהה','לבן','רויאל'],sizes:ONE},
+{id:'a3',name:'כובע מחמם TELLER שחור',cat:'acc',sub:'כובעים',price:95,colors:['שחור'],sizes:ONE,sku:'104068'},
+{id:'a4',name:'כובע אוסטרלי רשת ירוק זית',cat:'acc',sub:'כובעים',price:59,colors:['זית'],sizes:ONE},
+{id:'a2',name:'כובע ברש 6 פנל',cat:'acc',sub:'כובעים',price:17,colors:[],sizes:ONE},
+{id:'g1',name:'מבצע כפפות עבודה – 240 זוגות',cat:'safety',sub:'כפפות עבודה',price:439,colors:[],sizes:['מארז 240 זוגות']}];
+const PM={};P.forEach(p=>PM[p.id]=p);
+const CM={};CATS.forEach(c=>CM[c.id]=c);
+const KITS=[{id:'k1',name:'ערכת קיץ לשטח',items:[['p1',6],['a4',1],['s13',1]]},{id:'k2',name:'ערכת חורף',items:[['p7',1],['p8',1],['p2',4]]},{id:'k3',name:'ערכת צוות ×10',items:[['p7',10],['a1',10]]}];
+const fmt=n=>(Math.round(n*100)/100).toLocaleString('he-IL',{maximumFractionDigits:2})+' ₪';
+const priceFor=(p,n)=>{if(p.deal&&n>=p.deal[0]){const g=Math.floor(n/p.deal[0]);return g*p.deal[1]+(n%p.deal[0])*p.price;}return n*p.price;};
+const phOf=p=>p.std?p.std[0]:(p.sku||CM[p.cat].name.split(' ')[0]);
+const ANN=['משלוח חינם בהזמנות מעל {thr}','6 חולצות דרייפיט ב-100 ₪ · 10 פליזים ב-490 ₪','הסניף פתוח: הפועלים 20, באר שבע · 08-6233803'];
+const EMPTYF={std:[],colors:[],sizes:[],brands:[],max:null,stock:false};
+
+class Component extends DCLogic {
+  state={w:typeof window!=='undefined'?window.innerWidth:1280,page:'home',catId:'shoes',sub:null,pid:'p1',prev:'home',color:0,size:null,qty:1,sizeErr:false,cart:[],sheet:null,cartOpen:false,menuOpen:false,menuCat:null,searchOpen:false,q:'',mega:null,quick:'p1',qColor:0,qSize:null,f:EMPTYF,sort:'pop',shown:8,acc:'desc',galIdx:0,step:1,ship:'home',demoDone:false,rows:[{pid:'p1',color:0,sizes:{}}],brandSel:['רקמה'],logoName:'',b2bSent:false,ann:0,toast:'',toastOn:false,bOff:{},bSize:{},bErr:false,kit:'k1',kOff:{},kSize:{},kErr:false};
+  formRef=React.createRef(); otpRefs=[0,1,2,3,4,5].map(()=>React.createRef());
+  startOtpTimer(){clearInterval(this._ot);this.setState({otpLeft:30});this._ot=setInterval(()=>this.setState(s=>{const n=(s.otpLeft||0)-1;if(n<=0)clearInterval(this._ot);return {otpLeft:Math.max(0,n)};}),1000);}
+  sendOtp=()=>{const d=(this.state.phone||'').replace(/\D/g,'');if(!/^05\d{8}$/.test(d)){this.setState({otpErr:'הזינו מספר נייד תקין בן 10 ספרות'});return;}this.setState({otpSending:true,otpErr:''});setTimeout(()=>{this.setState({otpSending:false,otpStage:'code',otp:['','','','','','']});this.startOtpTimer();setTimeout(()=>{const r=this.otpRefs[0].current;if(r)r.focus();},60);},700);};
+  verifyOtp(o){if(this.state.otpVerifying)return;this.setState({otpVerifying:true,otpErr:''});setTimeout(()=>{clearInterval(this._ot);this.setState({otpVerifying:false,auth:true,otpStage:'phone',otp:['','','','','',''],acctTab:'orders',ordOpen:{}});this.flash('התחברתם בהצלחה');window.scrollTo({top:0});},800);}
+  setOtp(i,raw){const o=(this.state.otp||['','','','','','']).slice();const prev=o[i];let dg=String(raw).replace(/\D/g,'');if(prev&&dg.length===2)dg=dg[0]===prev?dg[1]:dg[0];if(dg.length>1){dg.slice(0,6-i).split('').forEach((c,k)=>{o[i+k]=c;});}else o[i]=dg;this.setState({otp:o,otpErr:''});const nx=dg.length>1?Math.min(5,i+dg.length):i+1;if(dg&&nx<=5){const r=this.otpRefs[nx].current;if(r)r.focus();}if(o.every(c=>c))this.verifyOtp(o);} searchRef=React.createRef();
+  componentDidMount(){this._ly=window.scrollY;this._sc=()=>{const y=window.scrollY,d=y-this._ly;if(y<120){if(this.state.compact||this.state.navHidden)this.setState({compact:false,navHidden:false});this._ly=y;return;}if(Math.abs(d)<6)return;if(d>0&&!this.state.navHidden)this.setState({compact:true,navHidden:true,mega:null});else if(d<0&&this.state.navHidden)this.setState({compact:true,navHidden:false});else if(!this.state.compact)this.setState({compact:true});this._ly=y;};window.addEventListener('scroll',this._sc,{passive:true});this._r=()=>this.setState({w:window.innerWidth});window.addEventListener('resize',this._r);this._r();if(window.ResizeObserver){this._ro=new ResizeObserver(this._r);this._ro.observe(document.documentElement);}this._t=setInterval(()=>this.setState(s=>({ann:(s.ann+1)%ANN.length})),4500);}
+  componentWillUnmount(){clearInterval(this._ot);window.removeEventListener('scroll',this._sc);window.removeEventListener('resize',this._r);clearInterval(this._t);clearTimeout(this._tt);if(this._ro)this._ro.disconnect();document.body.style.overflow='';}
+  componentDidUpdate(pp,ps){const s=this.state;document.body.style.overflow=(s.cartOpen||s.menuOpen||!!s.sheet||s.searchOpen)?'hidden':'';if(s.searchOpen&&!ps.searchOpen)setTimeout(()=>this.searchRef.current&&this.searchRef.current.focus(),30);}
+  closeAll=()=>this.setState({cartOpen:false,menuOpen:false,sheet:null,searchOpen:false,mega:null});
+  go=(page,extra)=>{this.setState(s=>Object.assign({page,prev:s.page,cartOpen:false,menuOpen:false,sheet:null,searchOpen:false,mega:null},extra||{}));window.scrollTo({top:0});};
+  openCat=(id,sub)=>this.go('cat',{catId:id,sub:sub||null,f:EMPTYF,shown:8});
+  openP=(id)=>{const p=PM[id];this.go('pdp',{pid:id,color:0,size:p.sizes.length===1?p.sizes[0]:null,qty:1,sizeErr:false,acc:'desc',galIdx:0,bOff:{},bSize:{},bErr:false});};
+  flash(msg){clearTimeout(this._tt);this.setState({toast:msg,toastOn:true});this._tt=setTimeout(()=>this.setState({toastOn:false}),2200);}
+  addMany(list,openCart){this.setState(s=>{const cart=s.cart.slice();list.forEach(([pid,ci,size,qty])=>{const p=PM[pid];const color=p.colors[ci]||'';const key=pid+'|'+color+'|'+size;const i=cart.findIndex(l=>l.key===key);if(i>=0)cart[i]=Object.assign({},cart[i],{qty:cart[i].qty+qty});else cart.push({key,pid,color,size,qty});});return {cart,sheet:null,cartOpen:openCart};});this.flash(list.length>1?list.length+' פריטים נוספו לסל':'נוסף לסל');}
+  setQtyLine(key,d){this.setState(s=>({cart:s.cart.map(l=>l.key===key?Object.assign({},l,{qty:Math.max(0,l.qty+d)}):l).filter(l=>l.qty>0)}));}
+  tog(field,val){this.setState(s=>{const a=s.f[field];const n=a.includes(val)?a.filter(x=>x!==val):a.concat(val);return {f:Object.assign({},s.f,{[field]:n}),shown:8};});}
+  chip(on){return on?{border:'#111',bg:'#111',fg:'#fff'}:{border:'#CFCFCA',bg:'#fff',fg:'#111'};}
+  card(p){const imgs=p.imgs||[];const cols=p.colors||[];return {name:p.name,img:imgs[0]||'',hasImg:!!imgs.length,noImg:!imgs.length,ph:p.std?p.std.join(' · '):(p.sku||CM[p.cat].name),priceLabel:fmt(p.price),hasCompare:!!p.was,compareLabel:p.was?fmt(p.was):'',hasDeal:!!p.deal,dealLabel:p.deal?p.deal[0]+' ב-'+p.deal[1]+' ₪':'',isSale:!!p.was,isBest:!p.was&&!p.deal&&!!p.best,badge:p.was?'-'+Math.round((1-p.price/p.was)*100)+'%':'',swatches:cols.slice(0,5).map(c=>({hex:HEX[c]||'#999'})),colorCount:cols.length>1?cols.length+' צבעים':(cols[0]||''),showQuick:this.props.quickAdd??true,onOpen:()=>this.openP(p.id),onQuick:e=>{e.stopPropagation();this.setState({sheet:'quick',quick:p.id,qColor:0,qSize:p.sizes.length===1?p.sizes[0]:null});}};}
+  bundleItems(p){const q=p.deal?p.deal[0]:1;let rest;if(p.cat==='shoes')rest=[['p1',6],['a4',1]];else if(p.cat==='winter')rest=[[p.id==='p7'?'p8':'p7',1],['a3',1]];else if(p.cat==='pro'||p.cat==='rep')rest=[[p.id==='p1'?'p7':'p1',p.id==='p1'?1:6],['a1',1]];else rest=[['p1',6],['s13',1]];return [[p.id,q]].concat(rest.filter(r=>r[0]!==p.id));}
+  bview(items,off,sizes,err,mainPid,mainSize,setOff,setSize,onAdd){
+    let total=0,regular=0,count=0;
+    const rows=items.map(([pid,qty])=>{const p=PM[pid];const isMain=pid===mainPid;const on=isMain||!off[pid];const multi=p.sizes.length>1;const size=multi?(sizes[pid]||''):p.sizes[0];const pr=priceFor(p,qty);if(on){total+=pr;regular+=qty*p.price;count+=qty;}const imgs=p.imgs||[];
+      return {name:p.name,price:fmt(pr),qtyLabel:qty>1?qty+' יחידות'+(p.deal&&qty>=p.deal[0]?' · מבצע כמות':''):'יחידה אחת',on,op:on?1:.45,boxBg:on?'#111':'#fff',img:imgs[0]||'',hasImg:!!imgs.length,noImg:!imgs.length,ph:phOf(p),isMain,mainSize:isMain?(mainSize?'מידה '+mainSize:'בחרו מידה למעלה'):'',needsSize:!isMain&&multi,size,selBorder:err&&on&&!size?'#B3261E':'#CFCFCA',sizeOpts:[{v:'',label:'מידה'}].concat(p.sizes.map(z=>({v:z,label:z}))),onToggle:()=>{if(!isMain)setOff(pid);},onSize:e=>setSize(pid,e.target.value)};});
+    return {rows,total:fmt(total),regular:fmt(regular),save:fmt(regular-total),hasSave:regular-total>0,err,cta:'הוספת '+count+' פריטים לסל',onAdd};
+  }
+  renderVals(){
+    const s=this.state,isM=s.w<768,isD=!isM,thr=this.props.freeShipping??299,page=s.page;
+    const cartCount=s.cart.reduce((a,l)=>a+l.qty,0);
+    const byP={};s.cart.forEach(l=>{byP[l.pid]=(byP[l.pid]||0)+l.qty;});
+    let regular=0,total=0;Object.keys(byP).forEach(id=>{const p=PM[id];regular+=byP[id]*p.price;total+=priceFor(p,byP[id]);});
+    const savings=regular-total;
+    const cartLines=s.cart.map(l=>{const p=PM[l.pid];const imgs=p.imgs||[];return {name:p.name,variant:[l.color,l.size].filter(Boolean).join(' · '),qty:l.qty,lineLabel:fmt(l.qty*p.price),img:imgs[0]||'',hasImg:!!imgs.length,noImg:!imgs.length,ph:phOf(p),inc:()=>this.setQtyLine(l.key,1),dec:()=>this.setQtyLine(l.key,-1),remove:()=>this.setQtyLine(l.key,-9999)};});
+    const dealNotes=Object.keys(byP).filter(id=>PM[id].deal).map(id=>{const p=PM[id],n=byP[id],[q,dp]=p.deal;const rem=n%q;const done=n>=q&&rem===0;const save=n*p.price-priceFor(p,n);return {text:done?p.name+' — מבצע '+q+' ב-'+dp+' ₪ הופעל. חסכתם '+fmt(save):'עוד '+(q-rem)+' × '+p.name+' ותשלמו '+dp+' ₪ על '+q+(save>0?' · כבר חסכתם '+fmt(save):''),pct:(done?100:Math.round(rem/q*100))+'%',bg:done?'#FFD100':'#F4F4F2'};});
+    const tabsOn=isM&&(this.props.tabBar??true)&&(page==='home'||page==='cat'||page==='b2b'||page==='account');
+    const mc=s.mega?CM[s.mega]:null;
+    const ring=(on)=>on?'0 0 0 2px #fff, 0 0 0 4px #111':'inset 0 0 0 1px rgba(0,0,0,.18)';
+    // category
+    const base=P.filter(p=>p.cat===s.catId||(s.catId==='redback'&&p.brand==='Redback'));
+    const uni=(fn)=>[...new Set(base.flatMap(fn))];
+    let list=base.filter(p=>!s.sub||p.sub===s.sub);
+    const prices=base.map(p=>p.price);const pMin=prices.length?Math.min(...prices):0,pTop=prices.length?Math.max(...prices):100;const pMax=s.f.max??pTop;
+    list=list.filter(p=>(!s.f.std.length||s.f.std.every(t=>(p.std||[]).includes(t)))&&(!s.f.colors.length||p.colors.some(c=>s.f.colors.includes(c)))&&(!s.f.sizes.length||p.sizes.some(z=>s.f.sizes.includes(z)))&&(!s.f.brands.length||s.f.brands.includes(p.brand))&&p.price<=pMax);
+    if(s.sort==='asc')list=list.slice().sort((a,b)=>a.price-b.price);if(s.sort==='desc')list=list.slice().sort((a,b)=>b.price-a.price);
+    const fCount=s.f.std.length+s.f.colors.length+s.f.sizes.length+s.f.brands.length+(s.f.max!=null&&s.f.max<pTop?1:0);
+    const opt=(arr,field)=>arr.map(v=>Object.assign({label:v,onClick:()=>this.tog(field,v)},this.chip(s.f[field].includes(v))));
+    const activeChips=['std','sizes','colors','brands'].flatMap(f=>s.f[f].map(v=>({label:v,onClick:()=>this.tog(f,v)})));
+    const curCat=CM[s.catId];
+    // pdp
+    const p=PM[s.pid];const imgs=p.imgs||[];
+    const slides=imgs.map(src=>({isImg:true,src}));if(!imgs.length)slides.push({isPh:true,text:p.std?p.std.join(' · '):(p.sku||CM[p.cat].name)});
+    const specRows=(p.specs||[]).map(([k,v])=>({k,v}));if(specRows.length)slides.push({isSpec:true,rows:specRows});else if(p.std)slides.push({isSpec:true,rows:[{k:'תקן',v:p.std.join(' · ')},{k:'צבע',v:p.colors.join(', ')},{k:'מידות',v:p.sizes[0]+'–'+p.sizes[p.sizes.length-1]}]});
+    const gi=Math.min(s.galIdx,slides.length-1);const gal=slides[gi];
+    const inCart=byP[p.id]||0;const qn=s.qty;
+    let packs=[],feedback='',fbColor='#5E5E5B';
+    if(p.deal){const [q,dp]=p.deal;packs=[1,q,q*2].map(n=>{const pr=priceFor(p,n),sv=n*p.price-pr,on=qn===n;return {label:n===1?'יחידה אחת':'חבילת '+n,sub:n===1?fmt(p.price)+' ליחידה':fmt(pr/n)+' ליחידה · חיסכון '+fmt(sv),price:fmt(pr),hasWas:sv>0,was:fmt(n*p.price),hasTag:n>1,tag:n===q?'מבצע':'לצוות',ringW:on?'2px':'0px',bg:on?'#fff':'#F4F4F2',dot:on?'#111':'transparent',onClick:()=>this.setState({qty:n})};});
+      const rem=qn%q;if(qn<q){feedback='עוד '+(q-qn)+' יחידות ותשלמו '+dp+' ₪ על '+q;}else{const sv=qn*p.price-priceFor(p,qn);feedback=qn+' יחידות ב-'+fmt(priceFor(p,qn))+' · חסכתם '+fmt(sv)+(rem?' · עוד '+(q-rem)+' לחבילה נוספת':'');fbColor='#111';}}
+    const pdpAccs=[];if(p.desc)pdpAccs.push({id:'desc',title:'תיאור',cols:'0 1fr',lines:p.desc.map(v=>({k:'',v:'— '+v}))});
+    pdpAccs.push({id:'spec',title:'מפרט',cols:'110px 1fr',lines:[].concat(p.sku?[{k:'מק״ט',v:p.sku}]:[],p.brand?[{k:'מותג',v:p.brand}]:[],[{k:'קטגוריה',v:CM[p.cat].name}],(p.specs||[]).map(([k,v])=>({k,v})),p.std?[{k:'תקן',v:p.std.join(' · ')}]:[],[{k:'מידות',v:p.sizes.join(', ')}])});
+    pdpAccs.push({id:'ship',title:'משלוחים והחזרות',cols:'0 1fr',lines:[{k:'',v:'משלוח חינם בהזמנות מעל '+fmt(thr)+'.'},{k:'',v:'אפשר לאסוף מהסניף בהפועלים 20, באר שבע.'},{k:'',v:'מדיניות ההחזרות המלאה מפורטת בתקנון האתר.'}]});
+    const accs=pdpAccs.map(a=>Object.assign(a,{open:s.acc===a.id,icon:s.acc===a.id?'−':'+',onClick:()=>this.setState(st=>({acc:st.acc===a.id?null:a.id}))}));
+    const lineTotal=fmt(priceFor(p,qn));
+    const addBg=s.toastOn&&page==='pdp'?'#1F7A3D':'#111';
+    const doAdd=()=>{if(!s.size){this.setState({sizeErr:true});this.flash('בחרו מידה');return;}this.addMany([[p.id,s.color,s.size,s.qty]],true);};
+    const bItems=this.bundleItems(p);
+    const bundle=Object.assign(this.bview(bItems,s.bOff,s.bSize,s.bErr,p.id,s.size,pid=>this.setState(st=>({bOff:Object.assign({},st.bOff,{[pid]:!st.bOff[pid]})})),(pid,v)=>this.setState(st=>({bSize:Object.assign({},st.bSize,{[pid]:v}),bErr:false})),()=>{
+      const sel=bItems.filter(([pid])=>pid===p.id||!s.bOff[pid]);const miss=sel.some(([pid])=>pid!==p.id&&PM[pid].sizes.length>1&&!s.bSize[pid]);
+      if(!s.size||miss){this.setState({bErr:miss,sizeErr:!s.size});this.flash(!s.size?'בחרו מידה לפריט הראשי':'בחרו מידה לכל פריט');return;}
+      this.setState({bErr:false});this.addMany(sel.map(([pid,qty])=>pid===p.id?[pid,s.color,s.size,qty]:[pid,0,PM[pid].sizes.length>1?s.bSize[pid]:PM[pid].sizes[0],qty]),true);}),{title:'השלימו את הסט'});
+    const related=P.filter(x=>x.cat===p.cat&&x.id!==p.id).slice(0,4);
+    const accP=P.filter(x=>(x.cat==='acc'||x.cat==='safety')&&x.id!==p.id).slice(0,4);
+    // kit
+    const kit=KITS.find(k=>k.id===s.kit);
+    const kitView=this.bview(kit.items,s.kOff,s.kSize,s.kErr,null,null,pid=>this.setState(st=>({kOff:Object.assign({},st.kOff,{[pid]:!st.kOff[pid]})})),(pid,v)=>this.setState(st=>({kSize:Object.assign({},st.kSize,{[pid]:v}),kErr:false})),()=>{
+      const sel=kit.items.filter(([pid])=>!s.kOff[pid]);const miss=sel.some(([pid])=>PM[pid].sizes.length>1&&!s.kSize[pid]);if(miss){this.setState({kErr:true});return;}
+      if(sel.length)this.addMany(sel.map(([pid,qty])=>[pid,0,PM[pid].sizes.length>1?s.kSize[pid]:PM[pid].sizes[0],qty]),true);});
+    // quick
+    const qp=PM[s.quick];
+    const qv={name:qp.name,price:fmt(qp.price),hasDeal:!!qp.deal,deal:qp.deal?qp.deal[0]+' ב-'+qp.deal[1]+' ₪':'',img:(qp.imgs||[])[0]||'',hasImg:!!(qp.imgs&&qp.imgs.length),hasColors:qp.colors.length>0,colorName:qp.colors[s.qColor]||'',colors:qp.colors.map((c,i)=>({name:c,hex:HEX[c]||'#999',ring:ring(i===s.qColor),onClick:()=>this.setState({qColor:i})})),sizes:qp.sizes.map(z=>Object.assign({label:z,onClick:()=>this.setState({qSize:z})},this.chip(s.qSize===z))),addLabel:s.qSize?'הוספה לסל':'בחרו מידה',addBg:s.qSize?'#111':'#8A8A86',onAdd:()=>{if(s.qSize)this.addMany([[qp.id,s.qColor,s.qSize,1]],false);},onDetails:()=>this.openP(qp.id)};
+    // search
+    const qq=s.q.trim().toLowerCase();
+    const sres=qq?P.filter(x=>(x.name+' '+(x.sku||'')+' '+(x.brand||'')+' '+CM[x.cat].name+' '+(x.sub||'')+' '+(x.std||[]).join(' ')).toLowerCase().includes(qq)):[];
+    // b2b
+    const b2bProducts=P.filter(x=>x.sizes.length>1).map(x=>({id:x.id,name:x.name}));
+    let units=0;
+    const rows=s.rows.map((r,ri)=>{const rp=PM[r.pid];const sum=Object.values(r.sizes).reduce((a,b)=>a+(+b||0),0);units+=sum;const upd=(fn)=>this.setState(st=>({rows:st.rows.map((x,j)=>j===ri?fn(x):x)}));return {pid:r.pid,color:String(r.color),colors:(rp.colors.length?rp.colors:['ללא']).map((c,i)=>({v:String(i),name:c})),sizes:rp.sizes.map(z=>({label:z,val:r.sizes[z]||'',onChange:e=>{const v=e.target.value;upd(x=>({...x,sizes:{...x.sizes,[z]:v}}));}})),total:sum?sum+' יחידות':'טרם הוזנו כמויות',canRemove:s.rows.length>1,onPid:e=>{const v=e.target.value;upd(()=>({pid:v,color:0,sizes:{}}));},onColor:e=>{const v=+e.target.value;upd(x=>({...x,color:v}));},onRemove:()=>this.setState(st=>({rows:st.rows.filter((x,j)=>j!==ri)}))};});
+    const anyOverlay=s.cartOpen||s.menuOpen||!!s.sheet||s.searchOpen;
+    const tabOn=k=>(k==='home'&&page==='home')||(k==='cat'&&page==='cat')||(k==='b2b'&&page==='b2b');
+    const tk=['home','cat','b2b'];const tabW={},tabC={},tabL={};tk.forEach(k=>{tabW[k]=tabOn(k)?800:500;tabC[k]=tabOn(k)?'#111':'#5E5E5B';tabL[k]=tabOn(k)?'#FFD100':'transparent';});
+    const imgTile=(id,name,img)=>({id,name,sub:'',img,hasImg:true,hasBig:false,big:'',bg:'#F4F4F2',fg:'#111',labelBg:'#fff',labelPad:'4px 10px',arrowBg:'#111',arrowFg:'#fff'});
+    const bigTile=(id,name,sub,big,bg,fg,abg,afg)=>({id,name,sub,img:'',hasImg:false,hasBig:true,big,bg,fg,labelBg:'transparent',labelPad:'0',arrowBg:abg,arrowFg:afg});
+    return {
+      isM,isD,deskHeader:isD&&page!=='checkout',hdrH:s.compact?'60px':'84px',logoH:s.compact?'30px':'40px',hdrShadow:s.compact?'0 8px 24px -16px rgba(0,0,0,.25)':'none',navRows:s.navHidden?'0fr':'1fr',navY:s.navHidden?'-100%':'0',navO:s.navHidden?0:1,mobHeader:isM&&page!=='checkout',mobSearchBar:page==='home'||page==='cat',notCheckout:page!=='checkout',isCheckout:page==='checkout',
+      isHome:page==='home',isCat:page==='cat',isPdp:page==='pdp',isB2B:page==='b2b',isAcct:page==='account',
+      padBottom:isM&&page==='pdp'?'84px':(tabsOn?'74px':'0'),mPad:isM?'16px':'0',
+      announcement:ANN[s.ann].replace('{thr}',fmt(thr)),thrLabel:fmt(thr),
+      goHome:()=>this.go('home'),goShop:()=>this.openCat('pro'),goB2B:()=>this.go('b2b'),goDeals:()=>this.openP('p1'),goBack:()=>s.prev==='cat'?this.go('cat'):this.go('home'),tabHome:()=>this.go('home'),
+      openSearch:()=>this.setState({searchOpen:true,mega:null,menuOpen:false}),openCart:()=>this.setState({cartOpen:true}),openMenu:()=>this.setState({menuOpen:true,menuCat:null}),closeMega:()=>this.setState({mega:null}),closeAll:this.closeAll,openHeroDeal:()=>this.openP('p1'),
+      hasCart:cartCount>0,cartEmpty:cartCount===0,cartCount,cartCountLabel:cartCount===1?'פריט אחד':cartCount+' פריטים',
+      navCats:CATS.map(c=>({name:c.name,line:s.mega===c.id||(page==='cat'&&s.catId===c.id)?'#111':'transparent',onEnter:()=>this.setState({mega:c.id}),onOpen:()=>this.openCat(c.id)})),
+      megaOpen:!!mc&&isD,mega:mc?{name:mc.name,count:mc.subs.length+' תתי קטגוריות',subs:mc.subs.map(n=>({name:n,onClick:()=>this.openCat(mc.id,n)})),onOpen:()=>this.openCat(mc.id)}:{name:'',count:'',subs:[],onOpen:()=>{}},
+      heroTiles:[['p8',IM.soft1,'1 / 3'],['p7',IM.fleece,'1'],['p1',IM.dry,'2']].map(([id,img,row])=>({name:PM[id].name,price:fmt(PM[id].price),img,row,onOpen:()=>this.openP(id)})),
+      catFeatures:[bigTile('shoes','נעלי עבודה ובטיחות','נעלי בטיחות, מגפים ונעלי מטבח','S3','#111','#fff','#FFD100','#111'),imgTile('winter','ביגוד חורף',IM.fleece),imgTile('pro','ביגוד מקצועי',IM.dry),bigTile('safety','מוצרי בטיחות','כפפות, הגנת ראש, נראות גבוהה','מיגון','#FFD100','#111','#111','#fff'),imgTile('rep','ביגוד ייצוגי',IM.k87),bigTile('kitchen','מטבח ומזון',"ג'קטים ומכנסי שף, סינרים",'שף','#EBEBE8','#111','#111','#fff')].map(t=>Object.assign(t,{onOpen:()=>this.openCat(t.id)})),
+      catMore:['disp','acc','redback'].map(id=>({name:CM[id].name,onOpen:()=>this.openCat(id)})),
+      deals:['p1','p7','p3','p2','p6','p5','p4'].map(id=>{const d=PM[id];return {q:d.deal[0],dealPrice:fmt(d.deal[1]),name:d.name,unit:fmt(d.deal[1]/d.deal[0]),price:fmt(d.price),save:fmt(d.deal[0]*d.price-d.deal[1]),onOpen:()=>this.openP(id)};}),
+      bestCards:['p1','p7','s1','p8'].map(id=>this.card(PM[id])),
+      kits:KITS.map(k=>{let t=0,r=0;k.items.forEach(([pid,q])=>{t+=priceFor(PM[pid],q);r+=q*PM[pid].price;});return {name:k.name,list:k.items.map(([pid,q])=>(q>1?q+' × ':'')+PM[pid].name).join(' · '),total:fmt(t),regular:fmt(r),save:fmt(r-t),thumbs:k.items.map(([pid,q])=>{const pp=PM[pid];const im=(pp.imgs||[])[0];return {img:im||'',hasImg:!!im,noImg:!im,ph:phOf(pp),qty:'×'+q};}),onOpen:()=>this.setState({sheet:'kit',kit:k.id,kOff:{},kSize:{},kErr:false})};}),
+      professions:[{name:'תעשייה ובנייה',desc:'נעלי בטיחות S3, כפפות, הגנת ראש ושמיעה',id:'shoes'},{name:'מטבח ומזון',desc:"ג'קטים ומכנסי שף, סינרים, נעלי מטבח",id:'kitchen'},{name:'ייצוג ושירות',desc:'חולצות, מכנסיים וג׳קטים ייצוגיים',id:'rep'},{name:'עבודה בדרכים',desc:'אפודים זוהרים ונראות גבוהה',id:'safety'},{name:'מרפאות ומעבדות',desc:'ביגוד ואביזרים חד פעמיים',id:'disp'}].map(x=>Object.assign(x,{onOpen:()=>this.openCat(x.id)})),
+      brands:[{name:'REDBACK',id:'redback'},{name:'FORCE®',id:'pro'},{name:'ALL AUSSIE GEAR',id:'shoes'},{name:'WORKER',id:'pro'}].map(b=>Object.assign(b,{onOpen:()=>this.openCat(b.id)})),
+      footCats:CATS.slice(0,6).map(c=>({name:c.name,onOpen:()=>this.openCat(c.id)})),
+      cat:{name:s.sub||curCat.name},resultsLabel:list.length+' מוצרים',
+      subChips:[Object.assign({name:'הכל',onClick:()=>this.setState({sub:null,shown:8})},this.chip(!s.sub))].concat(curCat.subs.map(n=>Object.assign({name:n,onClick:()=>this.setState({sub:n,shown:8})},this.chip(s.sub===n)))),
+      catCards:list.slice(0,s.shown).map(x=>this.card(x)),hasResults:list.length>0,noResults:list.length===0,activeChips,
+      emptyTitle:base.length?'אין התאמות':'בקרוב',emptyText:base.length?'נסו להסיר חלק מהמסננים או לבחור תת-קטגוריה אחרת.':'המוצרים בקטגוריה זו יוצגו לאחר חיבור הקטלוג המלא.',emptyCta:base.length?'ניקוי המסננים':'לביגוד מקצועי',
+      canLoadMore:list.length>s.shown,shownLabel:'מוצגים '+Math.min(s.shown,list.length)+' מתוך '+list.length,shownPct:Math.round(Math.min(s.shown,list.length)/Math.max(1,list.length)*100)+'%',loadMore:()=>this.setState(st=>({shown:st.shown+8})),
+      sort:s.sort,onSort:e=>this.setState({sort:e.target.value}),openFilters:()=>this.setState({sheet:'filters'}),filterCountLabel:fCount?' ('+fCount+')':'',hasFilters:fCount>0,
+      clearFilters:()=>{if(!base.length){this.openCat('pro');return;}this.setState({sub:null,f:EMPTYF});},
+      hasStdOpts:uni(x=>x.std||[]).length>0,stdOpts:opt(uni(x=>x.std||[]),'std'),sizeOpts:opt(uni(x=>x.sizes).filter(z=>z!=='מידה אחת'),'sizes'),
+      colorOpts:uni(x=>x.colors).map(c=>({label:c,hex:HEX[c]||'#999',ring:ring(s.f.colors.includes(c)),onClick:()=>this.tog('colors',c)})),
+      hasBrandOpts:uni(x=>x.brand?[x.brand]:[]).length>0,brandOpts:uni(x=>x.brand?[x.brand]:[]).map(b=>({label:b,bg:s.f.brands.includes(b)?'#111':'#fff',onClick:()=>this.tog('brands',b)})),
+      priceMin:pMin,priceTop:pTop,priceMax:pMax,priceMaxLabel:fmt(pMax),onPrice:e=>{const v=+e.target.value;this.setState(st=>({f:Object.assign({},st.f,{max:v})}));},
+      toggleStock:()=>this.setState(st=>({f:Object.assign({},st.f,{stock:!st.f.stock})})),stockBg:s.f.stock?'#111':'#CFCFCA',stockKnob:s.f.stock?'21px':'3px',
+      pdp:{name:p.name,catName:CM[p.cat].name,onCat:()=>this.openCat(p.cat),brand:p.brand||'האחים כהן',skuLabel:p.sku?'מק״ט '+p.sku:'',priceLabel:fmt(p.price),hasCompare:!!p.was,compareLabel:p.was?fmt(p.was):'',pct:p.was?'-'+Math.round((1-p.price/p.was)*100)+'%':'',hasStd:!!p.std,std:(p.std||[]).map(t=>({label:t})),slides,thumbs:slides.map((x,i)=>({isImg:!!x.isImg,src:x.src||'',isTxt:!x.isImg,text:x.isSpec?'מפרט':x.text,ring:i===gi?'#111':'transparent',onClick:()=>this.setState({galIdx:i})})),hasDeal:!!p.deal,dealTag:p.deal?p.deal[0]+' ב-'+p.deal[1]+' ₪':'',hasPacks:!!p.deal,packs,feedback,fbColor,hasColors:p.colors.length>0,colorName:p.colors[s.color]||'',colors:p.colors.map((c,i)=>({name:c,hex:HEX[c]||'#999',ring:ring(i===s.color),onClick:()=>this.setState({color:i})})),sizeName:s.size||'לא נבחרה',sizes:p.sizes.map(z=>Object.assign({label:z,onClick:()=>this.setState({size:z,sizeErr:false})},s.size===z?{border:'#111',bg:'#111',fg:'#fff'}:{border:s.sizeErr?'#B3261E':'#CFCFCA',bg:'#fff',fg:'#111'})),accs},
+      gal:{isImg:!!gal.isImg,src:gal.src||'',isPh:!!gal.isPh,text:gal.text||'',isSpec:!!gal.isSpec,rows:gal.rows||[]},
+      galDots:slides.map((x,i)=>({w:i===s.galIdx?'20px':'8px',o:i===s.galIdx?1:.25})),onGalScroll:e=>{const el=e.currentTarget;const i=Math.round(Math.abs(el.scrollLeft)/el.clientWidth);if(i!==s.galIdx)this.setState({galIdx:i});},
+      qty:s.qty,qtyInc:()=>this.setState(st=>({qty:st.qty+1})),qtyDec:()=>this.setState(st=>({qty:Math.max(1,st.qty-1)})),sizeErr:s.sizeErr,
+      addToCart:doAdd,addBg,addLabel:(s.size?'הוספה לסל · ':'בחרו מידה · ')+lineTotal,addLabelShort:s.size?'הוספה לסל':'בחרו מידה',lineTotal,stickySub:qn+' יח׳'+(s.size?' · '+s.size:''),
+      stockLabel:'במלאי'+(inCart?' · '+inCart+' כבר בסל':' · זמין למשלוח'),shipLine:'חינם בהזמנה מעל '+fmt(thr),
+      openSizeGuide:()=>this.setState({sheet:'size'}),sizeGuideList:p.sizes.join(' · '),bundle,
+      relatedCards:related.map(x=>this.card(x)),accCards:accP.map(x=>this.card(x)),
+      cartLines,dealNotes,cartTotal:fmt(total),subtotal:fmt(regular),hasSavings:savings>0,savingsLabel:'-'+fmt(savings),
+      freeShipMsg:total>=thr?'ההזמנה זכאית למשלוח חינם':'עוד '+fmt(thr-total)+' למשלוח חינם',freeShipPct:Math.min(100,Math.round(total/thr*100))+'%',
+      goCheckout:()=>this.go('checkout',{step:1,demoDone:false}),goShopClose:()=>this.openCat('pro'),
+      cartTf:s.cartOpen?'translateX(0)':'translateX(-102%)',menuTf:s.menuOpen?'translateX(0)':'translateX(102%)',sheetTf:s.sheet?'translateY(0)':'translateY(104%)',
+      bdOpacity:anyOverlay?1:0,bdPointer:anyOverlay?'auto':'none',
+      menuRoot:!s.menuCat,menuSub:!!s.menuCat,menuCatName:s.menuCat?CM[s.menuCat].name:'',menuBack:()=>this.setState({menuCat:null}),
+      menuCats:CATS.map(c=>({name:c.name,onDrill:()=>this.setState({menuCat:c.id})})),menuSubs:s.menuCat?CM[s.menuCat].subs.map(n=>({name:n,onClick:()=>this.openCat(s.menuCat,n)})):[],menuAll:()=>this.openCat(s.menuCat),
+      sheetTitle:s.sheet==='filters'?'סינון':s.sheet==='size'?'מדריך מידות':s.sheet==='kit'?kit.name:'הוספה מהירה',sheetQuick:s.sheet==='quick',sheetKit:s.sheet==='kit',sheetFilters:s.sheet==='filters',sheetSize:s.sheet==='size',qv,kitView,
+      searchOpen:s.searchOpen,searchBottom:isM?'0':'auto',searchMaxH:isM?'none':'80vh',q:s.q,onQ:e=>this.setState({q:e.target.value}),searchRef:this.searchRef,hasQ:!!qq,noSearch:!!qq&&!sres.length,searchCount:sres.length+' תוצאות',
+      quickTerms:['נעלי עבודה','S3','טריקו','פליז','כובע'].map(t=>({label:t,onClick:()=>this.setState({q:t})})),
+      searchResults:sres.slice(0,10).map(x=>({name:x.name,cat:CM[x.cat].name+(x.sku?' · '+x.sku:''),price:fmt(x.price),img:(x.imgs||[])[0]||'',hasImg:!!(x.imgs&&x.imgs.length),onOpen:()=>this.openP(x.id)})),
+      services:[{t:'הדפסה',d:'הדפסת לוגו על חולצות, סווטשירטים ופליזים.',bg:'#111',fg:'#fff'},{t:'רקמה',d:'רקמת לוגו על חולצות, מעילים וכובעים.',bg:'#F4F4F2',fg:'#111'},{t:'ייצוגי',d:'מראה אחיד לצוותי שירות, מכירות ומשרד.',bg:'#FFD100',fg:'#111'},{t:'כמויות',d:'שילוב פריטים, צבעים ומידות בהזמנה אחת.',bg:'#F4F4F2',fg:'#111'}],
+      formRef:this.formRef,scrollToForm:()=>{const el=this.formRef.current;if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-90,behavior:'smooth'});},
+      b2bRows:rows,b2bProducts,b2bUnits:units+' יחידות',b2bAddRow:()=>this.setState(st=>({rows:st.rows.concat({pid:'p3',color:0,sizes:{}})})),
+      brandingOpts:['רקמה','הדפסה','ללא מיתוג'].map(b=>Object.assign({label:b,onClick:()=>this.setState(st=>({brandSel:st.brandSel.includes(b)?st.brandSel.filter(x=>x!==b):st.brandSel.concat(b)}))},this.chip(s.brandSel.includes(b)))),
+      logoLabel:s.logoName||'העלאת קובץ לוגו',onLogo:e=>{const f=e.target.files&&e.target.files[0];if(f)this.setState({logoName:f.name});},
+      ...(()=>{const bs=s.bStep||0;const ct=s.ct||{};const setCt=k=>e=>{const v=e.target.value;this.setState(st=>({ct:Object.assign({},st.ct||{},{[k]:v}),bErr:''}));};
+      const labels=['פריטים וכמויות','מיתוג','פרטי התקשרות','סיכום ושליחה'];
+      const valid=i=>i===0?units>0:i===2?!!(ct.org&&ct.name&&ct.phone):true;
+      const errs=['הזינו כמות לפחות במידה אחת','','מלאו שם עסק, איש קשר וטלפון',''];
+      const top=()=>{const el=this.formRef.current;if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-80,behavior:'smooth'});};
+      const goStep=i=>{for(let j=0;j<i;j++)if(!valid(j)){this.setState({bStep:j,bErr:errs[j]});return;}this.setState({bStep:i,bErr:''});top();};
+      const T=[['אילו פריטים צריך?','בחרו פריט וצבע והזינו כמות לכל מידה. אפשר להוסיף כמה פריטים לאותה בקשה.'],['איך ממתגים?','בחרו שיטת מיתוג והעלו את קובץ הלוגו. אם הקובץ לא זמין כרגע, אפשר לשלוח אותו גם אחר כך.'],['למי לשלוח את ההצעה?','הצעת המחיר תישלח לפרטים האלה.'],['בדיקה אחרונה','עברו על הפרטים לפני השליחה. אפשר לחזור לכל שלב ולערוך.']];
+      const BD={'רקמה':'לוגו רקום על הבגד','הדפסה':'לוגו מודפס על הבגד','ללא מיתוג':'פריטים ללא לוגו'};
+      const brand=s.brandSel.length?s.brandSel.join(' + '):'לא נבחר';
+      return {
+        bSteps:labels.map((l,i)=>({label:l,num:i+1,bar:i<=bs?'#111':'#E4E4E1',numBg:i===bs?'#FFD100':(i<bs?'#111':'transparent'),numFg:i<bs?'#fff':'#111',ring:i<=bs?(i===bs?'#111':'#111'):'#CFCFCA',fg:i<=bs?'#111':'#8A8A86',w:i===bs?800:600,labelDisp:isM&&i!==bs?'none':'block',onClick:()=>goStep(i)})),
+        bS0:bs===0,bS1:bs===1,bS2:bs===2,bS3:bs===3,bStepOf:'שלב '+(bs+1)+' מתוך 4',bTitle:T[bs][0],bSub:T[bs][1],
+        bErr:s.bErr||'',hasBErr:!!s.bErr,hasBack:bs>0,bBack:()=>{this.setState({bStep:bs-1,bErr:''});top();},
+        bNextLabel:bs<3?'המשך · '+labels[bs+1]:'שליחת בקשה להצעת מחיר',
+        bNext:()=>{if(bs<3){goStep(bs+1);return;}for(let j=0;j<3;j++)if(!valid(j)){this.setState({bStep:j,bErr:errs[j]});return;}this.setState({b2bSent:true});top();},
+        ctOrg:ct.org||'',ctName:ct.name||'',ctPhone:ct.phone||'',ctEmail:ct.email||'',ctNotes:ct.notes||'',setOrg:setCt('org'),setName:setCt('name'),setPhone:setCt('phone'),setEmail:setCt('email'),setNotes:setCt('notes'),
+        bBrandCards:['רקמה','הדפסה','ללא מיתוג'].map(b=>{const on=s.brandSel.includes(b);return {label:b,desc:BD[b],ringW:on?'2px':'0px',boxBg:on?'#111':'#fff',check:on?'#fff':'transparent',onClick:()=>this.setState(st=>{let sel;if(b==='ללא מיתוג')sel=st.brandSel.includes(b)?[]:[b];else{sel=st.brandSel.filter(x=>x!=='ללא מיתוג');sel=sel.includes(b)?sel.filter(x=>x!==b):sel.concat(b);}return {brandSel:sel};})};}),
+        bReview:s.rows.map(r=>{const rp=PM[r.pid];const c=rp.colors[r.color]||'';const ent=Object.entries(r.sizes).filter(([z,v])=>+v>0);const n=ent.reduce((a,[z,v])=>a+(+v),0);return {name:rp.name+(c?' · '+c:''),sizes:ent.length?ent.map(([z,v])=>z+' × '+v).join('   '):'ללא כמויות',units:n+' יח׳'};}),
+        bBrandLine:brand+(s.logoName?' · לוגו: '+s.logoName:' · לוגו יישלח בהמשך'),
+        bContactLine:[ct.org,ct.name,ct.phone,ct.email].filter(Boolean).join(' · ')+(ct.notes?' — '+ct.notes:''),
+        bEdit0:()=>goStep(0),bEdit1:()=>goStep(1),bEdit2:()=>goStep(2),
+        bUnitsNum:units,bItemsCount:String(s.rows.length),bBrandShort:brand,bLogoShort:s.logoName||'טרם הועלה'};})(),
+      ...(()=>{const otp=s.otp||['','','','','',''];const pd=(s.phone||'').replace(/\D/g,'');const pf=pd.length===10?pd.slice(0,3)+'-'+pd.slice(3):(s.phone||'');const tab=s.acctTab||'orders';const oo=s.ordOpen||{};
+      const ST=['התקבלה','בהכנה','נשלחה','נמסרה'];
+      const ORD=[{no:'10482',date:'21.10.2026',st:2,eta:'הגעה משוערת: 28.10.2026',lines:[['p1',0,'L',12],['p7',0,'XL',2]]},{no:'10377',date:'02.09.2026',st:3,lines:[['p8',0,'M',4],['p3',3,'L',6]]},{no:'10211',date:'14.06.2026',st:3,lines:[['p1',1,'XL',6]]}];
+      return {acctLabel:s.auth?'אזור אישי':'חשבון',goAcct:()=>this.go('account'),showLogin:!s.auth,showArea:!!s.auth,
+        otpPhone:s.otpStage!=='code',otpCodeStage:s.otpStage==='code',phone:s.phone||'',onPhone:e=>this.setState({phone:e.target.value.replace(/[^\d-]/g,'').slice(0,11),otpErr:''}),onPhoneKey:e=>{if(e.key==='Enter')this.sendOtp();},
+        phoneRing:s.otpErr&&s.otpStage!=='code'?'2px #B3261E':'1px #CFCFCA',otpErr:s.otpErr||'',hasOtpErr:!!s.otpErr,sendOtp:this.sendOtp,sendLabel:s.otpSending?'שולחים קוד…':'שליחת קוד ב-SMS',
+        phoneMasked:pd.length===10?pd.slice(0,3)+'-•••-'+pd.slice(6):pf,phoneFmt:pf,
+        otpBack:()=>{clearInterval(this._ot);this.setState({otpStage:'phone',otpErr:''});},
+        otpBoxes:otp.map((v,i)=>({val:v,ref:this.otpRefs[i],aria:'ספרה '+(i+1),ring:s.otpErr?'2px #B3261E':(v?'2px #111':'1px #CFCFCA'),onChange:e=>this.setOtp(i,e.target.value),onFocus:e=>e.target.select(),onKey:e=>{if(e.key==='Backspace'&&!otp[i]&&i>0){const o=otp.slice();o[i-1]='';this.setState({otp:o});const r=this.otpRefs[i-1].current;if(r)r.focus();e.preventDefault();}else if(e.key==='ArrowLeft'&&i<5){const r=this.otpRefs[i+1].current;if(r)r.focus();}else if(e.key==='ArrowRight'&&i>0){const r=this.otpRefs[i-1].current;if(r)r.focus();}}})),
+        verifyNow:()=>{if(otp.every(c=>c))this.verifyOtp(otp);else this.setState({otpErr:'הזינו את כל 6 הספרות'});},verifyLabel:s.otpVerifying?'מאמתים…':'אימות וכניסה',
+        canResend:!(s.otpLeft>0),waitResend:s.otpLeft>0,resendIn:'0:'+String(s.otpLeft||0).padStart(2,'0'),resendOtp:()=>{this.setState({otp:['','','','','',''],otpErr:''});this.startOtpTimer();this.flash('נשלח קוד חדש');},
+        logout:()=>{this.setState({auth:false,otpStage:'phone'});this.flash('התנתקתם מהחשבון');},
+        acctNav:[['orders','ההזמנות שלי','3'],['addr','כתובות למשלוח',''],['details','פרטים אישיים','']].map(([id,label,count])=>({label,count,hasCount:!!count,bg:tab===id?'#111':'#F4F4F2',fg:tab===id?'#fff':'#111',onClick:()=>this.setState({acctTab:id})})),
+        tabOrders:tab==='orders',tabAddr:tab==='addr',tabDetails:tab==='details',saveDetails:()=>this.flash('הפרטים נשמרו'),
+        orders:ORD.map((o,oi)=>{let tot=0,u=0;const ls=o.lines.map(([pid,ci,z,q])=>{const p=PM[pid];const size=p.sizes.includes(z)?z:p.sizes[0];const pr=priceFor(p,q);tot+=pr;u+=q;const im=(p.imgs||[])[0]||'';return {pid,ci,size,q,name:p.name,variant:[p.colors[ci],size,q+' יח׳'].filter(Boolean).join(' · '),price:fmt(pr),img:im,ph:phOf(p)};});const act=o.st<3;const open=oo[o.no]??act;
+          return {no:o.no,date:o.date,units:u+' יחידות',status:act?'בדרך אליכם':'נמסרה',pillBg:act?'#FFD100':'#F4F4F2',isActive:act,eta:o.eta||'',bg:'#fff',ring:act?'2px #111':'1px #E4E4E1',
+            track:ST.map((l,i)=>({label:l,bar:i<=o.st?'#111':'#E4E4E1',fg:i<=o.st?'#111':'#8A8A86',w:i===o.st?800:600})),
+            thumbs:ls.map(l=>({name:l.name,img:l.img,hasImg:!!l.img,noImg:!l.img,ph:l.ph,qty:l.q})),lines:ls,open,toggleLabel:open?'הסתרת פרטים':'פרטי הזמנה',total:fmt(tot),
+            onToggle:()=>this.setState(st=>({ordOpen:Object.assign({},st.ordOpen||{},{[o.no]:!open})})),
+            onReorder:()=>{this.addMany(ls.map(l=>[l.pid,l.ci,l.size,l.q]),true);this.flash('פריטי הזמנה #'+o.no+' נוספו לסל');}};})};})(),
+      b2bSent:s.b2bSent,b2bForm:!s.b2bSent,b2bSubmit:()=>{this.setState({b2bSent:true});const el=this.formRef.current;if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-90,behavior:'smooth'});},b2bReset:()=>this.setState({b2bSent:false,bStep:3}),
+      b2bSummary:units+' יחידות ב-'+s.rows.length+' פריטים'+(s.brandSel.length?' · '+s.brandSel.join(' + '):'')+(s.logoName?' · לוגו: '+s.logoName:''),
+      steps:['פרטים','משלוח','תשלום'].map((l,i)=>({label:l,bar:i<s.step?'#111':'#E4E4E1',fg:i<s.step?'#111':'#8A8A86'})),
+      step1:s.step===1,step2:s.step===2,step3:s.step===3,toStep1:()=>this.setState({step:1}),toStep2:()=>this.setState({step:2,demoDone:false}),toStep3:()=>this.setState({step:3}),
+      shipOpts:[{id:'home',t:'משלוח עד הבית',d:total>=thr?'ההזמנה זכאית למשלוח חינם':'חינם בהזמנות מעל '+fmt(thr),p:total>=thr?'חינם':'לפי תעריף'},{id:'pickup',t:'איסוף מהסניף',d:'הפועלים 20, באר שבע',p:'חינם'}].map(o=>Object.assign(o,{onClick:()=>this.setState({ship:o.id})},s.ship===o.id?{ringW:'2px',bg:'#fff',dot:'#111'}:{ringW:'0px',bg:'#F4F4F2',dot:'transparent'})),
+      shipCost:(s.ship==='pickup'||total>=thr)?'חינם':'לפי תעריף',grandTotal:fmt(total),payDemo:()=>this.setState({demoDone:true}),demoDone:s.demoDone,
+      showTabs:tabsOn,tabW,tabC,tabL,
+      toast:s.toast,toastO:s.toastOn?1:0,toastY:s.toastOn?'0':'12px',toastBottom:isM?(page==='pdp'?'96px':(tabsOn?'86px':'24px')):'32px'
+    };
+  }
+}
+</script>
+</body>
+</html>
