@@ -64,6 +64,36 @@ In another terminal, run `node scripts/check-navigation.cjs`. Set
 `PERFORMANCE_URL` to another loopback URL when testing a different port.
 The script only reads pages and follows category/product links found in the HTML.
 
-The app currently serializes the full catalog into its initial document (about
-2 MB uncompressed). A larger future catalog should use smaller per-page snapshots
-or split cache entries; this change focuses on removing repeated blocking loads.
+The app still serializes the full catalog into its initial document. HTTP
+compression reduces transfer size, but route-specific catalog payloads remain a
+separate optimization opportunity.
+
+## Catalog cache overflow fix — 2026-11-12
+
+After variant image URLs were added, the real catalog reached 2,310,080 bytes
+(1,167 products and 5,801 variants). Next logged `items over 2MB can not be cached`.
+The persistent snapshot could no longer be saved, causing subsequent requests to
+rebuild the catalog instead of reusing it.
+
+The cache now stores a lossless gzip/base64 snapshot under the versioned
+`shop-catalog-v4-gzip` key. Compression/decompression runs asynchronously on the
+server. The real serialized cache entry is 335,350 bytes. Consumers still receive
+the same products, variants, availability, prices and photos. The existing
+60-second stale-while-revalidate policy and failure recovery remain intact; cart
+and checkout requests are unchanged.
+
+Validation:
+
+- All 89 tests passed, including a new >2 MB catalog regression that verifies a
+  second request uses the cache and all variant details survive compression.
+- TypeScript and an isolated production build passed.
+- Read-only HTTP measurements of `https://ahimcohen.vercel.app` before release:
+  home 5,747 ms, category 5,141 ms, product 5,056 ms, repeated home 4,996 ms.
+- Local production build with the fix and real Shopify data: empty-cache home
+  6,501 ms, warm category/product responses 129–149 ms, warm home 173 ms.
+- After restarting the production process, the same persistent snapshot served
+  home/category/product in 264/156/147 ms, without another blocking cold load.
+- These are complete HTTP response times, not browser paint metrics. Local and
+  remote environments differ, so this is not a measured production speedup.
+  The first empty-cache load still needs to fetch Shopify. Production release
+  and a follow-up remote measurement are required to confirm the live result.

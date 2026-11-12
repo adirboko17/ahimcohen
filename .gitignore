@@ -3,6 +3,7 @@ node_modules
 .next-dev/
 .next-check
 .next-dev-check
+.next-perf-*/
 out
 *.log
 .env

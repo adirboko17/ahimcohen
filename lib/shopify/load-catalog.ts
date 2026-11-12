@@ -1,6 +1,8 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { gzip, gunzip } from "node:zlib";
+import { promisify } from "node:util";
 import { CATS, type Category, type Product, type VariantChoice } from "@/lib/catalog";
 import { fetchCollectionsPage } from "./collections";
 import { metafieldIdentifiers, shopDomain, storefrontApiVersion } from "./config";
@@ -16,25 +18,33 @@ const PAGE = 50;
 const MAX_PAGES = 8;
 // Share cold loads/background refreshes between concurrent requests in this worker.
 // Only public catalog data is cached; carts and checkout still use live requests.
-const inFlight = new Map<string, Promise<ShopCatalog>>();
+const inFlight = new Map<string, Promise<string>>();
+const compress = promisify(gzip);
+const decompress = promisify(gunzip);
 
 const readCachedCatalog = unstable_cache(
-  (scope: string): Promise<ShopCatalog> => {
+  (scope: string): Promise<string> => {
     const pending = inFlight.get(scope);
     if (pending) return pending;
-    const request = fetchShopCatalog().finally(() => inFlight.delete(scope));
+    // Variant image URLs repeat heavily across sizes. Cache the complete snapshot
+    // losslessly compressed so it stays below Next's 2 MB per-entry limit.
+    // Compression is server-only; consumers still receive the original catalog.
+    const request = fetchShopCatalog()
+      .then(async (catalog) => (await compress(JSON.stringify(catalog))).toString("base64"))
+      .finally(() => inFlight.delete(scope));
     inFlight.set(scope, request);
     return request;
   },
-  ["shop-catalog-v3"],
+  ["shop-catalog-v4-gzip"],
   { revalidate: 60, tags: ["shop-catalog"] },
 );
 
 // React shares the same snapshot between layout, metadata and page rendering.
 // Next's persistent Data Cache serves expired data while refreshing in the background.
-export const loadShopCatalog = cache((): Promise<ShopCatalog> => {
+export const loadShopCatalog = cache(async (): Promise<ShopCatalog> => {
   const scope = JSON.stringify([shopDomain(), storefrontApiVersion(), metafieldIdentifiers()]);
-  return readCachedCatalog(scope);
+  const encoded = await readCachedCatalog(scope);
+  return JSON.parse((await decompress(Buffer.from(encoded, "base64"))).toString("utf8")) as ShopCatalog;
 });
 
 const SUB_ALIASES: Record<string, string[]> = {

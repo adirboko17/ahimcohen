@@ -23,7 +23,7 @@ function deferred() {
 
 function harness() {
   const entries = new Map();
-  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [] };
+  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [], productCount: 1 };
   const pageInfo = { hasNextPage: false, endCursor: null };
   const storage = {
     generateSimpleCacheKey: async (key) => key,
@@ -35,6 +35,8 @@ function harness() {
   };
   const dependencies = {
     "server-only": {},
+    "node:zlib": require("node:zlib"),
+    "node:util": require("node:util"),
     // Treat each call as an independent render to stress cross-request deduplication.
     react: { cache: (fn) => fn },
     "next/cache": { unstable_cache },
@@ -58,10 +60,10 @@ function harness() {
     "./products": {
       fetchCollectionProductsPage: async () => ({
         products: {
-          items: [{
-            handle: "shirt", title: "Work shirt", vendor: "Brand", description: "Cotton",
+          items: Array.from({ length: state.productCount }, (_, index) => ({
+            handle: index === 0 ? "shirt" : `shirt-${index}`, title: "Work shirt", vendor: "Brand", description: "Cotton",
             images: [], variants: state.variants, priceRange: { min: { amount: String(state.price) } },
-          }],
+          })),
           pageInfo,
         },
       }),
@@ -87,6 +89,7 @@ function harness() {
   }
   return {
     state, request,
+    storedBytes: () => Math.max(0, ...[...entries.values()].map((entry) => Buffer.byteLength(JSON.stringify(entry.value)))),
     expire: () => { for (const entry of entries.values()) entry.isStale = true; },
   };
 }
@@ -178,4 +181,27 @@ test("variant photos keep their color and size association in fresh and cached c
     assert.equal(navy.image, "https://example.com/navy.jpg");
     assert.equal(white.image, undefined);
   }
+});
+
+test("a catalog exceeding 2 MB is cached losslessly and reused across page requests", async () => {
+  const h = harness();
+  h.state.productCount = 180;
+  h.state.variants = Array.from({ length: 60 }, (_, index) => ({
+    id: `gid://shopify/ProductVariant/${index}`, title: `כחול / ${index}`, sku: `sku-${index}`,
+    availableForSale: index % 2 === 0,
+    selectedOptions: [{ name: "Color", value: "כחול" }, { name: "Size", value: String(index) }],
+    price: { amount: String(100 + index) },
+    image: { url: `https://cdn.shopify.com/s/files/1/0863/4017/4130/files/product-photo-for-colour-${index % 3}-long-identifier-1234567890.jpg?v=1762214026` },
+  }));
+  const cold = h.request();
+  const catalog = await cold.value;
+  await cold.settle();
+  assert.ok(Buffer.byteLength(JSON.stringify(catalog)) > 2 * 1024 * 1024, "Fixture must exceed the old cache limit");
+  assert.ok(h.storedBytes() < 2 * 1024 * 1024, "Serialized cache entry must fit Next's limit");
+  assert.deepEqual(await h.request().value, catalog);
+  assert.equal(h.state.loads, 1, "A warm page must not fetch Shopify again");
+  assert.equal(catalog.products[179].choices[59].color, "כחול");
+  assert.equal(catalog.products[179].choices[59].price, 159);
+  assert.equal(catalog.products[179].choices[59].available, false);
+  assert.equal(catalog.products[179].choices[59].image, h.state.variants[59].image.url);
 });
