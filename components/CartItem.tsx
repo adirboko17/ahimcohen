@@ -35,9 +35,9 @@ export function CartItem({ line, product, disabled = false, unitNumber }: { line
       <div className="cart-item-copy">
         <div className="cart-item-heading">
           <span>{unitNumber ? `יחידה ${unitNumber}` : product.name}</span>
-          {!unitNumber && <strong aria-live="polite">{cartQuote.error ? "המחיר לא זמין" : <>{regular > total && <s className="muted" style={{ fontSize: 12, marginInlineEnd: 6 }}>{fmt(regular)}</s>}{fmt(total)}{cartQuote.pending && <small className="price-estimate-label">משוער</small>}</>}</strong>}
+          {!unitNumber && <strong aria-live="polite">{cartQuote.error ? "המחיר לא זמין" : <>{regular > total && <s className="muted cart-item-was">{fmt(regular)}</s>}<span className="cart-item-price">{fmt(total)}</span>{cartQuote.pending && <small className="price-estimate-label">משוער</small>}</>}</strong>}
         </div>
-        <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(line.color), sizeLabel(line.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
+        <span className="muted cart-item-meta">{[colorLabel(line.color), sizeLabel(line.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
         {!editing && <button type="button" className="cart-edit-link" disabled={disabled} onClick={edit}>שינוי צבע ומידה</button>}
         {editing && (
           <div className="cart-item-editor">
@@ -72,7 +72,7 @@ export function CartItem({ line, product, disabled = false, unitNumber }: { line
         <div className="cart-item-actions">
           {!unitNumber && <div className="qty-sm">
             <button disabled={disabled} onClick={() => setQtyLine(line.key, 1)} aria-label="הוספה">+</button>
-            <span style={{ minWidth: 24, textAlign: "center", fontSize: 15, fontWeight: 800 }}>{line.qty}</span>
+            <span className="cart-qty-value">{line.qty}</span>
             <button disabled={disabled} onClick={() => setQtyLine(line.key, -1)} aria-label="הפחתה">−</button>
           </div>}
           {unitNumber && <button className="cart-edit-link" disabled={disabled} onClick={() => setQtyLine(line.key, 1)}>הוספת יחידה זהה</button>}
