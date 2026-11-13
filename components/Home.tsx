@@ -339,20 +339,17 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
             <picture>
               <source
                 media="(max-width: 767px)"
-                srcSet="/images/hero/workwear-wide-v2-800.webp 800w, /images/hero/workwear-wide-v2-1536.webp 1536w"
-                // object-fit: cover scales this 3:2 artwork to the mobile hero's
-                // height (clamp(300px, 88vw, 440px)), not just the viewport width.
-                // Keep the original exports: the smaller v3 recompressions lose detail.
-                sizes="(max-width: 340px) 450px, (max-width: 500px) 132vw, (max-width: 660px) 660px, 100vw"
-                width={1536}
-                height={1024}
+                srcSet="/images/hero/workwear-boot-800.webp?v=2 800w, /images/hero/workwear-boot-1200.webp?v=2 1200w"
+                sizes="100vw"
+                width={1200}
+                height={1055}
               />
             <img
-              src={heroPreview ? "/images/hero/workwear-wide-v3-1536.webp" : "/images/hero/workwear-campaign-1200.webp"}
-              srcSet={heroPreview ? "/images/hero/workwear-wide-v3-480.webp 480w, /images/hero/workwear-wide-v3-800.webp 800w, /images/hero/workwear-wide-v3-1200.webp 1200w, /images/hero/workwear-wide-v3-1536.webp 1536w" : "/images/hero/workwear-campaign-480.webp 480w, /images/hero/workwear-campaign-800.webp 800w, /images/hero/workwear-campaign-1200.webp 1122w"}
+              src="/images/hero/workwear-boot-desktop-1536.webp"
+              srcSet="/images/hero/workwear-boot-desktop-1024.webp 1024w, /images/hero/workwear-boot-desktop-1536.webp 1536w"
               sizes="(max-width: 767px) 100vw, 50vw"
-              width={heroPreview ? 1536 : 1122}
-              height={heroPreview ? 1024 : 1402}
+              width={1536}
+              height={1023}
               alt="איש מקצוע בחולצת פולו כחולה, מכנסי עבודה אפורים ומגפי עבודה, על רקע בטון ופס צהוב"
               fetchPriority="high"
               decoding="async"
