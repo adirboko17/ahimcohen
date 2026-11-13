@@ -20,8 +20,8 @@ export function CartContents({ disabled = false }: { disabled?: boolean }) {
         <span className="badge y">מבצע כמות · {count} יחידות</span>
         <strong>{group.offer.title}</strong>
         <div className="cart-quantity-total" aria-live="polite">
-          <span>מחיר כולל ל־{count} יחידות</span>
-          <b>{cartQuote.pending ? "מחשב מחיר…" : cartQuote.error || !price ? "המחיר לא זמין" : fmt(price.total)}</b>
+          <span>{cartQuote.pending ? "לפני אימות המבצע" : `מחיר כולל ל־${count} יחידות`}</span>
+          <b>{cartQuote.pending ? fmt(group.lines.reduce((sum, line) => sum + line.qty * (line.unitPrice ?? group.product.price), 0)) : cartQuote.error || !price ? "המחיר לא זמין" : fmt(price.total)}</b>
         </div>
         {price && price.savings > 0 && <div className="cart-quantity-saving"><s>{fmt(price.regular)}</s><span>חסכתם {fmt(price.savings)}</span></div>}
       </header>

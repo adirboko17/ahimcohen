@@ -302,7 +302,7 @@ function renderProduct(product, initialColor, initialSize, extras = [], fromQuan
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, saleBadge: () => "Sale" },
     "@/lib/store": { useStore: () => ({ cart: [] }), useScrollLock: () => {} },
-    "./icons": { IconCheck: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
+    "./icons": { IconCheck: () => null, IconPackages: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
     "./ProductTile": { ProductTile },
   });
   return renderToStaticMarkup(React.createElement(ProductView, { id: product.id, initialColor, initialSize, fromQuantityOffer }));

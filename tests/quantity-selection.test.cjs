@@ -63,7 +63,7 @@ test("changing quantity prices and adds exactly the currently visible units", ()
 
 // Exercise the product's event handlers without a browser: keep hook state across
 // renders, select different units, and inspect the actual addMany/quote inputs.
-function productHarness() {
+function productHarness(item = product) {
   const states = [];
   let cursor = 0;
   let quoted = [];
@@ -86,9 +86,9 @@ function productHarness() {
     "@/lib/brands": load("lib/brands.ts"),
     "./ProductTile": { ProductTile: () => null },
     "./QuantityUnitPicker": { QuantityUnitPicker: function QuantityUnitPicker() {} },
-    "./icons": { IconCheck: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
+    "./icons": { IconCheck: () => null, IconPackages: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
     "@/lib/catalog": { FREE_SHIPPING: 299, phOf: () => "", colorLabel: String, swatchColor: String },
-    "@/lib/catalog-context": { useCatalog: () => ({ product: () => product, category: () => ({ name: "ביגוד" }), products: [product] }) },
+    "@/lib/catalog-context": { useCatalog: () => ({ product: () => item, category: () => ({ name: "ביגוד" }), products: [item] }) },
     "@/lib/colors": { uniqueColors: (colors) => colors },
     "@/lib/product-selection": { productColorIndex: () => 0, productGalleryImages: () => [] },
     "@/lib/product-recommendations": { complementaryAccessories: () => [], similarProducts: () => [] },
@@ -106,7 +106,7 @@ function productHarness() {
   new Function("require", "module", "exports", code)((id) => dependencies[id] ?? require(id), module, module.exports);
   function render() {
     cursor = 0;
-    const element = module.exports.ProductView({ id: product.id, fromQuantityOffer: true });
+    const element = module.exports.ProductView({ id: item.id, fromQuantityOffer: true });
     return element.type(element.props);
   }
   return { render, added, quote: () => quoted };
@@ -121,6 +121,18 @@ function findElement(node, predicate) {
 }
 const pickerOf = (tree) => findElement(tree, (node) => node.type?.name === "QuantityUnitPicker");
 const addButton = (tree) => findElement(tree, (node) => node.type === "button" && node.props.className === "btn product-add-btn");
+
+test("complete packs price immediately from the selected variant without a remote quote", () => {
+  const app = productHarness({ ...product, name: "מארז שתי חולצות בייסיק", price: 99, was: 119,
+    choices: [{ id: "blue-m", color: "blue", size: "M", available: true, price: 105 }] });
+  let tree = app.render();
+  assert.deepEqual(app.quote(), []);
+  assert.equal(findElement(tree, (node) => node.type === "span" && node.props["aria-live"] === "polite").props.children, "105");
+  findElement(tree, (node) => node.props?.["aria-label"] === "הוספת יחידה").props.onClick();
+  tree = app.render();
+  assert.deepEqual(app.quote(), []);
+  assert.equal(findElement(tree, (node) => node.type === "span" && node.props["aria-live"] === "polite").props.children, "210");
+});
 
 test("the shared product purchase button keeps unit choices independent and adds the full selection", () => {
   const app = productHarness();

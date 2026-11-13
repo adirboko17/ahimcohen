@@ -1,5 +1,54 @@
 # Navigation performance — 2026-11-12
 
+## Prepared catalog for empty-cache startup — 2026-11-13
+
+`npm run build` now fetches the public Shopify catalog before Next builds the
+site. `scripts/prepare-catalog.cjs` uses the same `fetchShopCatalog` implementation
+as runtime refreshes, including audited brands, variants and category placements.
+It writes a gzip/base64 snapshot to `.generated/catalog-bootstrap.json`. A failed
+or empty fetch fails the build rather than publishing with a missing/old seed.
+The generated file is ignored by Git, contains no credentials, and is explicitly
+included in server output traces. Use `npm run build` (not bare `next build`) in
+custom deployment pipelines so preparation is not bypassed.
+
+At runtime the loader prefers the live persistent cache. If that takes longer
+than 150ms, it serves the latest process snapshot or packaged build snapshot.
+`after()` keeps the pending refresh alive beyond the HTTP response on supported
+serverless hosting, including Vercel. Only successful live data enters the
+persistent cache; the build fallback never replaces newer cached data. The
+existing 60-second stale-while-revalidate policy remains. Store, API version and
+metafield scope must match before using the build snapshot. Missing or corrupt
+artifacts fall back to the live loader. Cart/checkout remain live Shopify calls.
+
+The packaged snapshot is refreshed at every build, not by a scheduled cron. It
+can be older than the live catalog on a cold instance; the cache/background
+refresh replaces it without holding up the response. During a Shopify outage,
+the prepared/last successful data remains usable and later requests retry.
+
+Validation in an isolated production build with real Shopify data:
+
+- Preparation produced 1,180 products / nine categories in a 333 KB artifact.
+- Home, category and product output trace manifests include the artifact.
+- The persistent fetch cache contained **zero entries** before the first request.
+- First home response: headers at 59ms, complete HTML at **441ms**, compared
+  with 5,973ms for the previous isolated empty-cache build (about 93% shorter).
+- Category/product requests during the first refresh completed in 279–322ms;
+  the query variant completed in 276ms. The background refresh subsequently
+  created the compressed persistent cache entry (341,158 bytes) without errors.
+- Production build/type validation and all 209 tests passed. Added gated
+  cold-start tests prove requests return the seed while Shopify is unresolved,
+  then adopt live data, plus failure/retry, store isolation, corrupt artifact
+  handling and lossless variant round-trip coverage.
+- At 390px, menu, cart and search outer corners are square. The menu intro arrow
+  is an SVG with a black stroke, avoiding platform-dependent emoji rendering.
+  Search returned matching SHOWA products; no production browser errors captured.
+
+Measurements are local complete HTTP responses, not phone paint timings or
+production field results. No deployment was performed.
+
+References: [Next after](https://nextjs.org/docs/app/api-reference/functions/after),
+[Next 15 output tracing](https://nextjs.org/docs/15/app/api-reference/config/next-config-js/output).
+
 ## Bounded navigation warmup and mobile loader — 2026-11-13
 
 The mobile loading mark now paints a 190px logo instead of 310px, with 2px

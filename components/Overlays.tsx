@@ -12,7 +12,7 @@ import { categoryProductImage } from "@/lib/category-filters";
 import { fmt } from "@/lib/pricing";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
-import { IconBack, IconBag, IconCase, IconCheck, IconFwd, IconLock, IconPackages, IconPin, IconSearch, IconTruck } from "./icons";
+import { IconBack, IconBag, IconCase, IconCheck, IconFwd, IconLock, IconPackages, IconPin, IconSearch, IconTruck, IconUser } from "./icons";
 import { CartContents } from "./CartContents";
 import { CheckoutButton } from "./CheckoutButton";
 
@@ -102,10 +102,10 @@ export function Overlays() {
               </div>
             )}
             <div className="cart-total-summary">
-              <span>סה״כ</span>
-              <span aria-live="polite">{s.cartQuote.pending ? "מחשב מחיר…" : s.cartQuote.error ? "—" : fmt(math.total)}</span>
+              <span>{s.cartQuote.pending ? "סכום משוער" : "סה״כ"}</span>
+              <span aria-live="polite">{s.cartQuote.error ? "—" : fmt(math.total)}</span>
             </div>
-            <span className="cart-shipping-note">עלות המשלוח מחושבת בתשלום</span>
+            <span className="cart-shipping-note" role="status">{s.cartQuote.pending ? "מאמתים מחירים ומבצעים…" : "עלות המשלוח מחושבת בתשלום"}</span>
             <CheckoutButton onPendingChange={setPaying} />
             <div className="cart-footer-links"><span><IconLock size={14} /> תשלום מאובטח</span><Link href="/checkout" className="cart-edit-link" onClick={s.closeAll}>
               לסיכום ועריכת ההזמנה
@@ -133,7 +133,7 @@ export function Overlays() {
               <div className="menu-intro">
                 <span className="menu-eyebrow">COHEN BROTHERS / ביגוד וציוד לעבודה</span>
                 <h2 className="k">מוכנים לעבודה.</h2>
-                <span className="menu-intro-mark" aria-hidden="true">↙</span>
+                <span className="menu-intro-mark" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 6 6 18M6 7v11h11" /></svg></span>
               </div>
               <nav className="menu-categories" aria-label="קטגוריות מוצרים">
                 {categories.map((c) => (
@@ -144,16 +144,17 @@ export function Overlays() {
                   </button>
                 ))}
               </nav>
-              <div className="menu-promos">
-                <Link href="/quantity-offers" className="menu-promo menu-promo-offers" onClick={s.closeAll}>
-                  <span className="menu-promo-top"><IconPackages /><IconFwd /></span>
-                  <strong>מבצעי כמות</strong><span>יותר יחידות. יותר משתלם.</span>
+              <nav className="menu-shortcuts" aria-label="שירותים ואזור אישי">
+                <Link href="/quantity-offers" className="menu-shortcut" onClick={s.closeAll}>
+                  <IconPackages /><span>מבצעי כמות</span><IconFwd />
                 </Link>
-                <Link href="/business" className="menu-promo menu-promo-business" onClick={s.closeAll}>
-                  <span className="menu-promo-top"><IconCase /><IconFwd /></span>
-                  <strong>הזמנות לעסקים</strong><span>מציידים את כל הצוות.</span>
+                <Link href="/business" className="menu-shortcut" onClick={s.closeAll}>
+                  <IconCase /><span>הזמנות לעסקים</span><IconFwd />
                 </Link>
-              </div>
+                <Link href="/account" className="menu-shortcut" onClick={s.closeAll}>
+                  <IconUser /><span>אזור אישי</span><IconFwd />
+                </Link>
+              </nav>
               <div className="menu-contact">
                 <span><IconPin /><span>כאן בשבילכם<span>הפועלים 20, באר שבע</span></span></span>
                 <a href="tel:08-6233803" dir="ltr">08-6233803</a>

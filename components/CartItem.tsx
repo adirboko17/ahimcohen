@@ -35,7 +35,7 @@ export function CartItem({ line, product, disabled = false, unitNumber }: { line
       <div className="cart-item-copy">
         <div className="cart-item-heading">
           <span>{unitNumber ? `יחידה ${unitNumber}` : product.name}</span>
-          {!unitNumber && <strong aria-live="polite">{cartQuote.pending ? "מחשב מחיר…" : cartQuote.error ? "המחיר לא זמין" : <>{regular > total && <s className="muted" style={{ fontSize: 12, marginInlineEnd: 6 }}>{fmt(regular)}</s>}{fmt(total)}</>}</strong>}
+          {!unitNumber && <strong aria-live="polite">{cartQuote.error ? "המחיר לא זמין" : <>{regular > total && <s className="muted" style={{ fontSize: 12, marginInlineEnd: 6 }}>{fmt(regular)}</s>}{fmt(total)}{cartQuote.pending && <small className="price-estimate-label">משוער</small>}</>}</strong>}
         </div>
         <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(line.color), sizeLabel(line.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
         {!editing && <button type="button" className="cart-edit-link" disabled={disabled} onClick={edit}>שינוי צבע ומידה</button>}

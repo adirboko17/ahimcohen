@@ -14,5 +14,6 @@ export default function nextConfig(phase: string): NextConfig {
     distDir: process.env.NEXT_DIST_DIR || (development ? `.next-dev/${compiler}-${port}` : ".next"),
     images: { unoptimized: true },
     outputFileTracingRoot: path.join(process.cwd()),
+    outputFileTracingIncludes: { "/*": ["./.generated/catalog-bootstrap.json"] },
   };
 }

@@ -157,9 +157,6 @@ export function Header() {
             <img src="/logo.avif" alt="Cohen Brothers" style={{ height: 24, display: "block" }} />
           </Link>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Link href="/account" className="m-ico" aria-label="חשבון">
-              <IconUser size={22} />
-            </Link>
             <button className="m-ico" onClick={openSearch} aria-label="חיפוש">
               <IconSearch size={22} />
             </button>

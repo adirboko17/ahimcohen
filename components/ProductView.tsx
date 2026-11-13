@@ -17,7 +17,7 @@ import { complementaryAccessories, similarProducts } from "@/lib/product-recomme
 import { productColorIndex, productGalleryImages } from "@/lib/product-selection";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useStore } from "@/lib/store";
-import { IconCheck, IconPhone, IconPin, IconTruck } from "./icons";
+import { IconCheck, IconPackages, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
 import { QuantityUnitPicker } from "./QuantityUnitPicker";
 import { quantitySelection, type QuantityUnit } from "@/lib/quantity-selection";
@@ -57,7 +57,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   )) : null, [p, separateUnits, qty, unitSelections, color, selectedSize]);
   const selectionReady = separateUnits ? !!units?.complete : !!selectedOption;
   const variant = p?.choices?.find((choice) => choice.available && choice.color === (p.colors[color] || "") && (!selectedOption || choice.size === selectedOption.value));
-  const quoteState = useCartQuote(separateUnits ? units?.quoteLines ?? [] : p && offer && variant ? [{ pid: p.id, color: variant.color, size: variant.size, qty, variantId: variant.id }] : []);
+  const quoteState = useCartQuote(separateUnits ? units?.quoteLines ?? [] : p && offer?.kind === "quantity" && variant ? [{ pid: p.id, color: variant.color, size: variant.size, qty, variantId: variant.id }] : []);
   const [sizeErr, setSizeErr] = useState(false);
   const [acc, setAcc] = useState<string | null>(() => p?.desc ? "desc" : "spec");
   const [gal, setGal] = useState(0);
@@ -79,7 +79,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   const current = slides[gi];
 
   const inCart = cart.filter((l) => l.pid === p.id).reduce((a, l) => a + l.qty, 0);
-  const line = quoteState.quote?.total ?? priceFor(p, qty);
+  const line = quoteState.quote?.total ?? (offer?.kind === "pack" ? qty * (variant?.price ?? p.price) : priceFor(p, qty));
   const lineLabel = separateUnits && !selectionReady ? "בחרו מידה לכל יחידה" : quoteState.pending ? "מחשב מחיר…" : quoteState.error ? "המחיר יתעדכן בסל" : fmt(line);
   const deal: [number, number] | undefined = offer?.kind === "quantity" ? [offer.quantity, offer.total] : p.deal;
   const packs = deal ? [1, deal[0]].map((n) => {
@@ -246,7 +246,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               <span style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{offer ? lineLabel : fmt(variant?.price ?? p.price)}</span>
               {offer ? quoteState.quote && quoteState.quote.savings > 0 && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(quoteState.quote.regular)}</s> : p.was && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(p.was)}</s>}
             </div>
-            {offer && <span className="muted" style={{ fontSize: 14 }}>מחיר כולל ל־{qty} {offer.kind === "pack" ? "מארזים" : "יחידות"}{quoteState.quote ? ` · ${fmt(quoteState.quote.total / (qty * (offer.kind === "pack" ? offer.quantity : 1)))} ${offer.unitLabel}` : ""}</span>}
+            {offer && <span className="muted" style={{ fontSize: 14 }}>מחיר כולל {offer.kind === "pack" && qty === 1 ? "למארז אחד" : `ל־${qty} ${offer.kind === "pack" ? "מארזים" : "יחידות"}`}{quoteState.quote || offer.kind === "pack" ? ` · ${fmt(line / (qty * (offer.kind === "pack" ? offer.quantity : 1)))} ${offer.unitLabel}` : ""}</span>}
             {p.std && (
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {p.std.map((t) => (
@@ -279,7 +279,12 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
             </div>
           )}
 
-          {fromQuantityOffer && offer?.kind === "pack" && <p className="buy-pad" style={{ fontSize: 14, background: "#FFF8D6" }}>מארז אחד כולל {offer.quantity} {offer.quantityLabel}. הכמות בסל היא מספר המארזים.</p>}
+          {offer?.kind === "pack" && <div className="buy-pad">
+            <div className="product-pack-note">
+              <span className="product-pack-note-icon"><IconPackages /></span>
+              <div><strong>{offer.quantity} {offer.quantityLabel} בכל מארז</strong><p>בחירת הכמות מתייחסת למספר המארזים, ולא ליחידות בודדות.</p></div>
+            </div>
+          </div>}
           {quoteState.error && <button type="button" className="cart-edit-link" onClick={quoteState.retry}>עדכון המחיר</button>}
 
           {separateUnits && units && <div ref={unitPicker}>
@@ -397,21 +402,21 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
           </div>
           <div className="buy-pad">
             {accs.map((a) => (
-              <div className="acc" key={a.id}>
-                <button onClick={() => setAcc((cur) => (cur === a.id ? null : a.id))}>
+              <div className={`acc${acc === a.id ? " is-open" : ""}`} key={a.id}>
+                <button type="button" id={`product-${encodeURIComponent(p.id)}-${a.id}-trigger`} aria-expanded={acc === a.id} aria-controls={`product-${encodeURIComponent(p.id)}-${a.id}-panel`} onClick={() => setAcc((cur) => (cur === a.id ? null : a.id))}>
                   {a.title}
-                  <span style={{ fontSize: 22, fontWeight: 400 }}>{acc === a.id ? "−" : "+"}</span>
+                  <span className="acc-toggle" aria-hidden="true" />
                 </button>
-                {acc === a.id && (
-                  <div style={{ padding: "0 0 20px", display: "flex", flexDirection: "column", gap: 8, fontSize: 15, lineHeight: 1.6 }}>
+                <div className="acc-panel" id={`product-${encodeURIComponent(p.id)}-${a.id}-panel`} role="region" aria-labelledby={`product-${encodeURIComponent(p.id)}-${a.id}-trigger`} aria-hidden={acc !== a.id} inert={acc !== a.id}>
+                  <div className="acc-panel-inner"><div className="acc-content">
                     {a.lines.map((ln, i) => (
                       <div key={i} style={{ display: "grid", gridTemplateColumns: ln.k ? "110px 1fr" : "1fr", gap: 12 }}>
                         {ln.k && <span className="muted">{ln.k}</span>}
                         <span>{ln.v}</span>
                       </div>
                     ))}
-                  </div>
-                )}
+                  </div></div>
+                </div>
               </div>
             ))}
           </div>

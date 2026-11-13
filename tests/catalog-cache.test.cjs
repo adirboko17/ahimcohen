@@ -14,6 +14,10 @@ const source = transpileModule(
   readFileSync(resolve(__dirname, "../lib/shopify/load-catalog.ts"), "utf8"),
   { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 } },
 ).outputText;
+const fetchSource = transpileModule(
+  readFileSync(resolve(__dirname, "../lib/shopify/fetch-catalog.ts"), "utf8"),
+  { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 } },
+).outputText;
 
 function deferred() {
   let resolve, reject;
@@ -23,7 +27,7 @@ function deferred() {
 
 function harness() {
   const entries = new Map();
-  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [], productCount: 1, extraBrandProducts: [] };
+  const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [], productCount: 1, extraBrandProducts: [], bootstrap: null };
   const verifiedBrandHandles = [];
   const pageInfo = { hasNextPage: false, endCursor: null };
   const storage = {
@@ -41,6 +45,8 @@ function harness() {
     // Treat each call as an independent render to stress cross-request deduplication.
     react: { cache: (fn) => fn },
     "next/cache": { unstable_cache },
+    "next/server": { after: fn => workAsyncStorage.getStore().afterTasks.push(fn) },
+    "./catalog-bootstrap": { readCatalogBootstrap: async scope => state.bootstrap?.scope === scope ? state.bootstrap.encoded : null },
     "@/lib/catalog": { CATS: [{ id: "work", name: "Work", subs: ["Shirts", "Uniforms"] }] },
     "./config": {
       shopDomain: () => state.domain,
@@ -73,25 +79,36 @@ function harness() {
       fetchProductsPage: async () => { throw new Error("Unexpected fallback"); },
     },
   };
-  const module = { exports: {} };
-  new Function("require", "module", "exports", source)((name) => {
+  const resolveDependency = (name) => {
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`);
     return dependencies[name];
-  }, module, module.exports);
+  };
+  const fetchModule = { exports: {} };
+  new Function("require", "module", "exports", fetchSource)(resolveDependency, fetchModule, fetchModule.exports);
+  dependencies['./fetch-catalog'] = fetchModule.exports;
+  const module = { exports: {} };
+  new Function("require", "module", "exports", source)(resolveDependency, module, module.exports);
 
   function request() {
-    const store = { incrementalCache: storage, route: "/c/work" };
+    const store = { incrementalCache: storage, route: "/c/work", afterTasks: [] };
     const value = workAsyncStorage.run(store, () => module.exports.loadShopCatalog());
     return {
       value,
       settle: async () => {
         await value;
         await Promise.all(Object.values(store.pendingRevalidates || {}));
+        await Promise.all(store.afterTasks.map(fn => fn()));
       },
     };
   }
   return {
     state, request, verifiedBrandHandles,
+    seed: price => {
+      state.bootstrap = {
+        scope: JSON.stringify([state.domain, "2026-10", []]),
+        encoded: require('node:zlib').gzipSync(JSON.stringify({ categories: [], products: [{ id: 'shirt', price }] })).toString('base64'),
+      };
+    },
     storedBytes: () => Math.max(0, ...[...entries.values()].map((entry) => Buffer.byteLength(JSON.stringify(entry.value)))),
     expire: () => { for (const entry of entries.values()) entry.isStale = true; },
   };
@@ -217,4 +234,38 @@ test("a catalog exceeding 2 MB is cached losslessly and reused across page reque
   assert.equal(catalog.products[179].choices[59].price, 159);
   assert.equal(catalog.products[179].choices[59].available, false);
   assert.equal(catalog.products[179].choices[59].image, h.state.variants[59].image.url);
+});
+
+test("empty cache serves the build snapshot before Shopify resolves, then adopts live data", { timeout: 5000 }, async () => {
+  const h = harness(); h.seed(80); h.state.gate = deferred();
+  const requests = Array.from({ length: 3 }, () => h.request());
+  for (const request of requests) assert.equal((await request.value).products[0].price, 80);
+  assert.equal(h.state.loads, 1, "cold requests share the background refresh");
+  h.state.gate.resolve();
+  await Promise.all(requests.map(request => request.settle()));
+  assert.equal((await h.request().value).products[0].price, 100, "newer live data supersedes the seed");
+  assert.equal(h.state.loads, 1);
+});
+
+test("warm live cache wins over an older packaged snapshot", async () => {
+  const h = harness(); h.seed(80);
+  const first = h.request(); await first.settle();
+  assert.equal((await first.value).products[0].price, 100);
+  assert.equal((await h.request().value).products[0].price, 100);
+});
+
+test("cold Shopify failure retains the seed without caching the failure and retries later", async (t) => {
+  const h = harness(); h.seed(80); h.state.fail = true;
+  t.mock.method(console, 'error', () => {});
+  const first = h.request(); await first.settle();
+  assert.equal((await first.value).products[0].price, 80);
+  assert.equal(h.storedBytes(), 0, "the fallback must never poison the persistent live cache");
+  h.state.fail = false; h.state.price = 120;
+  const retry = h.request(); await retry.settle();
+  assert.equal((await retry.value).products[0].price, 120);
+});
+
+test("a packaged catalog cannot leak across Shopify store scopes", async () => {
+  const h = harness(); h.seed(80); h.state.domain = 'two.myshopify.com'; h.state.price = 250;
+  assert.equal((await h.request().value).products[0].price, 250);
 });
