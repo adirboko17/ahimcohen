@@ -106,6 +106,13 @@ export function IconCase() {
     </svg>
   );
 }
+export function IconPackages() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden>
+      <path d="m12 2 5 3v6l-5 3-5-3V5l5-3ZM7 5l5 3 5-3M12 8v6M7 11l-5 3v6l5 3 5-3v-6M2 14l5 3 5-3M7 17v6M17 11l5 3v6l-5 3-5-3M12 14l5 3 5-3M17 17v6" />
+    </svg>
+  );
+}
 export function IconUpload() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" aria-hidden>

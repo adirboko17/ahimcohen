@@ -7,6 +7,7 @@ import { CategoryHistoryProvider } from "@/lib/category-history";
 import { Announcement, CheckoutHeader, Header } from "./Header";
 import { Footer } from "./Footer";
 import { Overlays } from "./Overlays";
+import { NavigationWarmup } from "./NavigationWarmup";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -19,6 +20,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <CategoryHistoryProvider>
+      <NavigationWarmup />
       {!checkout && <Announcement />}
       {!checkout && <div className="top-spacer desk" />}
       {!checkout && <Header />}

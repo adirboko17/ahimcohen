@@ -4,16 +4,15 @@ import { colorLabel, type Product } from "@/lib/catalog";
 import { productSizeOptions } from "@/lib/sizes";
 import { changeQuantityUnitColor, type QuantityUnit, type quantitySelection } from "@/lib/quantity-selection";
 
-export function QuantityUnitPicker({ product, rows, showErrors, onChange, onGuide, disabled = false }: {
+export function QuantityUnitPicker({ product, rows, showErrors, onChange, disabled = false }: {
   product: Product;
   rows: ReturnType<typeof quantitySelection>["rows"];
   showErrors: boolean;
   onChange: (index: number, selection: QuantityUnit) => void;
-  onGuide?: () => void;
   disabled?: boolean;
 }) {
   return <div className="buy-pad quantity-unit-picker">
-    <div className="quantity-unit-heading"><b>צבע ומידה לכל יחידה</b>{onGuide && <button type="button" className="cart-edit-link" onClick={onGuide}>מדריך מידות</button>}</div>
+    <div className="quantity-unit-heading"><b>צבע ומידה לכל יחידה</b></div>
     <p className="muted">אפשר לשלב צבעים ומידות באותו מבצע. בחרו את הפרטים של כל יחידה.</p>
     {rows.map((row, index) => <fieldset className="quantity-unit-row" key={index} disabled={disabled}>
       <legend>יחידה {index + 1}</legend>

@@ -13,6 +13,7 @@ function find(node, predicate) {
 }
 function harness(reduced = false) {
   const values = [], effects = [], timers = new Map(), properties = new Map();
+  const lifecycle = [];
   let cursor = 0, id = 0, time = 0, closed = 0, opened = 0, modalClosed = 0;
   const hooks = {
     useState(initial) { const index = cursor++; if (!(index in values)) values[index] = initial; return [values[index], (value) => { values[index] = typeof value === "function" ? value(values[index]) : value; }]; },
@@ -22,11 +23,13 @@ function harness(reduced = false) {
   };
   const loaded = { exports: {} };
   new Function("require", "module", "exports", "window", "setTimeout", "clearTimeout", code)(
-    (name) => name === "react" ? hooks : require(name), loaded, loaded.exports,
+    (name) => name === "react" ? hooks : name === "@/lib/page-scroll-lock" ? {
+      lockPageScroll: () => { lifecycle.push("lock"); return () => lifecycle.push("unlock"); },
+    } : require(name), loaded, loaded.exports,
     { matchMedia: () => ({ matches: reduced }) },
     (callback, delay) => { timers.set(++id, { callback, due: time + delay }); return id; }, (key) => timers.delete(key),
   );
-  const modal = { clientHeight: 600, style: { setProperty: (name, value) => properties.set(name, value) }, showModal: () => opened++, close: () => modalClosed++, getBoundingClientRect: () => ({ top: 100, bottom: 700, left: 0, right: 400 }) };
+  const modal = { clientHeight: 600, style: { setProperty: (name, value) => properties.set(name, value) }, showModal: () => { lifecycle.push("show"); opened++; }, close: () => { lifecycle.push("close-and-restore-focus"); modalClosed++; }, getBoundingClientRect: () => ({ top: 100, bottom: 700, left: 0, right: 400 }) };
   const render = () => { cursor = 0; return loaded.exports.MobileFilterSheet({ children: "filters", footer: (close) => require("react").createElement("button", { onClick: close }, "results"), onClose: () => closed++ }); };
   const first = render(); first.props.ref.current = modal;
   const title = find(first, (node) => node.type === "h2");
@@ -36,7 +39,7 @@ function harness(reduced = false) {
   const handle = () => find(render(), (node) => node.props?.className === "filter-sheet-handle");
   const pointer = (y, stamp = 0) => ({ pointerId: 1, isPrimary: true, button: 0, clientY: y, timeStamp: stamp, currentTarget: { setPointerCapture() {}, releasePointerCapture() {} } });
   const advance = (ms) => { time += ms; for (const [key, timer] of [...timers]) if (timer.due <= time) { timers.delete(key); timer.callback(); } };
-  return { render, handle, pointer, modal, properties, advance, timers, focusCalls, cleanup: () => cleanups.forEach((fn) => fn?.()), closed: () => closed, opened: () => opened, modalClosed: () => modalClosed };
+  return { render, handle, pointer, modal, properties, advance, timers, focusCalls, lifecycle, cleanup: () => cleanups.forEach((fn) => fn?.()), closed: () => closed, opened: () => opened, modalClosed: () => modalClosed };
 }
 test("filter sheet opens as a native modal with a separate scroll body and fixed footer", () => {
   const h = harness(); const tree = h.render();
@@ -48,6 +51,7 @@ test("filter sheet opens as a native modal with a separate scroll body and fixed
   assert.ok(find(tree, (node) => node.props?.className === "filter-sheet-content"));
   assert.ok(find(tree, (node) => node.props?.className === "filter-sheet-footer"));
   h.cleanup(); assert.equal(h.modalClosed(), 1);
+  assert.deepEqual(h.lifecycle, ["lock", "show", "close-and-restore-focus", "unlock"]);
 });
 test("long downward drag closes once after the exit animation", () => {
   const h = harness(); h.handle().props.onPointerDown(h.pointer(20));
@@ -57,6 +61,7 @@ test("long downward drag closes once after the exit animation", () => {
   h.handle().props.onClick();
   assert.ok(h.render().props.className.includes("is-closing"));
   h.advance(219); assert.equal(h.closed(), 0);
+  assert.deepEqual(h.lifecycle, ["lock", "show"], "keep the page locked during drag-to-close animation");
   h.advance(1); assert.equal(h.closed(), 1); h.cleanup();
 });
 test("short drag settles back without the generated click closing the sheet", () => {
@@ -86,6 +91,7 @@ test("Escape, backdrop and results use the same close animation; inside clicks s
     if (action === "backdrop") tree.props.onClick({ target: h.modal, currentTarget: h.modal, clientX: 200, clientY: 50 });
     if (action === "results") find(tree, (node) => node.props?.children === "results").props.onClick();
     h.advance(220); assert.equal(h.closed(), 1); h.cleanup();
+    assert.deepEqual(h.lifecycle, ["lock", "show", "close-and-restore-focus", "unlock"]);
   }
 });
 test("reduced motion closes immediately and unmount cancels pending callbacks", () => {

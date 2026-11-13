@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { lockPageScroll } from "@/lib/page-scroll-lock";
 
 export function MobileFilterSheet({ children, footer, onClose }: { children: ReactNode; footer: (close: () => void) => ReactNode; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -25,11 +26,18 @@ export function MobileFilterSheet({ children, footer, onClose }: { children: Rea
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
+    const releaseScroll = lockPageScroll();
     // Native modal behavior keeps keyboard focus inside and the page behind inert.
     element.showModal();
     // Start on the title, rather than highlighting the full-width drag handle.
     heading.current?.focus({ preventScroll: true });
-    return () => { clearTimeout(timer.current); clearTimeout(clickTimer.current); element.close(); };
+    return () => {
+      clearTimeout(timer.current);
+      clearTimeout(clickTimer.current);
+      // Native close restores focus. Do that while the page is still frozen.
+      element.close();
+      releaseScroll();
+    };
   }, []);
   const resetDrag = () => {
     drag.current = null;

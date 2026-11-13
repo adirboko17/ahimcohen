@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type MouseEvent, type SetStateAction } from "react";
+import { pageScrollPosition } from "./page-scroll-lock";
 
 export type CategoryFilters = { std: string[]; colors: string[]; sizes: string[]; brands: string[]; max: number | null; stock: boolean };
 export const EMPTY_CATEGORY_FILTERS: CategoryFilters = { std: [], colors: [], sizes: [], brands: [], max: null, stock: false };
@@ -60,7 +61,7 @@ export function useCategoryHistory(catId: string, sub: string | null, routePath 
     const rememberScroll = () => {
       const url = new URL(window.location.href);
       if (leaving.current || decodeURIComponent(url.pathname) !== routePath || (url.searchParams.get("sub") || null) !== sub) return;
-      scroll.current = window.scrollY;
+      scroll.current = pageScrollPosition().y;
       history.set(key, { ...latest.current, scrollY: scroll.current });
     };
     window.addEventListener("scroll", rememberScroll, { passive: true });
@@ -75,7 +76,7 @@ export function useCategoryHistory(catId: string, sub: string | null, routePath 
     if (!link || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
     const url = new URL(link.href);
     if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
-    scroll.current = window.scrollY;
+    scroll.current = pageScrollPosition().y;
     history.set(key, { ...latest.current, scrollY: scroll.current });
     // Don't let the next page's scroll-to-top overwrite the category position.
     leaving.current = true;

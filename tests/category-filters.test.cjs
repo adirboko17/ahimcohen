@@ -23,6 +23,7 @@ function load(file, dependencies = {}) {
       : name === "./CheckoutButton" ? load("components/CheckoutButton.tsx", { "@/app/actions/shopify-checkout": { beginShopifyCheckout: () => { throw new Error("Unexpected checkout during rendering"); } }, ...dependencies })
       : name === "./ProductImage" ? load("components/ProductImage.tsx", dependencies)
       : name === "./MobileFilterSheet" ? load("components/MobileFilterSheet.tsx", dependencies)
+      : name === "@/lib/page-scroll-lock" ? load("lib/page-scroll-lock.ts")
       : name === "./ProductBrand" ? load("components/ProductBrand.tsx", { "@/lib/brands": load("lib/brands.ts") })
       : name === "@/lib/brands" ? load("lib/brands.ts")
       : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
@@ -307,6 +308,17 @@ function renderProduct(product, initialColor, initialSize, extras = [], fromQuan
   return renderToStaticMarkup(React.createElement(ProductView, { id: product.id, initialColor, initialSize, fromQuantityOffer }));
 }
 
+test("product purchase controls stay inline and stock reflects available variants", () => {
+  const available = renderProduct(picturedCatalog[0], "white", "L");
+  assert.match(available, /class="btn product-add-btn"/);
+  assert.doesNotMatch(available, /buybar|has-buybar|btn desk/);
+  assert.match(available, /המוצר הזה זמין במלאי/);
+  const unavailable = renderProduct({ ...picturedCatalog[0], choices: picturedCatalog[0].choices.map(choice => ({ ...choice, available: false })) });
+  assert.match(unavailable, /class="btn product-add-btn" disabled=""/);
+  assert.match(unavailable, /המוצר אינו זמין במלאי/);
+  assert.doesNotMatch(unavailable, /המוצר הזה זמין במלאי/);
+});
+
 test("entering a quantity offer preselects its quantity while a packed product stays at one", () => {
   const shirt = { ...picturedCatalog[0], name: "חולצת אוברסייז - 2 חולצות ב-140 ש״ח", price: 89 };
   assert.match(renderProduct(shirt, undefined, undefined, [], true), /class="qty"[\s\S]*?<span>2<\/span>/);
@@ -414,7 +426,7 @@ function renderQuick(product, qColor, qSize) {
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, cartMath: () => ({ byP: {}, total: 0 }) },
     "@/lib/store": { useScrollLock: () => {}, useStore: () => ({ cart: [], pricing: { byP: {}, total: 0, savings: 0 }, cartQuote: { pending: false }, sheet: "quick", quickId: product.id, qColor, qSize }) },
-    "./icons": { IconCheck: () => null, IconSearch: () => null },
+    "./icons": load("components/icons.tsx"),
   });
   return renderToStaticMarkup(React.createElement(Overlays)).match(/<section class="sheet quick-sheet"[\s\S]*?<\/section>/)[0];
 }
@@ -468,7 +480,7 @@ test("cart drawer and checkout show separate color photos for multiple lines of 
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, cartMath: () => ({ byP: {}, total: 200, count: 4, savings: 0 }) },
     "@/lib/store": { useScrollLock: () => {}, useStore: () => ({ cart, cartOpen: true, pricing: { byP: {}, regular: 200, total: 200, count: 4, savings: 0 }, cartQuote: { pending: false } }) },
-    "./icons": { IconCheck: () => null, IconSearch: () => null },
+    "./icons": load("components/icons.tsx"),
   };
   const { Overlays } = load("components/Overlays.tsx", dependencies);
   const { CheckoutView } = load("components/CheckoutView.tsx", dependencies);

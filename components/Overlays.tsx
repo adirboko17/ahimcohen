@@ -12,7 +12,7 @@ import { categoryProductImage } from "@/lib/category-filters";
 import { fmt } from "@/lib/pricing";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
-import { IconCheck, IconSearch } from "./icons";
+import { IconBack, IconBag, IconCase, IconCheck, IconFwd, IconLock, IconPackages, IconPin, IconSearch, IconTruck } from "./icons";
 import { CartContents } from "./CartContents";
 import { CheckoutButton } from "./CheckoutButton";
 
@@ -21,6 +21,21 @@ export function Overlays() {
   const path = usePathname();
   const s = useStore();
   const [searchPresent, setSearchPresent] = useState(false);
+  const [drawerPresent, setDrawerPresent] = useState(false);
+  const drawerOpen = s.cartOpen || s.menuOpen;
+  useEffect(() => {
+    if (drawerOpen) {
+      setDrawerPresent(true);
+      return;
+    }
+    if (!window.matchMedia("(max-width: 767px) and (prefers-reduced-motion: no-preference)").matches) {
+      setDrawerPresent(false);
+      return;
+    }
+    // Match the drawer's exit transition; reopening cancels the release.
+    const timer = window.setTimeout(() => setDrawerPresent(false), 450);
+    return () => window.clearTimeout(timer);
+  }, [drawerOpen]);
   const anotherOverlay = s.cartOpen || s.menuOpen || !!s.sheet;
   useEffect(() => {
     if (s.searchOpen) {
@@ -36,137 +51,131 @@ export function Overlays() {
     return () => window.clearTimeout(timer);
   }, [s.searchOpen, anotherOverlay]);
   const searchLeaving = searchPresent && !s.searchOpen && !anotherOverlay;
-  useScrollLock(searchPresent && !anotherOverlay);
+  useScrollLock(drawerOpen || drawerPresent || (searchPresent && !anotherOverlay));
   const { categories, products, category, product } = useCatalog();
   const count = s.cart.reduce((a, l) => a + l.qty, 0);
   const math = s.pricing;
   const priceReady = !!s.cartQuote.quote;
-  const dealNotes = priceReady && math.savings > 0 ? [{
-    text: `המבצעים הופעלו · חסכתם ${fmt(math.savings)}`,
-    pct: "100%", bg: "#FFD100",
-  }] : [];
-  const open = anotherOverlay || s.searchOpen || searchLeaving;
+  const open = anotherOverlay || drawerPresent || s.searchOpen || searchLeaving;
   const buy = path.startsWith("/p/");
   const tabs = path === "/" || path.startsWith("/c/") || path.startsWith("/business") || path.startsWith("/account");
 
   return (
     <>
       <div className={`backdrop ${open ? "on" : ""}`} onClick={s.closeAll} />
-      <aside className={`drawer cart ${s.cartOpen ? "on" : ""}`} aria-label="סל הקניות">
-        <div className="drawer-h">
-          <span style={{ fontSize: 19, fontWeight: 800 }}>
-            הסל שלך <span style={{ fontWeight: 500, color: "#5e5e5b" }}>({count})</span>
-          </span>
+      <aside className={`drawer cart ${s.cartOpen ? "on" : ""}`} aria-label="סל הקניות" aria-hidden={!s.cartOpen} inert={!s.cartOpen}>
+        <div className="drawer-h cart-header">
+          <div className="cart-title">
+            <span className="cart-eyebrow">COHEN BROTHERS / בדרך אליכם</span>
+            <h2>הסל שלך <span className="cart-item-count" aria-label={`${count} פריטים בסל`}>{count}</span></h2>
+          </div>
           <button className="x" onClick={s.closeAll} aria-label="סגירה">
             ×
           </button>
         </div>
-        <div className="ship-meter">
-          <span style={{ fontSize: 14, fontWeight: 700 }}>
+        {count > 0 && <div className="ship-meter">
+          <span className="cart-shipping-label"><IconTruck /><span>
             {!priceReady ? "המשלוח יחושב לפי הסכום לאחר ההנחות" : math.total >= FREE_SHIPPING ? "ההזמנה זכאית למשלוח חינם" : `עוד ${fmt(FREE_SHIPPING - math.total)} למשלוח חינם`}
-          </span>
+          </span></span>
           <div className="bar">
             <span style={{ width: (priceReady ? Math.min(100, Math.round((math.total / FREE_SHIPPING) * 100)) : 0) + "%" }} />
           </div>
-        </div>
+        </div>}
         <div className="drawer-body">
           {count === 0 && (
-            <div style={{ padding: "64px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-              <span className="k" style={{ fontSize: 64, lineHeight: 0.85 }}>
-                הסל ריק
-              </span>
-              <span className="muted" style={{ fontSize: 15 }}>
-                שווה להתחיל ממבצעי הכמות — 6 חולצות דרייפיט ב-100 ₪.
-              </span>
-              {categories[0] && (
-                <Link href={`/c/${categories[0].id}`} className="btn" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={s.closeAll}>
-                  להתחיל לקנות
-                </Link>
-              )}
+            <div className="cart-empty">
+              <span className="cart-empty-icon"><IconBag size={38} /></span>
+              <h3 className="k">הסל עוד מחכה לך.</h3>
+              <p>כל מה שצריך ליום העבודה הבא,<br />במקום אחד.</p>
+              <Link href="/quantity-offers" className="btn btn-yellow" onClick={s.closeAll}>למבצעי הכמות <IconFwd /></Link>
+              <button type="button" className="cart-edit-link" onClick={s.closeAll}>להמשיך להסתכל</button>
             </div>
           )}
           <CartContents disabled={paying} />
-          {dealNotes.map((dn) => (
-            <div key={dn.text} style={{ marginTop: 10, background: dn.bg, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4 }}>{dn.text}</span>
-              <div className="bar" style={{ background: "rgba(0,0,0,.12)" }}>
-                <span style={{ width: dn.pct }} />
-              </div>
-            </div>
-          ))}
         </div>
         {count > 0 && (
           <div className="drawer-foot">
             {priceReady && math.savings > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800 }}>
-                <span style={{ background: "#FFD100", padding: "0 6px" }}>חסכתם במבצעי כמות</span>
+              <div className="cart-savings-summary">
+                <span><IconCheck /> חסכתם במבצעי כמות</span>
                 <span dir="ltr">-{fmt(math.savings)}</span>
               </div>
             )}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 19, fontWeight: 800 }}>
+            <div className="cart-total-summary">
               <span>סה״כ</span>
               <span aria-live="polite">{s.cartQuote.pending ? "מחשב מחיר…" : s.cartQuote.error ? "—" : fmt(math.total)}</span>
             </div>
+            <span className="cart-shipping-note">עלות המשלוח מחושבת בתשלום</span>
             <CheckoutButton onPendingChange={setPaying} />
-            <Link href="/checkout" className="cart-edit-link" onClick={s.closeAll}>
+            <div className="cart-footer-links"><span><IconLock size={14} /> תשלום מאובטח</span><Link href="/checkout" className="cart-edit-link" onClick={s.closeAll}>
               לסיכום ועריכת ההזמנה
-            </Link>
+            </Link></div>
           </div>
         )}
       </aside>
 
-      <aside className={`drawer menu ${s.menuOpen ? "on" : ""}`} aria-label="תפריט">
-        <div className="drawer-h" style={{ height: 60, padding: "0 8px 0 16px" }}>
+      <aside className={`drawer menu ${s.menuOpen ? "on" : ""}`} aria-label="תפריט" aria-hidden={!s.menuOpen} inert={!s.menuOpen}>
+        <div className="drawer-h menu-header">
           {!s.menuCat ? (
-            <img src="/logo.avif" alt="Cohen Brothers" style={{ height: 22 }} />
+            <img src="/logo.avif" alt="Cohen Brothers" className="menu-logo" />
           ) : (
-            <button onClick={() => s.setMenuCat(null)} style={{ background: "none", border: 0, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-              → חזרה
+            <button className="menu-back" onClick={() => s.setMenuCat(null)}>
+              <IconBack /> כל הקטגוריות
             </button>
           )}
           <button className="x" onClick={s.closeAll} aria-label="סגירה">
             ×
           </button>
         </div>
-        <div className="drawer-body" style={{ padding: "12px 20px 24px" }}>
+        <div className="drawer-body menu-body" key={s.menuCat || "root"}>
           {!s.menuCat ? (
             <>
-              {categories.map((c) => (
-                <button key={c.id} className="menu-link" onClick={() => s.setMenuCat(c.id)}>
-                  {c.name}
-                  <span className="faint">←</span>
-                </button>
-              ))}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 22 }}>
-                <Link href="/business" className="btn" style={{ height: 54, fontSize: 15, fontWeight: 700 }} onClick={s.closeAll}>
-                  הזמנות לעסקים
-                </Link>
-                  <Link href="/quantity-offers" className="btn btn-yellow" style={{ height: 54, fontSize: 15 }} onClick={s.closeAll}>
-                    מבצעי כמות
-                  </Link>
+              <div className="menu-intro">
+                <span className="menu-eyebrow">COHEN BROTHERS / ביגוד וציוד לעבודה</span>
+                <h2 className="k">מוכנים לעבודה.</h2>
+                <span className="menu-intro-mark" aria-hidden="true">↙</span>
               </div>
-              <div style={{ marginTop: 26, fontSize: 15, lineHeight: 1.8 }} className="muted">
-                הפועלים 20, באר שבע
-                <br />
-                <a href="tel:08-6233803" style={{ fontWeight: 700, color: "#111" }}>
-                  08-6233803
-                </a>
+              <nav className="menu-categories" aria-label="קטגוריות מוצרים">
+                {categories.map((c) => (
+                  <button key={c.id} className="menu-link menu-category" onClick={() => s.setMenuCat(c.id)}>
+                    <span className="menu-category-icon"><MenuCategoryIcon name={c.name} /></span>
+                    <span className="menu-category-name">{c.name}</span>
+                    <span className="menu-arrow"><IconFwd /></span>
+                  </button>
+                ))}
+              </nav>
+              <div className="menu-promos">
+                <Link href="/quantity-offers" className="menu-promo menu-promo-offers" onClick={s.closeAll}>
+                  <span className="menu-promo-top"><IconPackages /><IconFwd /></span>
+                  <strong>מבצעי כמות</strong><span>יותר יחידות. יותר משתלם.</span>
+                </Link>
+                <Link href="/business" className="menu-promo menu-promo-business" onClick={s.closeAll}>
+                  <span className="menu-promo-top"><IconCase /><IconFwd /></span>
+                  <strong>הזמנות לעסקים</strong><span>מציידים את כל הצוות.</span>
+                </Link>
+              </div>
+              <div className="menu-contact">
+                <span><IconPin /><span>כאן בשבילכם<span>הפועלים 20, באר שבע</span></span></span>
+                <a href="tel:08-6233803" dir="ltr">08-6233803</a>
               </div>
             </>
           ) : (
             <>
-              <span className="k" style={{ display: "block", fontSize: 60, lineHeight: 0.85, margin: "6px 0 14px" }}>
-                {category(s.menuCat || "")?.name}
-              </span>
-              <Link href={`/c/${s.menuCat}`} className="menu-link" style={{ fontWeight: 800, fontSize: 17, height: 56 }} onClick={s.closeAll}>
+              <div className="menu-intro menu-sub-intro">
+                <span className="menu-eyebrow">מוצאים בדיוק את מה שצריך</span>
+                <h2 className="k">{category(s.menuCat || "")?.name}</h2>
+              </div>
+              <Link href={`/c/${s.menuCat}`} className="menu-link menu-view-all" onClick={s.closeAll}>
                 כל המוצרים
-                <span>←</span>
+                <IconFwd />
               </Link>
-              {(category(s.menuCat || "")?.subs ?? []).map((name) => (
-                <Link key={name} href={`/c/${s.menuCat}?sub=${encodeURIComponent(name)}`} className="menu-link" style={{ fontWeight: 500, fontSize: 17, height: 54 }} onClick={s.closeAll}>
-                  {name}
-                </Link>
-              ))}
+              <nav className="menu-categories" aria-label="תתי קטגוריות">
+                {(category(s.menuCat || "")?.subs ?? []).map((name) => (
+                  <Link key={name} href={`/c/${s.menuCat}?sub=${encodeURIComponent(name)}`} className="menu-link menu-subcategory" onClick={s.closeAll}>
+                    <span>{name}</span><span className="menu-arrow"><IconFwd /></span>
+                  </Link>
+                ))}
+              </nav>
             </>
           )}
         </div>
@@ -182,6 +191,17 @@ export function Overlays() {
       </div>
     </>
   );
+}
+
+function MenuCategoryIcon({ name }: { name: string }) {
+  const path = /נעל|redback/i.test(name) ? "M5 3h7v8l3 3 5 2v4H3v-7h2V3ZM5 8h4M5 11h4M3 17h17"
+    : /חורף/.test(name) ? "M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 3 3-3M9 20l3-3 3 3M4 10l4-1-1-4M17 19l-1-4 4-1M4 14l4 1-1 4M17 5l-1 4 4 1"
+    : /בטיחות/.test(name) ? "M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3ZM8 12l3 3 5-6"
+    : /מטבח/.test(name) ? "M9 3h6v5l4 5v8H5v-8l4-5V3ZM8 14h8v4H8v-4"
+    : /חד פעמי/.test(name) ? "M3 7l9-4 9 4v11l-9 4-9-4V7ZM3 7l9 4 9-4M12 11v11M8 5l9 4"
+    : /אביזר/.test(name) ? "M4 14a8 8 0 0 1 16 0H4ZM12 6v8M4 14l-2 4h20l-2-4"
+    : "m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0ZM9 14h6";
+  return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"><path d={path} /></svg>;
 }
 
 function QuickSheet() {
@@ -262,12 +282,16 @@ function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => 
   const { products, category } = useCatalog();
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    const input = ref.current;
     if (closing) {
-      ref.current?.blur();
+      input?.blur();
       return;
     }
-    const t = setTimeout(() => ref.current?.focus(), 30);
-    return () => clearTimeout(t);
+    const t = setTimeout(() => input?.focus({ preventScroll: true }), 30);
+    return () => {
+      clearTimeout(t);
+      input?.blur();
+    };
   }, [closing]);
   const q = s.query.trim().toLowerCase();
   const results = q
@@ -286,43 +310,58 @@ function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => 
         if (event.target === event.currentTarget && event.animationName === "searchClose") onExited();
       }}
     >
+      <div className="search-mobile-header">
+        <img src="/logo.avif" alt="Cohen Brothers" className="menu-logo" />
+        <button type="button" className="x" onClick={s.closeAll} aria-label="סגירת החיפוש">×</button>
+      </div>
       <div className="search-in">
+        <div className="search-intro">
+          <span className="menu-eyebrow">ביגוד וציוד לעבודה / חיפוש</span>
+          <h2 className="k">מה מחפשים היום?</h2>
+          <p>מוצר, מותג או מק״ט — מתחילים כאן.</p>
+        </div>
         <div className="search-line">
           <IconSearch size={26} />
-          <input ref={ref} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label="מה מחפשים?" placeholder="מה מחפשים?" enterKeyHint="search" />
-          <button className="x" onClick={s.closeAll} aria-label="סגירה">
+          <input ref={ref} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label="מה מחפשים?" placeholder="חיפוש מוצר, מותג או מק״ט" enterKeyHint="search" />
+          {s.query && <button type="button" className="search-clear" aria-label="ניקוי החיפוש" onClick={() => { s.setQuery(""); ref.current?.focus({ preventScroll: true }); }}>×</button>}
+          <button className="x search-desktop-close" onClick={s.closeAll} aria-label="סגירה">
             ×
           </button>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 18, alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 700, marginInlineEnd: 6 }}>חיפושים נפוצים</span>
+        <div className="search-terms">
+          <span className="search-terms-label">חיפושים נפוצים</span>
           {["נעלי עבודה", "S3", "טריקו", "פליז", "כובע"].map((t) => (
-            <button key={t} className="term" onClick={() => s.setQuery(t)}>
+            <button key={t} className="term" aria-pressed={q === t.toLowerCase()} onClick={() => s.setQuery(t)}>
               {t}
             </button>
           ))}
         </div>
+        {!q && <Link href="/quantity-offers" className="search-offer" onClick={s.closeAll}>
+          <span className="search-offer-icon"><IconPackages /></span>
+          <span><strong>קונים יותר, משלמים פחות</strong><span>לכל מבצעי הכמות</span></span>
+          <IconFwd />
+        </Link>}
         {q && (
           <>
-            <div style={{ marginTop: 28, fontSize: 14, fontWeight: 700 }}>{results.length} תוצאות</div>
-            <div style={{ display: "flex", flexDirection: "column", marginTop: 8 }}>
+            <div className="search-results-heading" role="status"><strong>{results.length} תוצאות</strong>{results.length > 10 && <span>מציגים את 10 הראשונות</span>}</div>
+            <div className="search-results">
               {results.slice(0, 10).map((x) => (
                 <Link key={x.id} href={`/p/${x.id}`} className="search-hit" onClick={s.closeAll}>
-                  <div className="line-ph" style={{ width: 64, height: 70 }}>
+                  <div className="line-ph search-hit-image">
                     {x.imgs?.[0] && <ProductImage sizes="160px" maxWidth={480} src={x.imgs[0]} alt="" />}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                  <div className="search-hit-copy">
                     <ProductBrand name={x.brand} inline />
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>{x.name}</span>
-                    <span className="muted" style={{ fontSize: 13 }}>
+                    <span className="search-hit-name">{x.name}</span>
+                    <span className="search-hit-meta">
                       {category(x.cat)?.name}
                       {x.sku ? " · " + x.sku : ""}
                     </span>
                   </div>
-                  <span style={{ fontSize: 16, fontWeight: 800 }}>{fmt(x.price)}</span>
+                  <span className="search-hit-price">{fmt(x.price)}</span>
                 </Link>
               ))}
-              {results.length === 0 && <div style={{ padding: "40px 0", fontSize: 16 }} className="muted">לא נמצאו תוצאות. נסו שם מוצר, מק״ט או תקן (למשל S3).</div>}
+              {results.length === 0 && <div className="search-empty"><span className="search-empty-icon"><IconSearch size={28} /></span><strong>לא מצאנו התאמה הפעם</strong><p>נסו שם מוצר אחר, מק״ט או תקן כמו S3.</p></div>}
             </div>
           </>
         )}

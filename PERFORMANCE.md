@@ -1,5 +1,47 @@
 # Navigation performance — 2026-11-12
 
+## Bounded navigation warmup and mobile loader — 2026-11-13
+
+The mobile loading mark now paints a 190px logo instead of 310px, with 2px
+corner strokes and progress track, smaller status text, and no bouncing logo
+or animated dots. Desktop styling is unchanged.
+
+`NavigationWarmup` supplements Next Link's partial prefetch with full
+`router.prefetch(href)` calls for public shopping routes. In this installed
+Next 15.5.29 configuration, default Link prefetch stopped at the loading boundary;
+the manual prefetch loads the page payload as well. See the
+[Next 15 prefetch guide](https://nextjs.org/docs/15/app/guides/prefetching).
+
+After window load and a 1.8s delay, up to four distinct links in the current main
+content are prepared at 1.2s intervals during idle time, prioritizing visible
+links. Hover, keyboard focus and touch can prepare up to eight additional links
+per pathname. Work is cancelled on navigation/unmount. A bounded 60-second
+deduplication map avoids repeated work; the Next router owns its actual cache.
+This supplement is disabled in development and on account/checkout pages, and
+skips hidden/offline tabs, advertised data saving and 2G/3G connections. Existing
+Link prefetch behavior is unchanged. No bulk image download or whole-site crawl
+is added, and cart/checkout requests remain live.
+
+Verification used an isolated local production build with real Shopify data:
+
+- The first empty-cache home response finished in 5,973ms. The catalog cold-load
+  dependency remains; client-side warming cannot remove that first server wait.
+- Subsequent complete home/category/product HTTP responses were 187–261ms.
+- The four automatic full prefetch responses on home were 1,029–1,319 compressed
+  bytes each and took 4–23ms of local server time. The existing partial prefetches
+  were separate requests. Images are not included in these response sizes.
+- Browser navigation home → shoes → product used the prepared page payloads:
+  both destinations rendered, with no new destination RSC request on either click.
+- Mobile loader checked at 320px and 390px; desktop retained a 310px logo.
+- Production build/type validation and all 203 tests passed, including five
+  warmup tests covering budget, visibility, exclusions, connection restrictions,
+  deduplication, expiry and cleanup.
+
+These are local measurements, not mobile field metrics or a production speedup
+claim. No deployment was performed. The remaining cold-load improvement is to
+decouple the first page from assembling the complete Shopify catalog, or maintain
+a refreshed server snapshot ahead of visitor requests.
+
 The old loader rebuilt the complete Shopify catalog whenever its process-local
 60-second cache expired. Layout, page and metadata could start overlapping loads.
 Category filter changes also triggered an unnecessary server navigation.

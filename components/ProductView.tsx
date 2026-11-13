@@ -16,7 +16,7 @@ import { fmt, priceFor, saleBadge } from "@/lib/pricing";
 import { complementaryAccessories, similarProducts } from "@/lib/product-recommendations";
 import { productColorIndex, productGalleryImages } from "@/lib/product-selection";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
-import { useScrollLock, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { IconCheck, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
 import { QuantityUnitPicker } from "./QuantityUnitPicker";
@@ -65,8 +65,6 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   const [bOff, setBOff] = useState<Record<string, boolean>>({});
   const [bSize, setBSize] = useState<Record<string, string>>({});
   const [bErr, setBErr] = useState(false);
-  const [guide, setGuide] = useState(false);
-  useScrollLock(guide);
 
   if (!p) return null;
   const sizeLabels = sizeOptions.map((option) => option.label);
@@ -172,9 +170,12 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   });
 
   const addBg = toastOn ? "#1F7A3D" : "#111";
+  const inStock = separateUnits ? !!units?.complete : sizeOptions.some(option => option.available);
+  const stockMessage = separateUnits && !selectionReady ? "בחרו צבע ומידה לכל יחידה לבדיקת זמינות"
+    : inStock ? "המוצר הזה זמין במלאי" : "המוצר אינו זמין במלאי בצבע שנבחר";
 
   return (
-    <main className="wrap has-buybar product-page">
+    <main className="wrap product-page">
       <div className="crumbs desk">
         <Link href="/">בית</Link>
         <span>/</span>
@@ -282,7 +283,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
           {quoteState.error && <button type="button" className="cart-edit-link" onClick={quoteState.retry}>עדכון המחיר</button>}
 
           {separateUnits && units && <div ref={unitPicker}>
-            <QuantityUnitPicker product={p} rows={units.rows} showErrors={sizeErr} onGuide={() => setGuide(true)} onChange={(index, selection) => {
+            <QuantityUnitPicker product={p} rows={units.rows} showErrors={sizeErr} onChange={(index, selection) => {
               setUnitSelections((previous) => ({ ...previous, ...Object.fromEntries(units.rows.map((row, rowIndex) => [rowIndex, row.selection])), [index]: selection }));
               setSizeErr(false);
               setColor(selection.color);
@@ -314,9 +315,6 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
                 <b>מידה: </b>
                 {size || "לא נבחרה"}
               </span>
-              <button onClick={() => setGuide(true)} style={{ background: "none", border: 0, fontSize: 14, fontWeight: 600, textDecoration: "underline" }}>
-                מדריך מידות
-              </button>
             </div>
             <div className="size-grid">
               {sizeOptions.map(({ label, available }) => (
@@ -332,18 +330,16 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
             <div className="qty">
               <button disabled={qty >= 250} onClick={() => setQty((n) => Math.min(250, n + 1))} aria-label="הוספת יחידה">+</button>
               <span>{qty}</span>
-              <button onClick={() => setQty((n) => Math.max(1, n - 1))} aria-label="הפחתת יחידה">−</button>
+              <button disabled={qty <= 1} onClick={() => setQty((n) => Math.max(1, n - 1))} aria-label="הפחתת יחידה">−</button>
             </div>
-            <button className="btn desk" style={{ background: addBg }} onClick={add}>
-              {selectionReady ? `הוספה לסל · ${lineLabel}` : separateUnits ? "בחרו מידה לכל יחידה" : `בחרו מידה · ${lineLabel}`}
+            <button className="btn product-add-btn" disabled={!separateUnits && !inStock} style={{ background: `var(--product-add-background, ${addBg})` }} onClick={add}>
+              <span>{!separateUnits && !inStock ? "אזל מהמלאי" : selectionReady ? "הוספה לסל" : separateUnits ? "בחרו מידה לכל יחידה" : "בחרו מידה"}</span>
+              <span className="product-add-price"><span className="desk">· </span>{lineLabel}</span>
             </button>
-            <span className="stock mob-flex" style={{ alignSelf: "center" }}>
-              במלאי{inCart ? ` · ${inCart} כבר בסל` : " · זמין למשלוח"}
-            </span>
           </div>
-          <div className="stock desk" style={{ marginTop: -8 }}>
-            <span className="sq" style={{ background: "#1F7A3D" }} />
-            במלאי{inCart ? ` · ${inCart} כבר בסל` : " · זמין למשלוח"}
+          <div className={`stock product-stock buy-pad${inStock ? "" : " is-unavailable"}`} role="status">
+            <span className="sq" style={{ background: "currentColor" }} aria-hidden="true" />
+            {stockMessage}{inStock && inCart ? ` · ${inCart} כבר בסל` : ""}
           </div>
 
           {accP.length > 0 && <div className="bundle" style={{ marginInline: undefined }}>
@@ -424,6 +420,16 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
 
       {(related.length > 0 || accP.length > 0) && (
         <div className="pdp-recommendations">
+          {accP.length > 0 && (
+            <section className="pdp-recommendation-section" aria-labelledby="accessory-products-title">
+              <div className="pdp-recommendation-head">
+                <h2 className="k" id="accessory-products-title">אביזרים משלימים</h2>
+              </div>
+              <div className="product-grid pdp-recommendation-grid">
+                {accP.map((x) => <ProductTile key={x.id} p={x} />)}
+              </div>
+            </section>
+          )}
           {related.length > 0 && (
             <section className="pdp-recommendation-section" aria-labelledby="related-products-title">
               <div className="pdp-recommendation-head">
@@ -435,49 +441,9 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               </div>
             </section>
           )}
-          {accP.length > 0 && (
-            <section className="pdp-recommendation-section" aria-labelledby="accessory-products-title">
-              <div className="pdp-recommendation-head">
-                <h2 className="k" id="accessory-products-title">אביזרים משלימים</h2>
-              </div>
-              <div className="product-grid pdp-recommendation-grid">
-                {accP.map((x) => <ProductTile key={x.id} p={x} />)}
-              </div>
-            </section>
-          )}
         </div>
       )}
 
-      <div className="buybar mob-flex">
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, paddingInlineStart: 4 }}>
-          <span style={{ fontSize: 18, fontWeight: 800 }}>{lineLabel}</span>
-          <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>{qty} יח׳{separateUnits ? " · לפי הבחירות שלכם" : size ? ` · ${size}` : ""}</span>
-        </div>
-        <button className="btn" style={{ background: addBg }} onClick={add}>{selectionReady ? "הוספה לסל" : separateUnits ? "בחרו מידות" : "בחרו מידה"}</button>
-      </div>
-
-      {guide && (
-        <>
-          <div className="backdrop on" onClick={() => setGuide(false)} />
-          <section className="sheet" aria-label="מדריך מידות">
-            <div className="sheet-h">
-              <span style={{ fontSize: 18, fontWeight: 800 }}>מדריך מידות</span>
-              <button className="x" onClick={() => setGuide(false)} aria-label="סגירה">×</button>
-            </div>
-            <div className="sheet-b">
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65 }}>
-                המידות הזמינות לפריט: <b style={{ direction: "ltr", display: "inline-block" }}>{sizeLabels.join(" · ")}</b>. כך מודדים לפני שבוחרים:
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", borderTop: "2px solid #111" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "44px 1fr", padding: "14px 0", borderBottom: "1px solid #E4E4E1", fontSize: 15, lineHeight: 1.55 }}><span className="k" style={{ fontSize: 32 }}>01</span><span><b>היקף חזה</b> — מודדים בנקודה הרחבה ביותר, מתחת לבתי השחי.</span></div>
-                <div style={{ display: "grid", gridTemplateColumns: "44px 1fr", padding: "14px 0", borderBottom: "1px solid #E4E4E1", fontSize: 15, lineHeight: 1.55 }}><span className="k" style={{ fontSize: 32 }}>02</span><span><b>אורך</b> — מהתפר העליון בכתף ועד שולי הבגד, על בגד קיים שמתאים לכם.</span></div>
-                <div style={{ display: "grid", gridTemplateColumns: "44px 1fr", padding: "14px 0", borderBottom: "1px solid #E4E4E1", fontSize: 15, lineHeight: 1.55 }}><span className="k" style={{ fontSize: 32 }}>03</span><span><b>בין שתי מידות?</b> לעבודה פיזית ולשכבות מתחת — עדיף לבחור את הגדולה.</span></div>
-              </div>
-              <a href="tel:08-6233803" className="btn btn-line" style={{ height: 54, fontSize: 15 }}>ייעוץ מידות בטלפון · 08-6233803</a>
-            </div>
-          </section>
-        </>
-      )}
     </main>
   );
 }

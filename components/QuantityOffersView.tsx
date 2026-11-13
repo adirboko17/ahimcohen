@@ -48,7 +48,7 @@ export function QuantityOffersView({ allOffers = false }: { allOffers?: boolean 
             return (
               <article className="quantity-card" key={product.id}>
                 <Link href={`/p/${encodeURIComponent(product.id)}?quantity-offer=1`} className="quantity-image" aria-label={offer.title} tabIndex={-1}>
-                  {product.imgs?.[0] ? <ProductImage src={product.imgs[0]} alt={offer.title} loading={index < 2 ? "eager" : "lazy"} sizes="(max-width: 600px) 90vw, (max-width: 1100px) 45vw, 30vw" /> : <IconBag size={64} />}
+                  {product.imgs?.[0] ? <ProductImage src={product.imgs[0]} alt={offer.title} loading={index < 2 ? "eager" : "lazy"} sizes="(max-width: 1100px) 45vw, 30vw" /> : <IconBag size={64} />}
                   <span className="quantity-badge"><b>{offer.quantity}</b><span>{offer.quantityLabel}{offer.kind === "pack" ? " במארז" : " במבצע"}</span></span>
                   <ProductBrand name={product.brand} />
                 </Link>

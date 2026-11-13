@@ -120,9 +120,9 @@ function findElement(node, predicate) {
   }
 }
 const pickerOf = (tree) => findElement(tree, (node) => node.type?.name === "QuantityUnitPicker");
-const addButton = (tree, mobile = false) => findElement(tree, (node) => node.type === "button" && node.props.className === (mobile ? "btn" : "btn desk") && typeof node.props.children === "string" && /הוספה לסל|בחרו מיד/.test(node.props.children));
+const addButton = (tree) => findElement(tree, (node) => node.type === "button" && node.props.className === "btn product-add-btn");
 
-test("product handlers keep unit choices independent and add the full selection from desktop and mobile", () => {
+test("the shared product purchase button keeps unit choices independent and adds the full selection", () => {
   const app = productHarness();
   let tree = app.render();
   addButton(tree).props.onClick();
@@ -136,9 +136,7 @@ test("product handlers keep unit choices independent and add the full selection 
   tree = app.render();
   assert.deepEqual(app.quote().map((line) => [line.variantId, line.qty]), [["white-l", 1], ["blue-xxl", 1]]);
   addButton(tree).props.onClick();
-  addButton(tree, true).props.onClick();
   assert.deepEqual(app.added, [
-    [["shirt", 1, "L", 1], ["shirt", 0, "XXL", 1]],
     [["shirt", 1, "L", 1], ["shirt", 0, "XXL", 1]],
   ]);
   findElement(tree, (node) => node.props?.["aria-label"] === "הוספת יחידה").props.onClick();
@@ -147,5 +145,5 @@ test("product handlers keep unit choices independent and add the full selection 
   assert.deepEqual(pickerOf(tree).props.rows.slice(0, 2).map((row) => row.selection), [{ color: 1, size: "L" }, { color: 0, size: "2XL" }]);
   assert.deepEqual(app.quote(), []);
   addButton(tree).props.onClick();
-  assert.equal(app.added.length, 2);
+  assert.equal(app.added.length, 1);
 });

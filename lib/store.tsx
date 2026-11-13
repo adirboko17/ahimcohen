@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pickVariant } from "./catalog";
 import { useCatalog } from "./catalog-context";
 import { productSizeOptions, sizeLabel } from "./sizes";
@@ -8,6 +8,7 @@ import { productColorIndex } from "./product-selection";
 import { updateCartSelection, updateCartUnitSelection } from "./cart-selection";
 import { useCartQuote } from "./use-cart-quote";
 import { useCheckoutReturn } from "./use-checkout-return";
+import { lockPageScroll } from "./page-scroll-lock";
 import { cartMath } from "./pricing";
 import type { AddItem, CartLine } from "./types";
 
@@ -73,7 +74,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [toastOn, setToastOn] = useState(false);
   const [auth, setAuth] = useState(false);
   const [phone, setPhone] = useState("");
-  const [extraLock, setExtraLock] = useState(false);
+  const [extraLockCount, setExtraLockCount] = useState(0);
+  const extraLock = extraLockCount > 0;
+  const setExtraLock = useCallback((on: boolean) => {
+    setExtraLockCount((count) => Math.max(0, count + (on ? 1 : -1)));
+  }, []);
   const [ready, setReady] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,11 +109,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const anyOverlay = cartOpen || menuOpen || searchOpen || !!sheet || extraLock;
 
-  useEffect(() => {
-    document.body.style.overflow = anyOverlay ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+  useLayoutEffect(() => {
+    if (!anyOverlay) return;
+    return lockPageScroll();
   }, [anyOverlay]);
 
   const flash = useCallback((msg: string) => {
@@ -315,9 +318,15 @@ export function useStore() {
 
 export function useScrollLock(on: boolean) {
   const { setExtraLock } = useStore();
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!on) return;
+    // Acquire before focus or dialog effects can move the viewport. Each
+    // overlay owns its lock, so closing one cannot unlock another.
+    const release = lockPageScroll();
     setExtraLock(true);
-    return () => setExtraLock(false);
+    return () => {
+      release();
+      setExtraLock(false);
+    };
   }, [on, setExtraLock]);
 }
