@@ -30,7 +30,7 @@ export function QuantityOffersView({ allOffers = false }: { allOffers?: boolean 
           <span className="quantity-eyebrow">{allOffers ? "לעבודה. לצוות. במחיר מיוחד." : "לעבודה. לצוות. לכמות."}</span>
           <h1 className="k">{title}</h1>
           <p>{allOffers ? "כל ההנחות ומבצעי הכמות במקום אחד." : "יותר יחידות. יותר משתלם."}</p>
-          <span>{allOffers ? "מוצרים במחיר מבצע, מארזים והצעות משתלמות לכל הצוות." : "הכמות, המחיר הכולל והמחיר ליחידה — הכל לפניכם."}</span>
+          <span>{allOffers ? "מוצרים במחיר מבצע, מארזים והצעות משתלמות לכל הצוות." : "הכמות, המחיר הכולל והמחיר ליחידה - הכל לפניכם."}</span>
         </div>
         <div className="quantity-hero-count"><span className="k">{count.toLocaleString("he-IL")}</span><span>{allOffers ? "מבצעים במקום אחד" : "הצעות כמות במקום אחד"}</span></div>
       </header>

@@ -25,15 +25,15 @@ export function ReorderVariantPicker({ product, color, size, onChange }: {
         <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, flex: "1 1 120px", minWidth: 0 }}>
           צבע
           <select className="plain" aria-label={`צבע עבור ${product.name}`} value={selectedColor} onChange={(event) => onChange({ color: event.target.value })} style={{ width: "100%", minWidth: 0, height: 42 }}>
-            {!colorExists && <option value={selectedColor} disabled>{selectedColor || "ללא צבע"} — לא זמין</option>}
-            {options.colors.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label || "ללא צבע"}{option.available ? "" : " — לא במלאי"}</option>)}
+            {!colorExists && <option value={selectedColor} disabled>{selectedColor || "ללא צבע"} - לא זמין</option>}
+            {options.colors.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label || "ללא צבע"}{option.available ? "" : " - לא במלאי"}</option>)}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, flex: "1 1 100px", minWidth: 0 }}>
           מידה
           <select className="plain" aria-label={`מידה עבור ${product.name}`} value={selectedSize} onChange={(event) => onChange({ size: event.target.value })} style={{ width: "100%", minWidth: 0, height: 42 }}>
-            {!sizeExists && <option value={selectedSize} disabled>{selectedSize} — לא זמינה</option>}
-            {options.sizes.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label}{option.available ? "" : " — לא זמינה בצבע זה"}</option>)}
+            {!sizeExists && <option value={selectedSize} disabled>{selectedSize} - לא זמינה</option>}
+            {options.sizes.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label}{option.available ? "" : " - לא זמינה בצבע זה"}</option>)}
           </select>
         </label>
       </div>

@@ -25,7 +25,7 @@ export function QuantityUnitPicker({ product, rows, showErrors, onChange, disabl
         <label>מידה
           <select className="plain" aria-label={`מידה ליחידה ${index + 1}`} aria-invalid={showErrors && !row.valid} data-missing={!row.valid ? "true" : undefined} value={row.option?.label ?? ""} onChange={(event) => onChange(index, { ...row.selection, size: event.target.value })}>
             <option value="" disabled>בחרו מידה</option>
-            {row.options.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label}{!option.available ? " — אזל במלאי" : ""}</option>)}
+            {row.options.map((option) => <option key={option.label} value={option.label} disabled={!option.available}>{option.label}{!option.available ? " - אזל במלאי" : ""}</option>)}
           </select>
         </label>
       </div>

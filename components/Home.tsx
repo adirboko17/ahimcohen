@@ -299,8 +299,8 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                 <span>מיתוג לעסקים.</span>
               </h1>
               <p className="lead">
-                <span className="hero-lead-desktop">לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות — מאותו קטלוג, באותם מחירים.</span>
-                <span className="hero-lead-mobile">לפריט אחד או לכל הצוות — באותם מחירים.</span>
+                <span className="hero-lead-desktop">לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות - מאותו קטלוג, באותם מחירים.</span>
+                <span className="hero-lead-mobile">לפריט אחד או לכל הצוות - באותם מחירים.</span>
               </p>
             </div>
             <div className="hero-conversion">
@@ -479,7 +479,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
               על כל הצוות.
             </h2>
             <p style={{ fontSize: 17, lineHeight: 1.6, color: "#cfcfca", margin: 0, maxWidth: "44ch" }}>
-              שירותי מיתוג הכוללים הדפסה ורקמה בהתאמה אישית — על חולצות, פליזים, מעילים וכובעים, בכל כמות ובשילוב מידות.
+              שירותי מיתוג הכוללים הדפסה ורקמה בהתאמה אישית - על חולצות, פליזים, מעילים וכובעים, בכל כמות ובשילוב מידות.
             </p>
             <div className="steps3">
               {[
@@ -520,7 +520,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
             </span>
             <span>
               <b className="trust-title">סניף בבאר שבע</b>
-              <span className="muted trust-detail">הפועלים 20 — מוזמנים למדוד</span>
+              <span className="muted trust-detail">הפועלים 20 - מוזמנים למדוד</span>
             </span>
           </div>
           <div className="trust-item">

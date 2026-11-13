@@ -40,7 +40,7 @@ export function CheckoutView() {
           <span style={{ fontSize: 17, fontWeight: 800 }}>סיכום הזמנה · {math.count === 1 ? "פריט אחד" : math.count + " פריטים"}</span>
           <CartContents disabled={paying} />
           <div style={{ borderTop: "1px solid #D6D6D1", paddingTop: 14, display: "flex", flexDirection: "column", gap: 8, fontSize: 15 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span>לפני הנחות</span><span>{cartQuote.error ? "—" : fmt(math.regular)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>לפני הנחות</span><span>{cartQuote.error ? "-" : fmt(math.regular)}</span></div>
             {cartQuote.quote && math.savings > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
                 <span style={{ background: "#FFD100", padding: "0 6px" }}>מבצעי כמות</span>
@@ -49,7 +49,7 @@ export function CheckoutView() {
             )}
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>משלוח</span><span>יחושב בקופה</span></div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 800, borderTop: "2px solid #111", paddingTop: 12, marginTop: 4 }}>
-              <span>{cartQuote.pending ? "סכום משוער" : "סה״כ מוצרים"}</span><span aria-live="polite">{cartQuote.error ? "—" : fmt(math.total)}</span>
+              <span>{cartQuote.pending ? "סכום משוער" : "סה״כ מוצרים"}</span><span aria-live="polite">{cartQuote.error ? "-" : fmt(math.total)}</span>
             </div>
             {cartQuote.pending && <span className="muted" role="status">מאמתים מחירים ומבצעים…</span>}
           </div>

@@ -4,7 +4,7 @@ export function PageLoading() {
       <div className="brand-loader">
         <div className="brand-loader-mark">
           <span className="brand-loader-corner start" aria-hidden="true" />
-          <img src="/logo.avif" width={330} height={67} alt="האחים כהן — Cohen Brothers" fetchPriority="high" />
+          <img src="/logo.avif" width={330} height={67} alt="האחים כהן - Cohen Brothers" fetchPriority="high" />
           <span className="brand-loader-corner end" aria-hidden="true" />
         </div>
         <div className="brand-loader-track" aria-hidden="true"><span /></div>

@@ -318,9 +318,7 @@ img { max-width: 100%; }
   .home-hero .kicker .sq { width: 6px; height: 6px; }
   .home-hero .home-hero-title { display: block; font-size: clamp(34px, 10.7vw, 58px); line-height: 1.06; text-shadow: 0 2px 12px rgba(0, 0, 0, .2); }
   .home-hero .home-hero-title > span { white-space: nowrap; }
-  .home-hero .lead { font-size: 14px; line-height: 1.5; max-width: 24ch; color: #f0f0ed; }
-  .hero-lead-desktop { display: none; }
-  .hero-lead-mobile { display: inline; }
+  .home-hero .lead { font-size: 14px; line-height: 1.5; max-width: 28ch; color: #f0f0ed; }
   .home-hero .hero-campaign { grid-column: 1; grid-row: 1; height: clamp(300px, 88vw, 440px); min-height: 0; }
   .home-hero .hero-campaign img { object-position: 52% 74%; }
   .home-hero .hero-campaign::after {
@@ -356,6 +354,7 @@ img { max-width: 100%; }
   .home-hero .hero-campaign img { object-position: 46% 78%; }
   .home-hero .hero-intro { width: 48%; padding-inline: 28px 12px; }
   .home-hero .home-hero-title { font-size: clamp(40px, 5.6vw, 64px); }
+  .home-hero .lead { max-width: 34ch; font-size: 15px; }
 }
 
 .sec { padding-top: clamp(64px, 8vw, 120px); }

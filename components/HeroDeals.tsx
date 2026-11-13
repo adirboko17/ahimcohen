@@ -61,7 +61,7 @@ export function HeroDeals({ products }: { products: Product[] }) {
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
     >
-      <Link href={current.href} className={`hero-deal${image ? " hero-deal-image-link" : ""}`} onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)} aria-label={`${current.title}, ${current.description} — לפרטי המבצע`}>
+      <Link href={current.href} className={`hero-deal${image ? " hero-deal-image-link" : ""}`} onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)} aria-label={`${current.title}, ${current.description} - לפרטי המבצע`}>
         <span key={current.id} className={`hero-deal-slide${image ? " hero-deal-with-image" : ""}`}>
           {image && <span className="hero-deal-thumbnail">
             <ProductImage src={image} alt="" sizes="(max-width: 767px) 80px, 96px" maxWidth={192} width={96} height={96} onError={() => setFailedImage(image)} />

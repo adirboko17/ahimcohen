@@ -103,7 +103,7 @@ export function Overlays() {
             )}
             <div className="cart-total-summary">
               <span>{s.cartQuote.pending ? "סכום משוער" : "סה״כ"}</span>
-              <span aria-live="polite">{s.cartQuote.error ? "—" : fmt(math.total)}</span>
+              <span aria-live="polite">{s.cartQuote.error ? "-" : fmt(math.total)}</span>
             </div>
             <span className="cart-shipping-note" role="status">{s.cartQuote.pending ? "מאמתים מחירים ומבצעים…" : "עלות המשלוח מחושבת בתשלום"}</span>
             <CheckoutButton onPendingChange={setPaying} />
@@ -319,7 +319,7 @@ function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => 
         <div className="search-intro">
           <span className="menu-eyebrow">ביגוד וציוד לעבודה / חיפוש</span>
           <h2 className="k">מה מחפשים היום?</h2>
-          <p>מוצר, מותג או מק״ט — מתחילים כאן.</p>
+          <p>מוצר, מותג או מק״ט - מתחילים כאן.</p>
         </div>
         <div className="search-line">
           <IconSearch size={26} />

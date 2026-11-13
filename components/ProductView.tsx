@@ -92,7 +92,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   const fbColor = "#111";
 
   const accs = [
-    ...(p.desc ? [{ id: "desc", title: "תיאור", lines: p.desc.map((v) => ({ k: "", v: "— " + v })) }] : []),
+    ...(p.desc ? [{ id: "desc", title: "תיאור", lines: p.desc.map((v) => ({ k: "", v: "- " + v })) }] : []),
     {
       id: "spec",
       title: "מפרט",
@@ -397,7 +397,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
 
           <div className="ship-list buy-pad">
             <div><IconTruck /><div><b>משלוח עד הבית</b> · חינם בהזמנה מעל {fmt(FREE_SHIPPING)}</div></div>
-            <div><IconPin /><div><b>סניף באר שבע</b> · הפועלים 20 — אפשר להגיע ולמדוד</div></div>
+            <div><IconPin /><div><b>סניף באר שבע</b> · הפועלים 20 - אפשר להגיע ולמדוד</div></div>
             <div><IconPhone /><div><b>התלבטות במידה?</b> · <a href="tel:08-6233803" style={{ textDecoration: "underline" }}>08-6233803</a></div></div>
           </div>
           <div className="buy-pad">

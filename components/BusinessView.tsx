@@ -60,7 +60,7 @@ export function BusinessView() {
           <h1 id="business-title" className="k business-title">
             ביגוד ממותג לכל הצוות.
           </h1>
-          <p className="business-lead">ביגוד עבודה, ייצוג ומיגון עם הלוגו שלכם. בוחרים פריטים, מידות וכמויות — ומרכיבים בקשה להצעת מחיר לכל הצוות.</p>
+          <p className="business-lead">ביגוד עבודה, ייצוג ומיגון עם הלוגו שלכם. בוחרים פריטים, מידות וכמויות - ומרכיבים בקשה להצעת מחיר לכל הצוות.</p>
         </div>
         <div className="business-intro-actions">
           <button className="btn" onClick={scrollForm}>לבניית בקשה להצעת מחיר <IconFwd /></button>
@@ -80,14 +80,14 @@ export function BusinessView() {
       <section ref={formRef} className="wrap business-request" aria-labelledby="business-request-title">
         <div className="business-request-heading">
           <h2 id="business-request-title" className="k">בקשה להצעת מחיר</h2>
-          <span className="muted">פריטים, מיתוג ופרטי העסק — במקום אחד</span>
+          <span className="muted">פריטים, מיתוג ופרטי העסק - במקום אחד</span>
         </div>
         {sent ? (
           <div style={{ background: "#F4F4F2", padding: "clamp(28px, 5vw, 56px)", display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
             <span style={{ width: 48, height: 48, background: "#FFD100", display: "flex", alignItems: "center", justifyContent: "center" }}><IconCheck size={22} /></span>
             <span style={{ fontSize: 28, fontWeight: 800 }}>הבקשה מוכנה לשליחה</span>
             <span className="muted" style={{ fontSize: 16, lineHeight: 1.6, maxWidth: "52ch" }}>
-              {units} יחידות ב-{rows.length} פריטים{brand.length ? " · " + brand.join(" + ") : ""}{logo ? " · לוגו: " + logo : ""}. בסביבת ההדגמה הטופס אינו נשלח בפועל — בגרסה החיה הוא יועבר לצוות ההזמנות ב-Hazmanot@ahim-cohen.co.il.
+              {units} יחידות ב-{rows.length} פריטים{brand.length ? " · " + brand.join(" + ") : ""}{logo ? " · לוגו: " + logo : ""}. בסביבת ההדגמה הטופס אינו נשלח בפועל - בגרסה החיה הוא יועבר לצוות ההזמנות ב-Hazmanot@ahim-cohen.co.il.
             </span>
             <button className="btn btn-line" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={() => { setSent(false); setStep(3); }}>עריכת הבקשה</button>
           </div>
@@ -193,7 +193,7 @@ export function BusinessView() {
                       <label className="field">טלפון *<input value={ct.phone} onChange={(e) => setCt({ ...ct, phone: e.target.value })} dir="ltr" style={{ textAlign: "right" }} /></label>
                       <label className="field">אימייל<input value={ct.email} onChange={(e) => setCt({ ...ct, email: e.target.value })} dir="ltr" style={{ textAlign: "right" }} /></label>
                     </div>
-                    <label className="field">הערות — מועד אספקה רצוי, מיקום הלוגו<textarea rows={4} value={ct.notes} onChange={(e) => setCt({ ...ct, notes: e.target.value })} /></label>
+                    <label className="field">הערות - מועד אספקה רצוי, מיקום הלוגו<textarea rows={4} value={ct.notes} onChange={(e) => setCt({ ...ct, notes: e.target.value })} /></label>
                   </div>
                 )}
                 {step === 3 && (
@@ -221,7 +221,7 @@ export function BusinessView() {
                       <button onClick={() => go(1)} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>עריכה</button>
                     </div>
                     <div className="b-card" style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <span><b style={{ display: "block" }}>פרטי התקשרות</b><span className="muted">{[ct.org, ct.name, ct.phone, ct.email].filter(Boolean).join(" · ")}{ct.notes ? " — " + ct.notes : ""}</span></span>
+                      <span><b style={{ display: "block" }}>פרטי התקשרות</b><span className="muted">{[ct.org, ct.name, ct.phone, ct.email].filter(Boolean).join(" · ")}{ct.notes ? " - " + ct.notes : ""}</span></span>
                       <button onClick={() => go(2)} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>עריכה</button>
                     </div>
                   </div>

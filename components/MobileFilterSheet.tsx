@@ -51,7 +51,7 @@ export function MobileFilterSheet({ children, footer, onClose }: { children: Rea
       const bounds = event.currentTarget.getBoundingClientRect();
       if (event.clientY < bounds.top || event.clientY > bounds.bottom || event.clientX < bounds.left || event.clientX > bounds.right) close();
     }}>
-    <button type="button" className="filter-sheet-handle" aria-label="סגירת הסינון — אפשר גם לגרור מטה" onClick={() => {
+    <button type="button" className="filter-sheet-handle" aria-label="סגירת הסינון - אפשר גם לגרור מטה" onClick={() => {
       if (!suppressClick.current) close();
     }} onPointerDown={(event) => {
       if (closingRef.current || !event.isPrimary || event.button !== 0) return;

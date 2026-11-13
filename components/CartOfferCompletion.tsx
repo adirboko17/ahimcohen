@@ -67,7 +67,7 @@ export function CartOfferCompletion({ group, disabled = false }: { group: CartGr
             if (disabled || !preset.available) return;
             setChoices(Object.fromEntries(Array.from({ length: missing }, (_, index) => [index, { ...preset.selection }])));
             setShowErrors(false);
-          }}>{preset.available ? preset.label : `${preset.label} — לא זמין כרגע`}</button>)}</div>
+          }}>{preset.available ? preset.label : `${preset.label} - לא זמין כרגע`}</button>)}</div>
         </div>
         <QuantityUnitPicker product={product} rows={selection.rows} showErrors={showErrors} disabled={disabled} onChange={(index, choice) => {
           setChoices((previous) => ({ ...previous, [index]: choice }));

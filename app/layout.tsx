@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     default: "האחים כהן | בגדי עבודה ונעלי בטיחות",
     template: "%s | האחים כהן",
   },
-  description: "ביגוד ומיגון לעבודה בבאר שבע. לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות — מאותו קטלוג, באותם מחירים.",
+  description: "ביגוד ומיגון לעבודה בבאר שבע. לקנייה של פריט אחד או להזמנה ממותגת לכל הצוות - מאותו קטלוג, באותם מחירים.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
