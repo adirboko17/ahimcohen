@@ -344,6 +344,13 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                 width={1200}
                 height={1055}
               />
+              <source
+                media="(max-width: 1023px)"
+                srcSet="/images/hero/workwear-boot-desktop-1024.webp 1024w, /images/hero/workwear-boot-desktop-1536.webp 1536w"
+                sizes="100vw"
+                width={1536}
+                height={1023}
+              />
             <img
               src="/images/hero/workwear-boot-desktop-1536.webp"
               srcSet="/images/hero/workwear-boot-desktop-1024.webp 1024w, /images/hero/workwear-boot-desktop-1536.webp 1536w"
