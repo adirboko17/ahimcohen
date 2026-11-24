@@ -65,6 +65,7 @@ export type Product = {
   subs?: string[];
   choices?: VariantChoice[];
   bundleSourceId?: string;
+  setContents?: { productIds: string[]; variants: { id: string; components: string[] }[] };
   quantityOfferHidden?: boolean;
 };
 

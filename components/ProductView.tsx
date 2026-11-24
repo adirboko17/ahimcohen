@@ -6,7 +6,7 @@ import { brandByName } from "@/lib/brands";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FREE_SHIPPING, phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { uniqueColors } from "@/lib/colors";
@@ -14,6 +14,7 @@ import { offerCartQuantity, quantityOffer } from "@/lib/quantity-offers";
 import { useCartQuote } from "@/lib/use-cart-quote";
 import { fmt, priceFor, saleBadge } from "@/lib/pricing";
 import { complementaryAccessories, similarProducts } from "@/lib/product-recommendations";
+import { accessoryColor, setCartId, setExtras, type ProductSet } from "@/lib/product-sets";
 import { productColorIndex, productGalleryImages } from "@/lib/product-selection";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useStore } from "@/lib/store";
@@ -26,17 +27,17 @@ import type { AddItem, PackUnit } from "@/lib/types";
 import type { PublishedBundle, PublishedReview } from "@/lib/admin/models";
 
 function bundleOf(p: Product, extras: Product[], q: number): [string, number][] {
-  const rest = extras.filter((item) => item.id !== p.id).slice(0, 2).map((item) => [item.id, 1] as [string, number]);
+  const rest = extras.map((item) => [item.id, 1] as [string, number]);
   return [[p.id, q], ...rest];
 }
 
-type ProductViewProps = { id: string; initialColor?: string; initialSize?: string; initialBundle?: string; fromQuantityOffer?: boolean; bundles?: PublishedBundle[]; reviews?: PublishedReview[] };
+type ProductViewProps = { id: string; setSetting?: ProductSet; initialColor?: string; initialSize?: string; initialBundle?: string; fromQuantityOffer?: boolean; bundles?: PublishedBundle[]; reviews?: PublishedReview[] };
 
 export function ProductView(props: ProductViewProps) {
   return <ProductDetails key={JSON.stringify([props.id, props.initialColor, props.initialSize, props.initialBundle, props.fromQuantityOffer])} {...props} />;
 }
 
-function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuantityOffer = false, bundles = [], reviews = [] }: ProductViewProps) {
+function ProductDetails({ id, setSetting, initialColor, initialSize, initialBundle, fromQuantityOffer = false, bundles = [], reviews = [] }: ProductViewProps) {
   const { product, category, products } = useCatalog();
   const base = product(id);
   const [reviewInteraction, setReviewInteraction] = useState<ReviewInteraction>(null);
@@ -45,6 +46,7 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
   const packProduct = managed?.cartProductId ? product(managed.cartProductId) : undefined;
   const p = packProduct ?? base;
   const accP = useMemo(() => base ? complementaryAccessories(base, products) : [], [base, products]);
+  const extras = useMemo(() => !base ? [] : setSetting ? setExtras(base, products, setSetting) : accP.slice(0, 2), [base, products, setSetting, accP]);
   const related = useMemo(() => base ? similarProducts(base, products.filter((item) => !accP.some((accessory) => accessory.id === item.id))) : [], [base, products, accP]);
   const router = useRouter();
   const { addMany, flash, toastOn, cart } = useStore();
@@ -94,6 +96,7 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
   const [bErr, setBErr] = useState(false);
 
   if (!p || !base) return null;
+  const brand = brandByName(p?.brand);
   const ratings = reviewSummary(reviews);
   const sizeLabels = sizeOptions.map((option) => option.label);
   const catName = category(p.cat)?.name || "";
@@ -153,7 +156,7 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
     },
   ];
 
-  const items = bundleOf(p, accP, qty);
+  const items = bundleOf(p, extras, qty);
   const mainItems: AddItem[] = mixedOffer ? mixedVariant && packUnits ? [[p.id, Math.max(0, p.colors.indexOf(mixedVariant.color)), mixedVariant.size, qty, packUnits]] : []
     : separateUnits ? units?.items ?? [] : selectedOption ? [[p.id, color, selectedOption.value, qty]] : [];
   const requireSelection = () => {
@@ -178,10 +181,14 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
       return;
     }
     setBErr(false);
+    if (discounted && offerProduct && offerChoice) {
+      addMany([[offerProduct.id, 0, offerChoice.size, 1]], true);
+      return;
+    }
     addMany(
       sel.flatMap((row): AddItem[] => row.isMain
         ? mainItems
-        : [[row.item.id, 0, row.option!.value, row.q]]),
+        : [[row.item.id, row.colorIndex, row.option!.value, row.q]]),
       true
     );
   };
@@ -194,18 +201,29 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
     if (!item) return null;
     const isMain = pid === p.id;
     const on = isMain || !bOff[pid];
-    const options = productSizeOptions(item);
+    const displayColor = accessoryColor(item);
+    const colorIndex = Math.max(0, item.colors.indexOf(displayColor));
+    const options = productSizeOptions(item, displayColor);
     const multi = options.length > 1;
     const chosen = multi ? bSize[pid] || "" : options[0]?.label || "";
     const option = options.find((entry) => entry.label === chosen && entry.available);
-    const pr = isMain ? line : priceFor(item, q);
+    const choice = isMain ? variant : item.choices?.find(v => v.available && v.color === displayColor && v.size === option?.value);
+    const pr = isMain ? line : choice?.price ?? priceFor(item, q);
     if (on) {
       bTotal += pr;
-      bRegular += q * item.price;
+      bRegular += q * (isMain ? unitPrice : choice?.price ?? item.price);
       bCount += q;
     }
-    return { item, q, isMain, on, multi, chosen, option, options, pr };
+    return { item, q, isMain, on, multi, chosen, option, options, pr, choice, colorIndex };
   });
+  const setOffer = setSetting?.offer;
+  const offerProduct = setOffer && product(setCartId(setOffer));
+  const complete = !!setOffer && !packProduct && qty === 1 && extras.length === setSetting?.extras.length && bRows.every(r => r?.on);
+  const componentIds = bRows.map(r => r?.choice?.id);
+  const matches = complete ? setOffer.variants.filter(v => v.components.every((id, i) => !componentIds[i] || id === componentIds[i])) : [];
+  const offerChoice = offerProduct?.choices?.find(v => v.available && matches.some(m => m.id === v.id));
+  const discounted = !!offerChoice && !!setOffer && setOffer.price < bTotal;
+  if (discounted) bTotal = setOffer.price;
 
   const addBg = toastOn ? "#1F7A3D" : "#111";
   const inStock = separateUnits ? !!units?.complete : sizeOptions.some(option => option.available);
@@ -223,14 +241,15 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
       </div>
       <div className="pdp">
         <div className="gallery desk">
-          <div className="g-side">
+          <DesktopThumbnails key={JSON.stringify([p.id, color])} count={slides.length} selected={gi} onSelect={setGal}>
             {slides.map((sl, i) => (
-              <button key={i} className={`g-thumb ${i === gi ? "on" : ""}`} onClick={() => setGal(i)} aria-label="תמונה">
+              <button key={i} className={`g-thumb ${i === gi ? "on" : ""}`} onClick={() => setGal(i)}
+                aria-current={i === gi ? "true" : undefined} aria-label={sl.kind === "spec" ? "מפרט המוצר" : `תמונה ${i + 1} מתוך ${slides.length}`}>
                 {sl.kind === "img" && <ProductImage src={sl.src} sizes="80px" maxWidth={320} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />}
                 {sl.kind !== "img" && <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#8a8a86" }}>{sl.kind === "spec" ? "מפרט" : sl.text}</span>}
               </button>
             ))}
-          </div>
+          </DesktopThumbnails>
           <GalleryFrame slide={current} name={p.name} deal={galleryDeal} was={p.was} price={p.price} />
         </div>
         <div className="mob-block" style={{ position: "relative" }}>
@@ -276,7 +295,11 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
         <div className="buy">
           <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 600 }} className="muted">
-              {brandByName(p.brand) ? <ProductBrand name={p.brand} inline /> : <span>{p.brand || "האחים כהן"}</span>}
+              {brand ? (
+                <Link href={`/brands/${brand.id}`} className="pdp-brand-link" aria-label={`לכל מוצרי ${brand.name}`}>
+                  <ProductBrand name={brand.name} inline />
+                </Link>
+              ) : <span>{p.brand || "האחים כהן"}</span>}
               <span dir="ltr">{p.sku ? `מק״ט ${p.sku}` : ""}</span>
             </div>
             {p.promoLabel && <span className="badge y product-promo-label">{p.promoLabel}</span>}
@@ -418,7 +441,7 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
             {stockMessage}{inStock && inCart ? ` · ${inCart} כבר בסל` : ""}
           </div>
 
-          {accP.length > 0 && <div className="bundle" style={{ marginInline: undefined }}>
+          {extras.length > 0 && <div className="bundle" style={{ marginInline: undefined }}>
             <div className="bundle-h">
               <span style={{ fontSize: 16, fontWeight: 800 }}>השלימו את הסט</span>
               {bRegular - bTotal > 0 && <span className="save-tag y">חיסכון {fmt(bRegular - bTotal)}</span>}
@@ -525,6 +548,57 @@ function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuan
 
     </main>
   );
+}
+
+function DesktopThumbnails({ count, selected, onSelect, children }: {
+  count: number; selected: number; onSelect: (index: number) => void; children: ReactNode;
+}) {
+  const rail = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ overflow: false, up: false, down: false });
+  useEffect(() => {
+    const el = rail.current!;
+    const frame = el.parentElement!;
+    function measure() {
+      const overflow = frame.clientHeight > 0 && el.scrollHeight > frame.clientHeight + 1;
+      const up = el.scrollTop > 1;
+      const down = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      setEdges(prev => prev.overflow === overflow && prev.up === up && prev.down === down ? prev : { overflow, up, down });
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    observer.observe(frame);
+    el.addEventListener("scroll", measure, { passive: true });
+    measure();
+    return () => { observer.disconnect(); el.removeEventListener("scroll", measure); };
+  }, [count]);
+  useEffect(() => {
+    const el = rail.current!;
+    const thumb = el.children[selected] as HTMLElement | undefined;
+    if (!thumb || !el.clientHeight) return;
+    const top = thumb.offsetTop;
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (top + thumb.offsetHeight > el.scrollTop + el.clientHeight) el.scrollTop = top + thumb.offsetHeight - el.clientHeight;
+  }, [selected, edges.overflow]);
+  function page(direction: number) {
+    const el = rail.current!;
+    const step = (el.children[1] as HTMLElement | undefined)?.offsetTop || el.clientHeight;
+    el.scrollBy({ top: direction * Math.max(1, Math.floor(el.clientHeight / step)) * step,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  }
+  return <div className="g-side"><div className="g-side-frame" role="group" aria-label="תמונות המוצר">
+    {edges.overflow && <button type="button" className="g-scroll prev" aria-label="גלילת תמונות למעלה" disabled={!edges.up} onClick={() => page(-1)} />}
+    <div ref={rail} className="g-thumb-list" onKeyDown={event => {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      const el = event.currentTarget;
+      const index = Array.from(el.children).indexOf(event.target as Element);
+      if (index < 0) return;
+      event.preventDefault();
+      const next = Math.max(0, Math.min(count - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+      (el.children[next] as HTMLElement).focus({ preventScroll: true });
+      onSelect(next);
+    }}>{children}</div>
+    {edges.overflow && <button type="button" className="g-scroll next" aria-label="גלילת תמונות למטה" disabled={!edges.down} onClick={() => page(1)} />}
+  </div></div>;
 }
 
 function GalleryFrame({ slide, name, deal, was, price }: { slide: { kind: string; src?: string; text?: string; rows?: { k: string; v: string }[] }; name: string; deal?: [number, number]; was?: number; price: number }) {

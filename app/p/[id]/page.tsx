@@ -54,6 +54,6 @@ export default async function Page({ params, searchParams }: Props) {
     mixedUnits: quantityOffer(source)?.kind !== "pack" && new Set(source.choices?.filter(({ available }) => available)
       .map(({ color, size }) => JSON.stringify([color, size]))).size > 1,
   }];
-  return <ProductView id={handle} reviews={reviews} bundles={offerSelection ?? bundles} initialBundle={initialBundle}
+  return <ProductView id={handle} setSetting={admin.sets.find(setting => setting.id === handle)} reviews={reviews} bundles={offerSelection ?? bundles} initialBundle={initialBundle}
     fromQuantityOffer={query["quantity-offer"] === "1"} initialColor={typeof query.color === "string" ? query.color : undefined} initialSize={typeof query.size === "string" ? query.size : undefined} />;
 }

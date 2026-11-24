@@ -206,9 +206,10 @@ function searchText(value: string) {
   return value.normalize("NFKC").toLowerCase().replace(/[\p{M}'"׳״]/gu, "").replace(/[-–—־]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function AdminProductField({ initialId = "", initialVariant, variants = false, label = "מוצר", name = "productId", showSummary = true, children }: {
+export function AdminProductField({ initialId = "", initialVariant, variants = false, label = "מוצר", name = "productId", showSummary = true, children, onSelection }: {
   initialId?: string; initialVariant?: string; variants?: boolean; label?: string;
   name?: string; showSummary?: boolean; children?: (product: Product | undefined) => ReactNode;
+  onSelection?: (id: string) => void;
 }) {
   const { products, product } = useCatalog();
   const [search, setSearch] = useState(() => product(initialId)?.name ?? "");
@@ -242,6 +243,7 @@ export function AdminProductField({ initialId = "", initialVariant, variants = f
   }, [highlight]);
   const choose = (item: Product) => {
     setSelected(item.id);
+    onSelection?.(item.id);
     setSearch(item.name);
     if (item.id !== selected) setVariant("");
     setOpen(false);
@@ -257,7 +259,7 @@ export function AdminProductField({ initialId = "", initialVariant, variants = f
             placeholder="הקלידו שם מוצר או מק״ט" autoComplete="off" required value={search}
             onFocus={(event) => { if (current) event.currentTarget.select(); setOpen(true); setHighlight(0); }}
             onBlur={() => setOpen(false)}
-            onChange={(event) => { setSearch(event.target.value); setSelected(""); setVariant(""); setOpen(true); setHighlight(0); }}
+            onChange={(event) => { setSearch(event.target.value); setSelected(""); onSelection?.(""); setVariant(""); setOpen(true); setHighlight(0); }}
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing) return;
               if (event.key === "Escape" && open) { event.preventDefault(); setOpen(false); }

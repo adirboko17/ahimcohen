@@ -82,6 +82,7 @@ export type AdminRedirect = { id: string; slug: string; destination: string };
 export type AdminSale = { id: string; title: string; productId: string; variantId: string; quantity: number; code: string; url: string };
 
 export type AdminStore = {
+  sets: import("../product-sets").ProductSet[];
   bundles: AdminBundle[];
   offers: AdminOffer[];
   hiddenQuantityOffers: string[];

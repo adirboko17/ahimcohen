@@ -10,6 +10,7 @@ import { loadShopCatalog } from "@/lib/shopify/load-catalog";
 import { StoreProvider } from "@/lib/store";
 import { applyAdminProducts } from "@/lib/admin/commerce";
 import { managedBundleProducts } from "@/lib/admin/bundle-catalog";
+import { setCartProducts } from "@/lib/product-sets";
 import { readAdminStore } from "@/lib/admin/storage";
 import { visibleQuantityOffers } from "@/lib/admin/models";
 import { getAccountPreview } from "@/lib/account-preview";
@@ -55,7 +56,7 @@ async function ShopLayout({ children }: { children: React.ReactNode }) {
   const [catalog, admin] = await Promise.all([loadShopCatalog(), readAdminStore()]);
   const bundleProducts = await managedBundleProducts(catalog.products, admin.bundles, visibleQuantityOffers(admin));
   return (
-    <CatalogProvider catalog={packCatalog({ ...catalog, products: [...applyAdminProducts(catalog.products, admin), ...bundleProducts] })}>
+    <CatalogProvider catalog={packCatalog({ ...catalog, products: [...applyAdminProducts(catalog.products, admin), ...bundleProducts, ...setCartProducts(catalog.products, admin.sets)] })}>
       <StoreProvider accountPreviewPhone={getAccountPreview()?.phone}>
         <Shell>{children}</Shell>
       </StoreProvider>

@@ -18,6 +18,10 @@ const fetchSource = transpileModule(
   readFileSync(resolve(__dirname, "../lib/shopify/fetch-catalog.ts"), "utf8"),
   { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 } },
 ).outputText;
+const colors = {};
+new Function("exports", transpileModule(readFileSync(resolve(__dirname, "../lib/colors.ts"), "utf8"), {
+  compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 },
+}).outputText)(colors);
 
 function deferred() {
   let resolve, reject;
@@ -40,6 +44,7 @@ function harness() {
   };
   const dependencies = {
     "server-only": {},
+    "@/lib/colors": colors,
     "node:zlib": require("node:zlib"),
     "node:util": require("node:util"),
     // Treat each call as an independent render to stress cross-request deduplication.
@@ -139,6 +144,28 @@ test("brand pages include live published products without a collection and skip 
   assert.equal(catalog.products.filter(product => product.id === "shirt").length, 1);
   assert.equal(catalog.products.find(product => product.id === "brand-only").brand, "Redback");
   assert.ok(!catalog.products.some(product => product.id === "deleted-product"));
+});
+
+test("Shopify option aliases retain the chosen size, color, variant ID and availability", async () => {
+  const h = harness();
+  const cases = [
+    ["מידות מכנסיים", "32", "צבע", "שחור"],
+    ["מידות מכנסיים", "34", "צבע", "שחור"],
+    ["מידות גרביים", "35-39", "צבע גרביים", "לבן"],
+    ["מידת נעליים", "40", "Color", "black"],
+    ["חגורות עור", '97 ס"מ -S', "צבע", "חום"],
+    ["scott גרביים", "L 42-44", "צבע", "אפור"],
+    [" Size ", "M", "מארזים", "מארז נייבי / שחור"],
+  ];
+  h.state.variants = cases.map(([sizeName, size, colorName, color], i) => ({
+    id: String(i), title: color + " / " + size, price: { amount: "99" }, availableForSale: i % 2 === 0,
+    selectedOptions: [{ name: colorName, value: color }, { name: sizeName, value: size }],
+  }));
+  const [product] = (await h.request().value).products;
+  assert.deepEqual(product.choices.map(v => [v.id, v.size, v.color, v.available]),
+    cases.map(([, size, , color], i) => [String(i), size, color, i % 2 === 0]));
+  assert.equal(colors.colorLabel("מארז נייבי / שחור"), colors.colorLabel("נייבי / שחור"));
+  assert.equal(colors.packColors("מארז כפפות / חגורה"), undefined);
 });
 
 test("expired catalog returns immediately while one shared refresh updates prices", { timeout: 5000 }, async () => {

@@ -4,18 +4,17 @@ import { redirect } from "next/navigation";
 import { Fragment, type ReactNode } from "react";
 import type { Category, Product } from "@/lib/catalog";
 import { AdminBackLink } from "@/components/AdminBackLink";
-import { AdminApproveReviewButton, AdminBundleDialog, AdminBundleFields, AdminForm, AdminLabelEditor, AdminLogin, AdminOfferVisibilityButton, AdminProductField, AdminProductList, AdminProductSummary, AdminRemoveButton, CopyAdminLink } from "@/components/AdminControls";
+import { AdminApproveReviewButton, AdminBundleDialog, AdminBundleFields, AdminForm, AdminLabelEditor, AdminLogin, AdminProductField, AdminProductList, AdminProductSummary, AdminRemoveButton, CopyAdminLink } from "@/components/AdminControls";
 import { AdminHeroEditor } from "@/components/AdminHeroEditor";
+import { AdminProductSets } from "@/components/AdminProductSets";
 import { AdminHeroOrder } from "@/components/AdminHeroOrder";
-import { IconBag, IconCheck, IconFilter, IconFwd, IconGrid, IconHome, IconPackages, IconPencil, IconPlus, IconUpload } from "@/components/icons";
+import { IconBag, IconCheck, IconFwd, IconGrid, IconHome, IconPackages, IconPencil, IconPlus, IconUpload } from "@/components/icons";
 import { isAdmin } from "@/lib/admin/access";
 import { ReviewRatingInput, ReviewStars } from "@/components/ReviewStars";
-import { bundleCartProductId, bundleGroupSnapshot, heroImageTarget, heroIsPublished, reviewAwaitsApproval, type AdminBundle, type AdminHero, type AdminLabel, type AdminOffer, type AdminRedirect, type AdminReview, type AdminSale, type AdminStore, type HeroDevice } from "@/lib/admin/models";
-import { managedBundleProducts } from "@/lib/admin/bundle-catalog";
+import { bundleGroupSnapshot, heroImageTarget, heroIsPublished, reviewAwaitsApproval, type AdminBundle, type AdminHero, type AdminLabel, type AdminRedirect, type AdminReview, type AdminSale, type AdminStore, type HeroDevice } from "@/lib/admin/models";
 import { readAdminStore } from "@/lib/admin/storage";
 import { readReviews } from "@/lib/admin/reviews";
 import { fmt } from "@/lib/pricing";
-import { quantityOffer } from "@/lib/quantity-offers";
 import { loadShopCatalog } from "@/lib/shopify/load-catalog";
 import "./admin.css";
 import { Suppliers } from "./Suppliers";
@@ -23,8 +22,8 @@ import { Suppliers } from "./Suppliers";
 export const metadata: Metadata = { title: "ניהול החנות", robots: { index: false, follow: false } };
 
 const tabs = {
+  sets: { title: "השלימו את הסט", create: "", edit: "", description: "בחרו מוצר כדי לראות את הסט שמוצג בעמוד שלו.", Icon: IconPackages },
   bundles: { title: "באנדלים למוצרים", create: "באנדל חדש", edit: "עריכת באנדל", description: "נהלו את החבילות שמוצעות ללקוחות בדפי המוצרים.", Icon: IconPackages },
-  offers: { title: "מבצעי כמות", create: "מבצע כמות חדש", edit: "עריכת מבצע כמות", description: "נהלו את המארזים שמוצגים בעמוד מבצעי הכמות באתר.", Icon: IconFilter },
   sales: { title: "מכירה מהירה", create: "קישור מכירה חדש", edit: "עריכת קישור מכירה", description: "נהלו קישורים ישירים לרכישת מוצר בקופת Shopify.", Icon: IconBag },
   labels: { title: "תוויות מבצע", create: "תווית חדשה", edit: "עריכת תווית", description: "נהלו את התוויות שמופיעות לצד שמות המוצרים.", Icon: IconGrid },
   reviews: { title: "ביקורות למוצרים", create: "ביקורת חדשה", edit: "עריכת ביקורת", description: "בחרו מוצר כדי לצפות בביקורות שלו, להוסיף ביקורת או לאשר ביקורות מהאתר.", Icon: IconCheck },
@@ -35,7 +34,7 @@ type Tab = keyof typeof tabs;
 
 const overview = { title: "סקירת החנות", description: "מצב הקטלוג, הבאנדלים והבאנרים שמוצגים בדף הבית.", Icon: IconHome };
 const toolGroups = [
-  { label: "קטלוג ומכירות", tools: ["bundles", "offers", "sales", "labels"] },
+  { label: "קטלוג ומכירות", tools: ["bundles", "sets", "sales", "labels"] },
   { label: "תוכן וקישורים", tools: ["reviews", "links", "heroes"] },
 ] as const satisfies ReadonlyArray<{ label: string; tools: readonly Tab[] }>;
 
@@ -59,6 +58,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const params=await searchParams;
   const { tab: query, error, product: requestedProduct, manage, edit: requestedEditor, saved } = params;
   if (!(await isAdmin())) return <AdminLogin error={error && Object.hasOwn(loginErrors, error) ? loginErrors[error] : undefined} />;
+  if (query === "offers") redirect(adminUrl("sets"));
   const tab = typeof query === "string" && Object.hasOwn(tabs, query) ? query as Tab : undefined;
   const supplierView = query === "suppliers";
   const [store, catalog] = await Promise.all([readAdminStore().then(async (data) => tab === "reviews" || (!tab && !supplierView)
@@ -72,9 +72,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     const pendingReview = (reviewHref ? productReviews : store.reviews).find((item) => item.id === requestedEditor && reviewAwaitsApproval(item));
     if (pendingReview) redirect(adminUrl("reviews", { product: pendingReview.productId }));
   }
-  const requestedCatalogProduct = tab === "offers" && requestedEditor === "catalog" && typeof requestedProduct === "string"
-    ? products.get(requestedProduct) : undefined;
-  const catalogOfferProduct = requestedCatalogProduct && quantityOffer(requestedCatalogProduct) ? requestedCatalogProduct : undefined;
   const group = tab === "bundles" && typeof manage === "string" ? manage : undefined;
   const groupProductId = group?.startsWith("product:") ? group.slice("product:".length) : undefined;
   const groupProduct = groupProductId ? products.get(groupProductId) : undefined;
@@ -86,7 +83,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const editableItems = manageHref ? groupBundles : reviewHref ? productReviews : tab ? store[tab] : [];
   const editId = !create && typeof requestedEditor === "string" && editableItems.some((item) => item.id === requestedEditor)
     ? requestedEditor : undefined;
-  const editing = !!tab && tab !== "heroes" && (create || !!editId || !!catalogOfferProduct);
+  const editing = !!tab && tab !== "heroes" && tab !== "sets" && (create || !!editId);
   const info = supplierView ? { title: "ניהול ספקים וייבוא מוצרים", description: "סריקת קטלוגים, התאמת קטגוריות ותמחור מוצרים", Icon: IconPackages } : tab ? tabs[tab] : overview;
   const Icon = info.Icon;
   const title = tab === "heroes" ? "באנרים בדף הבית" : manageHref ? "עריכת באנדלים למוצר" : reviewHref ? "ביקורות למוצר"
@@ -132,15 +129,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <Link href={`${adminUrl("heroes", { edit: "new" })}#hero-editor`} className="btn admin-primary admin-section-action" prefetch={false}>
                   <IconPlus size={16} />{tabs.heroes.create}
                 </Link>
-              ) : tab && (reviewHref
+              ) : tab && tab !== "sets" && (reviewHref
                 ? reviewProduct && !editing && <Link href={`${adminUrl("reviews", { product: reviewProduct.id, edit: "new" })}#review-editor`} className="btn admin-primary admin-section-action" prefetch={false}><IconPlus size={16} />הוספת ביקורת</Link>
                 : manageHref
                 ? groupProduct && <Link href={`${adminUrl(tab, { edit: "new", manage: group })}#bundle-editor`} className="btn admin-section-action admin-product-create"><IconPlus size={16} />הוספת חבילה</Link>
-                : !editing && <Link href={adminUrl(tab, { edit: "new" })} className={`btn admin-section-action ${tab === "bundles" || tab === "offers" ? "admin-product-create" : "admin-primary"}`}><IconPlus size={16} />{tabs[tab].create}</Link>)}
+                : !editing && <Link href={adminUrl(tab, { edit: "new" })} className={`btn admin-section-action ${tab === "bundles" ? "admin-product-create" : "admin-primary"}`}><IconPlus size={16} />{tabs[tab].create}</Link>)}
             </div>
           </header>
           {tab && !editing && !create && !editId && saved === "1" && <p className="admin-feedback admin-list-notice" data-ok="true" role="status">השינויים נשמרו.</p>}
           {supplierView ? <Suppliers params={params} /> : !tab ? <StoreOverview store={store} products={catalog.products} />
+            : tab === "sets" ? <AdminProductSets settings={store.sets.map(({ offer, ...setting }) => ({ ...setting, price: offer?.price }))} initialId={requestedProduct} />
             : tab === "heroes" ? <HeroManager store={store} categories={catalog.categories} editId={editId} create={create} />
             : manageHref && group ? <>
               <ProductBundles group={group} productId={groupProductId} items={groupBundles} catalog={products} editId={editId} />
@@ -165,8 +163,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               </section>}
               <ProductReviewList productId={reviewProductId} product={reviewProduct} items={productReviews} />
             </>
-            : editing ? <div className="admin-panel admin-editor" key={JSON.stringify([tab, editId, prefilledProduct, catalogOfferProduct?.id])}>
-              <ToolEditor tab={tab} store={store} id={editId} productId={prefilledProduct} catalog={products} catalogOfferProduct={catalogOfferProduct} />
+            : editing ? <div className="admin-panel admin-editor" key={JSON.stringify([tab, editId, prefilledProduct])}>
+              <ToolEditor tab={tab} store={store} id={editId} productId={prefilledProduct} />
             </div>
             : <ToolList tab={tab} store={store} catalog={products} />}
         </section>
@@ -178,7 +176,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 function StoreOverview({ store, products }: { store: AdminStore; products: Product[] }) {
   const liveBundles = store.bundles.filter((item) => item.active).length;
   const liveHeroes = store.heroes.filter((item) => heroIsPublished(item, store.activeHero)).length;
-  const offerCount = new Set([...store.offers.map((offer) => offer.productId), ...products.filter(quantityOffer).map((product) => product.id)]).size;
   return <>
     <section className="admin-overview-metrics" aria-label="מצב החנות">
       <div className="admin-panel admin-metric">
@@ -196,10 +193,10 @@ function StoreOverview({ store, products }: { store: AdminStore; products: Produ
       <div className="admin-tool-grid">
         {tools.map((tab) => {
           const ToolIcon = tabs[tab].Icon;
-          const count = tab === "offers" ? offerCount : store[tab].length;
+          const count = store[tab].length;
           return <Link className="admin-panel admin-tool-card" key={tab} href={adminUrl(tab)} prefetch={false}>
             <span className="admin-tool-icon" aria-hidden="true"><ToolIcon /></span>
-            <span><strong>{tabs[tab].title}</strong><small>{count} {count === 1 ? "פריט" : "פריטים"}</small></span>
+            <span><strong>{tabs[tab].title}</strong><small>{tab === "sets" ? count ? `הגדרות אישיות ל־${count} מוצרים` : "בחירה אוטומטית לכל המוצרים" : `${count} ${count === 1 ? "פריט" : "פריטים"}`}</small></span>
             <span className="admin-tool-arrow" aria-hidden="true"><IconFwd /></span>
           </Link>;
         })}
@@ -264,9 +261,8 @@ function HeroImagePreview({ hero, device, label }: { hero: AdminHero; device: He
   </div>;
 }
 
-function ToolList({ tab, store, catalog }: { tab: Exclude<Tab, "heroes">; store: AdminStore; catalog: ProductIndex }) {
+function ToolList({ tab, store, catalog }: { tab: Exclude<Tab, "heroes" | "sets">; store: AdminStore; catalog: ProductIndex }) {
   if (tab === "bundles") return <BundleList bundles={store.bundles} catalog={catalog} />;
-  if (tab === "offers") return <OfferList offers={store.offers} hiddenProductIds={store.hiddenQuantityOffers} catalog={catalog} />;
   if (tab === "reviews") return <ReviewProductCards reviews={store.reviews} catalog={catalog} />;
   if (tab === "labels") return <LabelList labels={store.labels} catalog={catalog} />;
   const product = (id: string) => catalog.get(id)?.name ?? id;
@@ -388,35 +384,6 @@ function BundleList({ bundles, catalog }: { bundles: AdminBundle[]; catalog: Pro
   })} />;
 }
 
-async function OfferList({ offers, hiddenProductIds, catalog }: { offers: AdminOffer[]; hiddenProductIds: string[]; catalog: ProductIndex }) {
-  const saved = new Map(offers.map((offer) => [offer.productId, offer]));
-  const catalogOffers = new Map(Array.from(catalog).flatMap(([id, product]) => {
-    const offer = quantityOffer(product);
-    return offer ? [[id, offer] as const] : [];
-  }));
-  const hidden = new Set(hiddenProductIds);
-  const verified = new Set((await managedBundleProducts([...catalog.values()], [], offers)).map(({ id }) => id));
-  const productIds = new Set([...saved.keys(), ...catalogOffers.keys()]);
-  return <AdminProductList section="offers" entries={Array.from(productIds, (productId) => {
-    const product = catalog.get(productId);
-    const offer = saved.get(productId);
-    const original = catalogOffers.get(productId);
-    const isHidden = hidden.has(productId);
-    const visibleSavedOffer = offer?.active && (!offer.sourceVariantIds?.length || verified.has(bundleCartProductId(offer.id)));
-    const name = original?.title ?? product?.name ?? productId;
-    return {
-      id: productId, keywords: productKeywords(product, productId),
-      card: <PromotionCard name={name} product={product} editHref={adminUrl("offers", { edit: offer?.id ?? "catalog", product: offer ? undefined : productId })}
-        actions={(isHidden || visibleSavedOffer || original) && <AdminOfferVisibilityButton productId={productId} hidden={isHidden} />}>
-        {offer && <PromotionRow section="offers" item={offer} title={`${offer.quantity} ${original?.quantityLabel ?? "יחידות"}`} removeTitle={name}
-          status={isHidden ? "מוסתר" : offer.active && !visibleSavedOffer ? "ממתין לסנכרון" : undefined} />}
-        {original && !visibleSavedOffer && <PromotionRow section="offers" item={{ total: original.total, active: !isHidden }}
-          title={`${original.quantity} ${original.quantityLabel}`} note="מהקטלוג ב־Shopify" status={isHidden ? "מוסתר" : "פעיל"} />}
-      </PromotionCard>,
-    };
-  })} />;
-}
-
 function ProductBundles({ group, productId, items, catalog, editId }: { group: string; productId?: string; items: AdminBundle[]; catalog: ProductIndex; editId?: string }) {
   const product = productId ? catalog.get(productId) : undefined;
   const sorted = [...items].sort((a, b) => (a.items[0]?.[1] ?? 0) - (b.items[0]?.[1] ?? 0));
@@ -482,13 +449,9 @@ function ListRow({ tab, item, editHref, primaryAction }: { tab: Tab; item: ListI
   </li>;
 }
 
-function ToolEditor({ tab, store, id, productId, catalog, catalogOfferProduct }: { tab: Exclude<Tab, "heroes">; store: AdminStore; id?: string; productId?: string; catalog: ProductIndex; catalogOfferProduct?: Product }) {
+function ToolEditor({ tab, store, id, productId }: { tab: Exclude<Tab, "heroes" | "sets">; store: AdminStore; id?: string; productId?: string }) {
   switch (tab) {
     case "bundles": return <BundleEditor item={store.bundles.find((item) => item.id === id)} initialProduct={productId} />;
-    case "offers": {
-      const item = store.offers.find((item) => item.id === id);
-      return <OfferEditor item={item} product={item ? catalog.get(item.productId) : catalogOfferProduct} />;
-    }
     case "reviews": return <ReviewEditor item={store.reviews.find((item) => item.id === id)} />;
     case "links": return <LinkEditor item={store.links.find((item) => item.id === id)} />;
     case "sales": return <SaleEditor item={store.sales.find((item) => item.id === id)} />;
@@ -505,24 +468,6 @@ function BundleEditor({ item, initialProduct, returnTo, reservedQuantities }: { 
       initial={item && { title: item.name, quantity: singleProduct?.[1] ?? 2, total: item.total, bestValue: item.bestValue, showInQuantityOffers: item.showInQuantityOffers }} />
     <Check name="active" checked={item?.active ?? true} label="סנכרון ופרסום ב־Shopify בשמירה" />
     <p className="admin-hint">מחיר החבילה חל אוטומטית על כל הצבעים והמידות של המוצר.</p>
-  </AdminForm>;
-}
-
-function OfferEditor({ item, product }: { item?: AdminOffer; product?: Product }) {
-  const original = product && quantityOffer(product);
-  const fixedQuantity = original?.kind === "pack";
-  return <AdminForm section="offers" id={item?.id}>
-    {product ? <>
-      <input type="hidden" name="productId" value={product.id} />
-      <div className="admin-selected-product"><AdminProductSummary item={{ name: original?.title ?? product.name, sku: product.sku, imgs: product.imgs?.slice(0, 1) }} /></div>
-    </> : <AdminProductField initialId={item?.productId} />}
-    <div className="admin-field-pair">
-      <label className="field">מספר יחידות<input name="quantity" type="number" min={2} max={250} defaultValue={fixedQuantity ? original.quantity : item?.quantity ?? original?.quantity ?? 2} readOnly={fixedQuantity} required /></label>
-      <label className="field">מחיר כולל בש״ח<input name="total" type="number" min="0.01" max={100000} step="0.01" defaultValue={item?.total ?? original?.total} required /></label>
-    </div>
-    {fixedQuantity && <p className="admin-hint">כמות היחידות קבועה במארז הקיים. אפשר לשנות את המחיר הכולל.</p>}
-    <Check name="active" checked={item?.active ?? true} label="סנכרון ופרסום המבצע בשמירה" />
-    <p className="admin-hint">הפרסום יוצר מארז ב־Shopify לכל הצבעים והמידות ומוסיף אותו לעמוד מבצעי הכמות.</p>
   </AdminForm>;
 }
 

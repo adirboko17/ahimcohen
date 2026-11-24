@@ -63,7 +63,7 @@ test("changing quantity prices and adds exactly the currently visible units", ()
 
 // Exercise the product's event handlers without a browser: keep hook state across
 // renders, select different units, and inspect the actual addMany/quote inputs.
-function productHarness(item = product, props = {}, packProduct) {
+function productHarness(item = product, props = {}, packProduct, extras = []) {
   const states = [];
   let cursor = 0;
   let quoted = [];
@@ -88,10 +88,11 @@ function productHarness(item = product, props = {}, packProduct) {
     "./QuantityUnitPicker": { QuantityUnitPicker: function QuantityUnitPicker() {} },
     "./icons": { IconCheck: () => null, IconPackages: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
     "@/lib/catalog": { FREE_SHIPPING: 299, phOf: () => "", colorLabel: String, swatchColor: String },
-    "@/lib/catalog-context": { useCatalog: () => ({ product: (id) => id === item.id ? item : packProduct?.id === id ? packProduct : undefined, category: () => ({ name: "ביגוד" }), products: [item] }) },
+    "@/lib/catalog-context": { useCatalog: () => ({ product: (id) => [item, ...extras, packProduct].find(p => p?.id === id), category: () => ({ name: "ביגוד" }), products: [item, ...extras] }) },
     "@/lib/colors": { uniqueColors: (colors) => colors },
     "@/lib/product-selection": { productColorIndex: () => 0, productGalleryImages: () => [] },
     "@/lib/product-recommendations": { complementaryAccessories: () => [], similarProducts: () => [] },
+    "@/lib/product-sets": load("lib/product-sets.ts"),
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, saleBadge: () => "" },
     "@/lib/sizes": load("lib/sizes.ts"),
     "@/lib/quantity-offers": load("lib/quantity-offers.ts"),
@@ -122,6 +123,30 @@ function findElement(node, predicate) {
 }
 const pickerOf = (tree) => findElement(tree, (node) => node.type?.name === "QuantityUnitPicker");
 const addButton = (tree) => findElement(tree, (node) => node.type === "button" && node.props.className === "btn product-add-btn");
+
+test("a complete set adds its Shopify parent at the saved price, while a partial or hidden set cannot use it", () => {
+  const base = { ...product, name: "חולצה" };
+  const sock = { ...base, id: "sock", name: "גרביים", price: 20, sizes: ["OS"], colors: ["white"],
+    choices: [{ id: "sock-os", size: "OS", color: "white", price: 20, available: true }] };
+  const offer = { shopifyId: "gid://shopify/Product/123", price: 95,
+    variants: [{ id: "gid://shopify/ProductVariant/100", components: ["blue-l", "sock-os"] }] };
+  const setting = { mode: "custom", id: base.id, extras: [sock.id], offer };
+  const [parent] = load("lib/product-sets.ts").setCartProducts([base, sock], [setting]);
+  const props = { initialColor: "blue", initialSize: "L", fromQuantityOffer: false, setSetting: setting };
+  const app = productHarness(base, props, parent, [sock]);
+  const section = tree => findElement(tree, n => n.props?.className === "bundle");
+  const add = tree => findElement(section(tree), n => n.type === "button" && n.props.className === "btn");
+  let tree = app.render();
+  assert.ok(findElement(section(tree), n => n.type === "span" && n.props.children === "95"));
+  add(tree).props.onClick();
+  assert.deepEqual(app.added[0], [[parent.id, 0, parent.choices[0].size, 1]]);
+  const rows = section(tree).props.children[1];
+  findElement(rows[1], n => n.type === "button").props.onClick();
+  tree = app.render();
+  add(tree).props.onClick();
+  assert.deepEqual(app.added[1], [[base.id, 0, "L", 1]]);
+  assert.equal(section(productHarness(base, { ...props, setSetting: { ...setting, mode: "hidden" } }, parent, [sock]).render()), undefined);
+});
 
 test("a managed tier selects its own variant and adds one bundle instead of two base units", () => {
   const base = { ...product, deal: undefined };

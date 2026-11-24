@@ -34,7 +34,7 @@ async function prepareCatalog() {
   const catalog = await fetchShopCatalog();
   if (!catalog.products.length || !catalog.categories.length) throw new Error("Refusing to build with an empty catalog.");
   const seed = {
-    version: 1,
+    version: 2,
     scope: JSON.stringify([config.shopDomain(), config.storefrontApiVersion(), config.metafieldIdentifiers()]),
     createdAt: new Date().toISOString(),
     encoded: gzipSync(JSON.stringify(catalog)).toString("base64"),

@@ -1,5 +1,6 @@
 import "server-only";
 import { CATS, type Product, type VariantChoice } from "@/lib/catalog";
+import { packColors } from "@/lib/colors";
 import { fetchCollectionsPage } from "./collections";
 import { fetchCollectionProductsPage, fetchProductsByHandles, fetchProductsPage } from "./products";
 import type { ShopifyCollection, ShopifyProduct } from "./types";
@@ -158,8 +159,9 @@ async function allProducts() {
 
 function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
   const choices = product.variants.map((variant) => {
-    const color = option(variant.selectedOptions, /color|colour|צבע/i);
-    const sizeOption = option(variant.selectedOptions, /size|מידה/i);
+    const color = option(variant.selectedOptions, /colou?r|צבע|גוון|גוונים/i) ||
+      variant.selectedOptions.find(o => o.name.trim() === "מארזים" && packColors(o.value))?.value || "";
+    const sizeOption = option(variant.selectedOptions, /size|מיד(?:ה|ות|ת)|^(?:חגורות עור|scott גרביים)$/i);
     const size = sizeOption || (variant.title === "Default Title" ? "מידה אחת" : color ? "" : variant.title);
     return {
       id: variant.id,
@@ -199,7 +201,7 @@ function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
 }
 
 function option(options: { name: string; value: string }[], pattern: RegExp) {
-  return options.find((item) => pattern.test(item.name))?.value ?? "";
+  return options.find(item => pattern.test(item.name.normalize("NFKC").trim()))?.value ?? "";
 }
 
 function unique(values: string[]) {

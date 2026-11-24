@@ -18,7 +18,7 @@ function reader(contents) {
   return { read: module.exports.readCatalogBootstrap, reads: () => reads };
 }
 const catalog = { categories: [{ id: 'work' }], products: [{ id: 'shirt', choices: [{ color: 'navy', size: 'M', available: true, price: 100 }] }] };
-const seed = { version: 1, scope: 'store-a', createdAt: new Date().toISOString(), encoded: zlib.gzipSync(JSON.stringify(catalog)).toString('base64') };
+const seed = { version: 2, scope: 'store-a', createdAt: new Date().toISOString(), encoded: zlib.gzipSync(JSON.stringify(catalog)).toString('base64') };
 
 test('packaged catalog is validated and read only once per process, preserving variants', async () => {
   const h = reader(JSON.stringify(seed));
@@ -30,7 +30,7 @@ test('packaged catalog is validated and read only once per process, preserving v
 });
 
 test('missing, corrupt, incompatible and empty artifacts fall back to live loading', async () => {
-  for (const contents of [null, '{', JSON.stringify({ ...seed, version: 2 }), JSON.stringify({ ...seed, createdAt: 'bad' }), JSON.stringify({ ...seed, encoded: 'broken' }), JSON.stringify({ ...seed, encoded: zlib.gzipSync('{"products":[],"categories":[]}').toString('base64') })]) {
+  for (const contents of [null, '{', JSON.stringify({ ...seed, version: 1 }), JSON.stringify({ ...seed, createdAt: 'bad' }), JSON.stringify({ ...seed, encoded: 'broken' }), JSON.stringify({ ...seed, encoded: zlib.gzipSync('{"products":[],"categories":[]}').toString('base64') })]) {
     assert.equal(await reader(contents).read('store-a'), null);
   }
 });

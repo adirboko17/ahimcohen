@@ -2,6 +2,7 @@ import { isAdmin } from "@/lib/admin/access";
 import { saveAdmin } from "@/lib/admin/commands";
 import { adminRequestOrigin } from "@/lib/admin/request-origin";
 import { saveAdminReview } from "@/lib/admin/reviews";
+import { saveProductSet } from "@/lib/admin/product-sets";
 
 export async function POST(request: Request) {
   if (!adminRequestOrigin(request)) return Response.json({ ok: false, message: "הבקשה לא אושרה." }, { status: 403 });
@@ -12,7 +13,8 @@ export async function POST(request: Request) {
   }
   try {
     const data = await request.formData();
-    const result = await (data.get("section") === "reviews" ? saveAdminReview(data) : saveAdmin(data));
+    const section = data.get("section");
+    const result = await (section === "sets" ? saveProductSet(data) : section === "reviews" ? saveAdminReview(data) : saveAdmin(data));
     return Response.json(result, { status: result.ok ? 200 : 422, headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ ok: false, message: "השמירה נכשלה. נסו שוב." }, { status: 500 });

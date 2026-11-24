@@ -7,6 +7,7 @@ import { DEFAULT_HERO, type AdminStore } from "./models";
 
 const settingsPath = "/rest/v1/ahim_admin_settings";
 const initial = (): AdminStore => ({
+  sets: [],
   bundles: [], offers: [], hiddenQuantityOffers: [], labels: [], reviews: [], links: [], sales: [], heroes: [DEFAULT_HERO], activeHero: DEFAULT_HERO.id,
 });
 

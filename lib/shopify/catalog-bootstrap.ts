@@ -15,7 +15,7 @@ export async function readCatalogBootstrap(scope: string): Promise<string | null
   snapshot ??= readFile(join(process.cwd(), ".generated/catalog-bootstrap.json"), "utf8")
     .then(async text => {
       const seed = JSON.parse(text) as Bootstrap;
-      if (seed.version !== 1 || !seed.scope || !Number.isFinite(Date.parse(seed.createdAt)) || !seed.encoded) return null;
+      if (seed.version !== 2 || !seed.scope || !Number.isFinite(Date.parse(seed.createdAt)) || !seed.encoded) return null;
       const catalog = JSON.parse((await decompress(Buffer.from(seed.encoded, "base64"))).toString("utf8"));
       if (!Array.isArray(catalog.products) || !catalog.products.length || !Array.isArray(catalog.categories)) return null;
       return seed;

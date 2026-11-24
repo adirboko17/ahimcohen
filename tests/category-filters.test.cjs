@@ -302,6 +302,7 @@ function renderProduct(product, initialColor, initialSize, extras = [], fromQuan
     "@/lib/quantity-offers": load("lib/quantity-offers.ts"),
     "@/lib/use-cart-quote": { useCartQuote: () => ({ pending: false }) },
     "@/lib/product-recommendations": { complementaryAccessories: () => extras, similarProducts: () => [] },
+    "@/lib/product-sets": load("lib/product-sets.ts", { "./product-recommendations": load("lib/product-recommendations.ts") }),
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, saleBadge: () => "Sale" },
     "@/lib/store": { useStore: () => ({ cart: [] }), useScrollLock: () => {} },
@@ -385,7 +386,7 @@ test("product route forwards the color query for initial rendering, ignoring rep
     "@/components/ProductView": { ProductView: () => null },
     "@/lib/admin/models": load("lib/admin/models.ts"),
     "@/lib/admin/bundle-catalog": { managedBundleProducts: async () => [] },
-    "@/lib/admin/storage": { readAdminStore: async () => ({ reviews: [], bundles: [], offers: [] }) },
+    "@/lib/admin/storage": { readAdminStore: async () => ({ reviews: [], bundles: [], offers: [], sets: [] }) },
     "@/lib/admin/reviews": { publishedReviews: async () => [] },
     "@/lib/shopify/load-catalog": { loadShopCatalog: async () => ({ products: picturedCatalog }) },
   });
@@ -406,7 +407,7 @@ test("product route exposes only its published bundle tiers without exposing dis
     "@/lib/admin/models": load("lib/admin/models.ts"),
     "@/lib/admin/bundle-catalog": { managedBundleProducts: async () => [{ id: "bundle-cart-managed" }, { id: "bundle-cart-offer" }] },
     "@/lib/admin/reviews": { publishedReviews: async () => [] },
-    "@/lib/admin/storage": { readAdminStore: async () => ({ reviews: [], bundles: [
+    "@/lib/admin/storage": { readAdminStore: async () => ({ reviews: [], sets: [], bundles: [
       { id: "two", name: "זוג", active: true, total: 120, items: [["variants", 2]], code: "PRIVATE" },
       { id: "three", name: "שלישייה", active: true, total: 160, items: [["variants", 3]] },
       { id: "draft", name: "טיוטה", active: false, total: 200, items: [["variants", 4]] },

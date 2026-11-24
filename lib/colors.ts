@@ -64,13 +64,19 @@ export const HEX: Record<string, string> = Object.fromEntries(
   definitions.flatMap(([background, names]) => names.map(name => [colorKey(name), background])),
 );
 
+// Some Shopify packs use a "מארזים" option for the colors of their contents.
+export function packColors(value: string): string | undefined {
+  const pair = /^מארז\s+(.+\/.+)$/u.exec(readableColor(value))?.[1];
+  return pair && pair.split("/").every(part => Object.hasOwn(HEX, colorKey(part))) ? pair : undefined;
+}
+
 // The first alias in each definition is the canonical Hebrew display name.
 const hebrewLabels = new Map(definitions.flatMap(([, names]) => names.map((name) => [colorKey(name), names[0]] as const)));
 
 export function colorLabel(value: string): string {
   const direct = hebrewLabels.get(colorKey(value));
   if (direct) return direct;
-  const label = readableColor(value);
+  const label = packColors(value) ?? readableColor(value);
   const parts = label.split(/\s*[/+&]\s*/);
   if (parts.length > 1) return parts.map((part) => hebrewLabels.get(colorKey(part)) ?? part).join(" / ");
   // Preserve unknown labels rather than assigning them to an unrelated color.
@@ -100,7 +106,7 @@ export function matchesColorFilter(productColors: string[], selectedColors: stri
 }
 
 export function resolveSwatch(name: string): string | null {
-  const key = colorKey(name);
+  const key = colorKey(packColors(name) ?? name);
   if (Object.hasOwn(HEX, key)) return HEX[key];
   const parts = key.split(/\s*[/+&]\s*/);
   if (parts.length > 1 && parts.every(part => Object.hasOwn(HEX, part) && HEX[part].startsWith("#"))) {

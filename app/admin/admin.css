@@ -128,6 +128,21 @@
   .admin-bundle-tier-visibility .admin-check { flex-basis: 100%; }
 }
 .admin-fields { display: grid; gap: 15px; padding: var(--form-padding); }
+.admin-set-editor > .admin-product-field { padding: var(--form-padding); }
+.admin-set-editor > form { border-top: 1px solid var(--admin-border); }
+.admin-set-editor .set-preview, .admin-set-editor .set-extra { display: grid; gap: 10px; }
+.admin-set-editor .set-extra { border-inline-start: 3px solid var(--admin-border); padding-inline-start: 12px; }
+.admin-set-editor .btn-line { justify-self: start; }
+.admin-set-grid { list-style: none; margin: 0; padding: 0; }
+.admin-set-photo { display: flex; align-items: center; justify-content: center; gap: 8px; height: clamp(170px, 21vw, 225px); padding: 12px; color: var(--muted); }
+.admin-set-photo > img { flex: 1; min-width: 0; }
+.admin-set-previews { width: 44px; flex: none; display: grid; gap: 6px; }
+.admin-set-previews img { aspect-ratio: 1; padding: 3px; background: white; border: 1px solid var(--admin-border); border-radius: 5px; }
+.admin-set-card-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 14px; padding: 10px 0; border-top: 1px solid var(--admin-border); }
+.admin-set-card-footer .admin-status { margin: 0; }
+.admin-set-price { display: grid; line-height: 1.2; }
+.admin-set-price small { color: var(--muted); }
+.admin-set-price strong { font-size: 20px; }
 .admin-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .admin-product-field { display: grid; gap: 8px; min-width: 0; }
 .admin-form .field, .admin-login-card .field { gap: 6px; }
