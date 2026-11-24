@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { canonicalBrandName, uniqueBrandNames, type Brand } from "@/lib/brands";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductSelection, categoryVariantFilters } from "@/lib/category-filters";
 import { matchesColorFilter, uniqueColors } from "@/lib/colors";
 import { matchesSizeFilter, uniqueSizes } from "@/lib/sizes";
-import { CATEGORY_PAGE_SIZE as PAGE_SIZE, useCategoryHistory, type CategoryFilters as Filters } from "@/lib/category-history";
+import { useCategoryHistory, type CategoryFilters as Filters } from "@/lib/category-history";
 import { fmt } from "@/lib/pricing";
 import { useScrollLock } from "@/lib/store";
 import { IconFilter } from "./icons";
+import { CategoryScroller } from "./CategoryScroller";
+import { ProductListProgress } from "./ProductListProgress";
 import { ProductTile } from "./ProductTile";
 import { MobileFilterSheet } from "./MobileFilterSheet";
 
@@ -32,7 +34,6 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
   const searchParams = useSearchParams();
   const { filters: savedFilters, setFilters: setF, sort, setSort, shown, setShown, clearFilters, restoring, rememberBeforeNavigation } = useCategoryHistory(scopeId, sub, routePath);
   const [sheet, setSheet] = useState(false);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
   useScrollLock(sheet);
 
   const categoryProducts = useMemo(() => brand
@@ -72,35 +73,6 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
   let list = variants.products;
   if (sort === "asc") list = list.slice().sort((a, b) => a.price - b.price);
   if (sort === "desc") list = list.slice().sort((a, b) => b.price - a.price);
-
-  const total = list.length;
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel || shown >= total || sheet || restoring) return;
-
-    // Products are already in the catalog; reveal the next batch just before
-    // the visitor reaches the end, without another Shopify request.
-    if (!("IntersectionObserver" in window)) {
-      setShown(total);
-      return;
-    }
-
-    let active = true;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!active || !entries.some((entry) => entry.isIntersecting)) return;
-        active = false;
-        observer.disconnect();
-        setShown((count) => Math.min(count + PAGE_SIZE, total));
-      },
-      { rootMargin: "0px 0px 500px 0px" },
-    );
-    observer.observe(sentinel);
-    return () => {
-      active = false;
-      observer.disconnect();
-    };
-  }, [shown, total, scopeId, sub, f, sort, sheet, restoring, setShown]);
 
   const fCount = f.std.length + f.colors.length + f.sizes.length + f.brands.length + (f.max != null && f.max < pTop ? 1 : 0);
   const toggle = (field: "std" | "colors" | "sizes" | "brands", val: string) => {
@@ -150,7 +122,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
           {list.length} מוצרים
         </span>
       </div>
-      <SubcategoryScroller selected={sub}>
+      <CategoryScroller selected={sub} label="תתי קטגוריות">
         <button className={`chip ${!sub ? "on" : "off"}`} onClick={() => pickSub(null)}>
           הכל
         </button>
@@ -159,7 +131,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
             {name}
           </button>
         ))}
-      </SubcategoryScroller>
+      </CategoryScroller>
 
       <div className="filter-bar mob-grid">
         <button className="btn" aria-haspopup="dialog" aria-expanded={sheet} style={{ height: 48, fontSize: 15, gap: 8 }} onClick={() => setSheet(true)}>
@@ -231,16 +203,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
               </button>
             </div>
           )}
-          {list.length > 0 && (
-            <div className="load-more" ref={loadMoreRef}>
-              <span role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: 14, fontWeight: 600 }}>
-                מוצגים {Math.min(shown, list.length)} מתוך {list.length}
-              </span>
-              <div className="meter" aria-hidden="true">
-                <span style={{ width: Math.round((Math.min(shown, list.length) / list.length) * 100) + "%" }} />
-              </div>
-            </div>
-          )}
+          <ProductListProgress shown={shown} total={list.length} paused={sheet || restoring} setShown={setShown} />
         </div>
       </div>
 
@@ -270,52 +233,6 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
       )}
     </main>
   );
-}
-
-function SubcategoryScroller({ children, selected }: { children: ReactNode; selected: string | null }) {
-  const track = useRef<HTMLDivElement>(null);
-  const trackId = useId();
-  const [edges, setEdges] = useState({ right: false, left: false });
-
-  useEffect(() => {
-    const row = track.current;
-    if (!row) return;
-    const measure = () => {
-      const bounds = row.getBoundingClientRect();
-      const first = row.firstElementChild?.getBoundingClientRect();
-      const last = row.lastElementChild?.getBoundingClientRect();
-      const right = !!first && first.right > bounds.right + 2;
-      const left = !!last && last.left < bounds.left - 2;
-      setEdges(previous => previous.right === right && previous.left === left ? previous : { right, left });
-    };
-    const revealSelected = () => {
-      const active = row.querySelector<HTMLElement>(".chip.on");
-      if (!active) return;
-      const bounds = row.getBoundingClientRect();
-      const chip = active.getBoundingClientRect();
-      if (chip.left < bounds.left) row.scrollBy({ left: chip.left - bounds.left, behavior: "instant" });
-      else if (chip.right > bounds.right) row.scrollBy({ left: chip.right - bounds.right, behavior: "instant" });
-    };
-    const observer = new ResizeObserver(() => { revealSelected(); measure(); });
-    observer.observe(row);
-    for (const child of row.children) observer.observe(child);
-    row.addEventListener("scroll", measure, { passive: true });
-    measure();
-    return () => { observer.disconnect(); row.removeEventListener("scroll", measure); };
-  }, [selected]);
-
-  const move = (direction: number) => {
-    const row = track.current;
-    if (!row) return;
-    row.scrollBy({ left: direction * row.clientWidth * .75, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
-  };
-
-  const overflow = edges.right || edges.left;
-  return <div className="sub-navigation">
-    <button type="button" className="sub-scroll-arrow" hidden={!overflow} disabled={!edges.right} aria-label="גלילת הקטגוריות ימינה" aria-controls={trackId} onClick={() => move(1)}>→</button>
-    <div ref={track} id={trackId} className="sub-row scroller" role="group" aria-label="תתי קטגוריות">{children}</div>
-    <button type="button" className="sub-scroll-arrow" hidden={!overflow} disabled={!edges.left} aria-label="גלילת הקטגוריות שמאלה" aria-controls={trackId} onClick={() => move(-1)}>←</button>
-  </div>;
 }
 
 function FilterBody(props: {

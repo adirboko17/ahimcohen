@@ -23,6 +23,8 @@ function load(file, dependencies = {}) {
       : name === "./CheckoutButton" ? load("components/CheckoutButton.tsx", { "@/app/actions/shopify-checkout": { beginShopifyCheckout: () => { throw new Error("Unexpected checkout during rendering"); } }, ...dependencies })
       : name === "./ProductImage" ? load("components/ProductImage.tsx", dependencies)
       : name === "./MobileFilterSheet" ? load("components/MobileFilterSheet.tsx", dependencies)
+      : name === "./CategoryScroller" ? load("components/CategoryScroller.tsx", dependencies)
+      : name === "./ProductListProgress" ? load("components/ProductListProgress.tsx", dependencies)
       : name === "@/lib/page-scroll-lock" ? load("lib/page-scroll-lock.ts")
       : name === "./ProductBrand" ? load("components/ProductBrand.tsx", { "@/lib/brands": load("lib/brands.ts") })
       : name === "@/lib/brands" ? load("lib/brands.ts")

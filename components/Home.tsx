@@ -6,6 +6,7 @@ import { HeroDeals } from "./HeroDeals";
 import { HeroPromotions } from "./HeroPromotions";
 import { EmbroideryBanner } from "./EmbroideryBanner";
 import { NewArrivalsStrip } from "./NewArrivalsStrip";
+import { Under100Section } from "./Under100";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
@@ -401,6 +402,8 @@ export function Home({ heroPreview, promotions = [], bundles = [], showNewArriva
           </div>}
         </section>
       )}
+
+      <Under100Section />
 
       {kits.length > 0 && <section className="wrap sec">
         <div className="sec-head">
