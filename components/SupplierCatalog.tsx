@@ -8,6 +8,7 @@ import { useSupplierFeed } from "./useSupplierFeed";
 import {
   categoryPath,
   descendants,
+  formatMonitorCountdown,
   monitorIntervals,
   pullProgress,
   suggestedMapping,
@@ -70,28 +71,83 @@ export function RemoveSupplier({ domain, pulling }: { domain: string; pulling: b
     </div>
   );
 }
-export function MonitorSettings({ domain, hours, ready, last, next, fullCatalog }: {
-  domain:string; hours:number; ready:boolean; last:string|null; next:string|null; fullCatalog:boolean;
+type PullStatus = Pick<Site, "phase" | "state" | "pull_checked" | "pull_total" | "pull_started_at" | "pull_sampled_at" | "attempts" | "cursor_page" | "page_count">;
+
+const monitorDate = new Intl.DateTimeFormat("he-IL", {
+  timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
+});
+const monitorFrequency = (hours: number) => hours === 0 ? "כבוי" : hours === 24 ? "פעם ביום" : "יש לעדכן תדירות";
+
+function MonitorCountdown({ next }: { next: string }) {
+  const [seconds, setSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    const due = Date.parse(next);
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((due - Date.now()) / 1000));
+      setSeconds(remaining);
+      if (remaining === 0) clearInterval(timer);
+    };
+    const timer = setInterval(tick, 1000);
+    tick();
+    return () => clearInterval(timer);
+  }, [next]);
+
+  return <div className="supplier-monitor-countdown">
+    <div>
+      <span>{seconds === 0 ? "ממתין לתחילת הבדיקה" : "הבדיקה הבאה בעוד"}</span>
+      <bdi dir="ltr" role="timer" aria-label="הזמן עד הבדיקה הבאה" className="supplier-monitor-clock">
+        {seconds === null ? "––:––:––" : formatMonitorCountdown(seconds)}
+      </bdi>
+    </div>
+    <time dateTime={next}>{monitorDate.format(new Date(next))}</time>
+  </div>;
+}
+
+function MonitorProgress({ progress }: { progress: PullStatus }) {
+  const { percent } = pullProgress(progress);
+  const catalog = progress.phase === "catalog";
+  const detail = progress.attempts > 0 && progress.state === "queued" ? "ממתין לניסיון חוזר" :
+    progress.phase === "linked" ? "בודק זמינות של מוצרים מקושרים" :
+    progress.phase === "index" ? "מאתר מוצרים באוספי הספק" :
+    progress.pull_total === null ? `נבדקו ${progress.pull_checked} מוצרים` :
+    `נבדקו ${progress.pull_checked} מתוך ${progress.pull_total} מוצרים`;
+  return <div className="supplier-monitor-progress">
+    <span>{detail}</span>
+    <progress aria-label="התקדמות בדיקת הספק" max={100} value={catalog ? percent ?? undefined : undefined} />
+  </div>;
+}
+
+export function MonitorSettings({ domain, hours, ready, last, next, fullCatalog, progress }: {
+  domain: string; hours: number; ready: boolean; last: string | null; next: string | null;
+  fullCatalog: boolean; progress?: PullStatus;
 }) {
   const action = useAction(domain);
-  const frequency = (h:number) => h === 0 ? "כבוי" : h === 24 ? "פעם ביום" : "יש לעדכן תדירות";
-  const date = (s:string) => new Intl.DateTimeFormat("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(s));
-  return <details className="supplier-site-monitor">
-    <summary><span>מעקב אוטומטי</span><span className="supplier-monitor-state" data-active={hours > 0}>{frequency(hours)}</span></summary>
-    <form onSubmit={e => { e.preventDefault(); void action.run("monitor",new FormData(e.currentTarget)); }}>
-    <label>תדירות בדיקה
-      <select name="hours" key={hours} defaultValue={hours > 0 ? 24 : 0} disabled={!ready && !hours}>
-        {monitorIntervals.map(h => <option key={h} value={h}>{frequency(h)}</option>)}
-      </select>
-    </label>
-    {ready || hours ? <button className="btn btn-line" disabled={action.busy}>שמור תדירות</button> :
-      <small>המעקב זמין אחרי משיכת קטלוג ראשונה שהושלמה בהצלחה.</small>}
-    {ready && <small>מוצרים חדשים נבדקים {fullCatalog ? "בכל הקטלוג" : "בקטגוריות שנבחרו למשיכה"}</small>}
-    {last && <small>בדיקה מוצלחת אחרונה · {date(last)}</small>}
-    {next && <small>הבדיקה הבאה · {date(next)}</small>}
-    {action.feedback}
-    </form>
-  </details>;
+  return <section className="supplier-site-monitor" aria-label="מעקב אוטומטי">
+    <header className="supplier-monitor-heading">
+      <span className="supplier-monitor-icon" aria-hidden="true" />
+      <h4>מעקב אוטומטי</h4>
+      <span role="status" className="supplier-monitor-state" data-state={progress ? "checking" : hours > 0 ? "active" : "off"}>
+        {progress ? "בבדיקה" : monitorFrequency(hours)}
+      </span>
+    </header>
+    {progress ? <MonitorProgress progress={progress} /> :
+      hours > 0 && next ? <MonitorCountdown key={next} next={next} /> : null}
+    {last && <small className="supplier-monitor-last">בדיקה אחרונה · <time dateTime={last}>{monitorDate.format(new Date(last))}</time></small>}
+    <details className="supplier-monitor-settings">
+      <summary>הגדרות מעקב</summary>
+      <form onSubmit={e => { e.preventDefault(); void action.run("monitor", new FormData(e.currentTarget)); }}>
+        <label>תדירות בדיקה
+          <select name="hours" key={hours} defaultValue={hours > 0 ? 24 : 0} disabled={!ready && !hours}>
+            {monitorIntervals.map(value => <option key={value} value={value}>{monitorFrequency(value)}</option>)}
+          </select>
+        </label>
+        {ready || hours ? <button className="btn btn-line" disabled={action.busy}>שמור תדירות</button> :
+          <small>המעקב זמין אחרי משיכת קטלוג ראשונה.</small>}
+        {ready && <small>מוצרים חדשים נבדקים {fullCatalog ? "בכל הקטלוג" : "בקטגוריות שנבחרו למשיכה"}</small>}
+        {action.feedback}
+      </form>
+    </details>
+  </section>;
 }
 export function IgnoreSuggestion({domain,id}:{domain:string;id:string}) {
   const action=useAction(domain);
@@ -100,17 +156,31 @@ export function IgnoreSuggestion({domain,id}:{domain:string;id:string}) {
   }}>התעלם</button>{action.feedback}</div>;
 }
 
-export function RefreshWhileBusy({ active, interval = 4000 }: { active: boolean; interval?: number }) {
+export function RefreshWhileBusy({ active, interval = 4000, nextAt }: { active: boolean; interval?: number; nextAt?: number }) {
   const router = useRouter();
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => router.refresh(), interval);
-    return () => clearInterval(timer);
-  }, [active, interval, router]);
+    const refreshWhenVisible = () => { if (!document.hidden) router.refresh(); };
+    let timer: ReturnType<typeof setTimeout>;
+    function schedule() {
+      const untilDue = nextAt === undefined ? Infinity : nextAt - Date.now();
+      const delay = untilDue > 0 ? Math.min(interval, untilDue) :
+        untilDue >= -120_000 ? Math.min(interval, 4000) : interval;
+      timer = setTimeout(() => {
+        refreshWhenVisible();
+        schedule();
+      }, delay);
+    }
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    schedule();
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [active, interval, nextAt, router]);
   return null;
 }
 
-type PullStatus = Pick<Site, "phase" | "state" | "pull_checked" | "pull_total" | "pull_started_at" | "pull_sampled_at" | "attempts" | "cursor_page" | "page_count">;
 export function PullProgress({ site }: { site: PullStatus }) {
   if (site.phase === "linked" || site.phase === "index") return <div className="supplier-pull-progress">
     <strong>{site.phase === "linked" ? "בודק זמינות למוצרים המקושרים לשופיפיי…" : "מאתר מוצרים באוספים שנבחרו…"}</strong>

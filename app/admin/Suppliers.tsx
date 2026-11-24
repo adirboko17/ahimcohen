@@ -43,50 +43,62 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
     );
   if (!domain) {
     const sites = await listSites();
+    const activeRun = sites.some(site => site.state === "queued" || site.state === "running");
+    const monitoring = sites.filter(site => site.monitor_hours > 0);
+    const nextAt = Math.min(...monitoring
+      .map(site => Date.parse(site.next_monitor_at ?? "")).filter(Number.isFinite));
     const [counts, stockCounts] = await Promise.all([
       Promise.all(sites.map(site => pendingCount(site.domain))),
       sites.length ? stockUpdateCounts().catch(() => null) : new Map<string, number>(),
     ]);
     return (
       <>
-        <RefreshWhileBusy active={sites.some((s) => s.state === "queued" || s.state === "running" || s.monitor_hours > 0) || counts.some(Boolean)}
-          interval={sites.some(s => s.state === "queued" || s.state === "running") ? 4000 : 60000} />
-        <SupplierDirectory entries={sites.map((site, i) => ({
-          domain: site.domain,
-          card: <article className="supplier-site-card" aria-label={site.domain}>
-            <header className="supplier-site-identity">
-              <span className="supplier-site-mark" aria-hidden="true">{site.domain.replace(/^www\./,"").charAt(0).toUpperCase()}</span>
-              <div>
-                <h3><bdi dir="ltr">{site.domain}</bdi></h3>
-                <small>{site.discovered_at ? site.categories.length + " קטגוריות" : "טרם נסרקו קטגוריות"}</small>
-              </div>
-            </header>
-            {(site.state === "queued" || site.state === "running") && <PullProgress site={{
-              phase: site.phase, state: site.state, pull_checked: site.pull_checked, pull_total: site.pull_total,
-              pull_started_at: site.pull_started_at, pull_sampled_at: site.pull_sampled_at,
-              attempts: site.attempts, cursor_page: site.cursor_page, page_count: site.page_count,
-            }} />}
-            {site.last_error && <p className="supplier-site-error">{site.last_error}</p>}
-            {site.run_kind === "monitor" && !!site.issues.length && <Link href={supplierUrl(site.domain,"catalog")}>{site.issues.length} מוצרים דורשים בדיקה</Link>}
-            <MonitorSettings domain={site.domain} hours={site.monitor_hours} ready={!!site.baseline_at} last={site.last_monitor_ok}
-              next={site.next_monitor_at} fullCatalog={site.pull_all} />
-            {(site.baseline_at || counts[i] > 0 || !!stockCounts?.get(site.domain)) &&
-              <SupplierMonitorReports domain={site.domain} newCount={counts[i]}
-                stockCount={stockCounts ? stockCounts.get(site.domain) ?? 0 : null} />}
-            <footer className="supplier-site-actions">
-              <Link className="btn supplier-site-open" href={supplierUrl(site.domain, "catalog")}>
-                פתח קטלוג <IconFwd/>
-              </Link>
-              <Link className="btn btn-line" href={supplierUrl(site.domain, "catalog", { status: "imported" })} prefetch={false}>
-                מוצרים שיובאו
-              </Link>
-              <Link className="btn btn-line" href={supplierUrl(site.domain, "setup")}>
-                בחירת קטגוריות
-              </Link>
-              <RemoveSupplier domain={site.domain} pulling={site.state === "queued" || site.state === "running"} />
-            </footer>
-          </article>
-        }))}/>
+        <RefreshWhileBusy active={activeRun || monitoring.length > 0 || counts.some(Boolean)}
+          interval={activeRun ? 4000 : 60000} nextAt={Number.isFinite(nextAt) ? nextAt : undefined} />
+        <SupplierDirectory entries={sites.map((site, i) => {
+          const busy = site.state === "queued" || site.state === "running";
+          const progress = busy ? {
+            phase: site.phase, state: site.state, pull_checked: site.pull_checked, pull_total: site.pull_total,
+            pull_started_at: site.pull_started_at, pull_sampled_at: site.pull_sampled_at,
+            attempts: site.attempts, cursor_page: site.cursor_page, page_count: site.page_count,
+          } : undefined;
+          const automatic = site.run_kind === "monitor";
+          return {
+            domain: site.domain,
+            card: <article className="supplier-site-card" aria-label={site.domain}>
+              <header className="supplier-site-identity">
+                <span className="supplier-site-mark" aria-hidden="true">{site.domain.replace(/^www\./,"").charAt(0).toUpperCase()}</span>
+                <div>
+                  <h3><bdi dir="ltr">{site.domain}</bdi></h3>
+                  <small>{site.discovered_at ? site.categories.length + " קטגוריות" : "טרם נסרקו קטגוריות"}</small>
+                </div>
+              </header>
+              {progress && !automatic && <PullProgress site={progress} />}
+              {site.last_error && <p className="supplier-site-error">{site.last_error}</p>}
+              <MonitorSettings domain={site.domain} hours={site.monitor_hours} ready={!!site.baseline_at}
+                last={automatic && site.state === "complete" ? site.finished_at ?? site.last_monitor_ok : site.last_monitor_ok}
+                next={site.next_monitor_at} fullCatalog={site.pull_all} progress={automatic ? progress : undefined} />
+              {automatic && !!site.issues.length && <Link className="supplier-monitor-issues" href={supplierUrl(site.domain, "catalog")}>
+                {site.issues.length} מוצרים דורשים בדיקה <IconFwd/>
+              </Link>}
+              {(site.baseline_at || counts[i] > 0 || !!stockCounts?.get(site.domain)) &&
+                <SupplierMonitorReports domain={site.domain} newCount={counts[i]}
+                  stockCount={stockCounts ? stockCounts.get(site.domain) ?? 0 : null} />}
+              <footer className="supplier-site-actions">
+                <Link className="btn supplier-site-open" href={supplierUrl(site.domain, "catalog")}>
+                  פתח קטלוג <IconFwd/>
+                </Link>
+                <Link className="btn btn-line" href={supplierUrl(site.domain, "catalog", { status: "imported" })} prefetch={false}>
+                  מוצרים שיובאו
+                </Link>
+                <Link className="btn btn-line" href={supplierUrl(site.domain, "setup")}>
+                  בחירת קטגוריות
+                </Link>
+                <RemoveSupplier domain={site.domain} pulling={busy} />
+              </footer>
+            </article>,
+          };
+        })}/>
       </>
     );
   }

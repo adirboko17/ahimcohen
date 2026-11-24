@@ -12,7 +12,13 @@ function moduleFor(name, deps = {}) {
   new Function("require", "exports", js)((id) => deps[id] ?? require(id), out);
   return out;
 }
-const { pricedProduct, descendants, mappedCollections } = moduleFor("catalog-model");
+const { pricedProduct, descendants, mappedCollections, formatMonitorCountdown } = moduleFor("catalog-model");
+test("the supplier monitor countdown displays hours, minutes and seconds", () => {
+  assert.equal(formatMonitorCountdown(24 * 3600), "24:00:00");
+  assert.equal(formatMonitorCountdown(3661), "01:01:01");
+  assert.equal(formatMonitorCountdown(3599), "00:59:59");
+  assert.equal(formatMonitorCountdown(0), "00:00:00");
+});
 test("site percentage and manual pricing preserve the raw and per-variant prices", () => {
   const p = {
     variants: [

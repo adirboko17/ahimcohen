@@ -3,6 +3,11 @@ import type { SupplierProduct } from "./redback";
 export type SourceCategory = { id: string; parent: string; name: string; count: number; handle?: string };
 export type ShopifyIndex = Record<string, { handle: string; categories: string[]; image?: string }>;
 export const monitorIntervals = [0, 24] as const;
+export function formatMonitorCountdown(seconds: number) {
+  return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+    .map(part => String(part).padStart(2, "0"))
+    .join(":");
+}
 export type Site = {
   domain: string;
   platform: "woo" | "shopify";
