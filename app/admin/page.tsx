@@ -53,7 +53,7 @@ function adminUrl(tab: Tab, options?: { edit?: string; manage?: string; product?
   return "/admin?" + query;
 }
 
-type AdminQuery = { site?:string; view?:string; cat?:string; page?:string; item?:string; tab?: string; error?: string; product?: string; manage?: string; edit?: string; saved?: string };
+type AdminQuery = { site?:string; view?:string; cat?:string; page?:string; item?:string; status?:string; tab?: string; error?: string; product?: string; manage?: string; edit?: string; saved?: string };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<AdminQuery> }) {
   const params=await searchParams;

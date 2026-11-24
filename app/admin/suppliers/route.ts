@@ -19,9 +19,10 @@ import { readCatalogBatch } from "@/lib/suppliers/catalog-batch";
 import { normalizeDomain, sourceReader } from "@/lib/suppliers/public-source";
 import { scanWooProduct, wooReviewImages } from "@/lib/suppliers/woocommerce";
 import { queueImports } from "@/lib/suppliers/import-queue";
+import { readMonitorReport } from "@/lib/suppliers/monitor-report";
 import { after } from "next/server";
 import { importDraft } from "@/lib/suppliers/shopify";
-import { refreshLinkedProduct } from "@/lib/suppliers/publication";
+import { refreshLinkedProduct, unpublishLinkedProduct } from "@/lib/suppliers/publication";
 import { revalidateTag } from "next/cache";
 
 export async function POST(request: Request) {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const id = String(form.get("id") ?? "");
     const action = form.get("action");
-    if (["monitor","pull","batch"].includes(String(action))) await registerCloudWorker();
+    if (["monitor","pull","batch","monitor-import"].includes(String(action))) await registerCloudWorker();
     if (action === "remove" && !String(form.get("domain") ?? "").trim())
       throw new Error("חסר דומיין להסרה.");
     const domain = normalizeDomain(String(form.get("domain") || "redback.co.il"));
@@ -44,10 +45,23 @@ export async function POST(request: Request) {
       return Response.json({ message: "האתר הוסר מהרשימה." });
     }
     const site = await getSite(domain);
+    if (action === "monitor-report") {
+      const kind = form.get("kind"), page = Number(form.get("page"));
+      if ((kind !== "new" && kind !== "stock") || !Number.isSafeInteger(page) || page < 1 || page > 1000000)
+        throw new Error("בקשת הדוח אינה תקינה.");
+      return Response.json(await readMonitorReport(site.domain, kind, page));
+    }
+    if (action === "monitor-import") {
+      const { queued, skipped } = await queueImports(site, form.getAll("item").map(String),
+        form.get("scope") === "all" ? "" : undefined, "draft", "pending");
+      after(wakeCatalogWorker);
+      return Response.json({ message: `${queued} מוצרים נוספו לתור הייבוא כטיוטות.` +
+        (skipped.length ? " נדרשת בדיקה: " + skipped.join(" · ") : "") });
+    }
     if (action === "catalog-batch") {
       const page = Number(form.get("page"));
       if (!Number.isSafeInteger(page) || page < 1) throw new Error("בקשת הקטלוג אינה תקינה.");
-      return Response.json(await readCatalogBatch(site, String(form.get("category") || ""), page));
+      return Response.json(await readCatalogBatch(site, String(form.get("category") || ""), page, form.get("status") === "imported"));
     }
     if (action === "issue-images") {
       const ids = [...new Set(form.getAll("item").map(String))];
@@ -133,6 +147,12 @@ export async function POST(request: Request) {
       return Response.json({ message: "הסריקה הושלמה." });
     }
     if (!row || row.revision !== form.get("revision")) throw new Error("נתוני הסריקה השתנו. רעננו את התצוגה.");
+    if (action === "unpublish") {
+      if (!row.shopify_product_id) throw new Error("המוצר טרם יובא ל־Shopify.");
+      await unpublishLinkedProduct(row);
+      revalidateTag("shop-catalog");
+      return Response.json({ message: "המוצר הוסר מהאתר." });
+    }
     if (action === "price") {
       const raw = String(form.get("value") ?? "").trim();
       const value = raw === "" ? null : Number(raw);

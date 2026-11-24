@@ -563,6 +563,18 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .supplier-site-monitor label {display:grid;gap:4px;flex:1;min-width:8em}
 .supplier-site-monitor select {font:inherit;padding:8px;background:white;border:1px solid #d1d2c9;border-radius:5px}
 .supplier-site-monitor :is(small,p) {flex-basis:100%;margin:0}
+.supplier-monitor-reports,.supplier-report-toolbar {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.supplier-monitor-reports .btn {justify-content:space-between;flex:1 1 auto;gap:8px}
+.supplier-monitor-reports bdi {padding:2px 7px;background:var(--admin-soft);border-radius:5px;font-variant-numeric:tabular-nums}
+.supplier-monitor-dialog {width:min(750px,calc(100vw - 32px))}
+.supplier-monitor-dialog .supplier-report-toolbar>.admin-feedback {flex-basis:100%}
+.supplier-report-list {list-style:none;margin:12px 0;padding:0}
+.supplier-report-product,.supplier-stock-report {padding:12px 0;border-top:1px solid var(--admin-border);overflow-wrap:anywhere}
+.supplier-report-product {display:grid;grid-template-columns:60px minmax(0,1fr);align-items:center;gap:8px 12px}
+.supplier-report-product .supplier-report-toolbar {grid-column:2}
+.supplier-report-product-copy small {display:block;color:var(--muted)}
+.supplier-stock-report time {margin-inline-start:auto;font-size:13px;color:var(--muted)}
+.supplier-stock-report table {margin-block-start:7px}
 .supplier-site-actions {flex-wrap:wrap;gap:8px}
 .supplier-site-open {color:white;background:var(--admin-sidebar)}
 .supplier-site-open:hover {background:#383a34}
@@ -634,6 +646,9 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .catalog-list-heading h2 {font-size:25px}
 .catalog-list-heading label.catalog-category {display:flex;align-items:center;gap:7px;min-width:0;font-size:14px}
 .catalog-category select {width:clamp(150px,24cqi,260px);min-width:0}
+.catalog-status-filter {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.catalog-status-filter [aria-current=page] {background:var(--admin-soft);border-color:#9e8000;font-weight:700}
+.catalog-import-progress {margin:0;color:var(--muted);font-size:14px}
 .catalog-workspace .supplier-batch-bar {padding:9px 12px;gap:8px 14px;background:white}
 .catalog-workspace .supplier-batch-bar>label {margin:0;width:auto}
 .catalog-workspace .supplier-batch-buttons {margin-inline-start:auto}
@@ -655,12 +670,22 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .catalog-stock::before {content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#909089;margin-inline-end:6px}
 .catalog-stock[data-available=true]::before {background:#428456}
 .catalog-product-copy .catalog-product-status {margin-top:5px;color:#725121}
+.catalog-product-copy .catalog-publication-status {margin-top:5px;color:#53564f}
+.catalog-product-copy .catalog-publication-status[data-published=true] {color:#316144}
+.catalog-publication-status a {text-decoration:underline;text-underline-offset:3px}
 .catalog-product-prices {display:grid;grid-template-columns:1fr;gap:2px;margin-inline:14px;padding:10px 0;border-top:1px solid var(--admin-border)}
 .catalog-product-prices>strong {font-size:17px;overflow-wrap:anywhere}
 .catalog-price-edit summary {font-size:13px;margin-top:3px;color:#51534a}
 .catalog-price-edit .supplier-price {gap:6px}
 .catalog-price-edit .supplier-price input {min-width:0;flex:1}
-.catalog-product-link {width:auto;justify-content:space-between;background:var(--admin-soft);padding:9px 14px;font-size:14px;border-top:1px solid var(--admin-border)}
+.catalog-product-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:3px 8px;
+  background:var(--admin-soft);border-top:1px solid var(--admin-border)}
+.catalog-product-actions .catalog-product-link {width:auto;flex:1;min-height:40px;justify-content:space-between;padding:5px 6px;font-size:14px}
+.catalog-product-actions .catalog-product-remove {background:#fff;color:#922e27;border:1px solid #e9ccc8;
+  padding:5px 8px;min-height:40px;gap:5px;font-size:13px;white-space:nowrap}
+.catalog-product-actions .catalog-product-remove:hover:enabled {background:#fff0ed;border-color:#c9867e}
+.catalog-product-remove svg {width:15px;height:15px}
+.catalog-product>.admin-feedback {padding:7px 14px;overflow-wrap:anywhere}
 .catalog-feed-footer {display:flex;align-items:center;justify-content:center;gap:8px;min-height:40px;color:var(--muted);font-size:14px}
 .catalog-feed-spinner {width:16px;height:16px;border:2px solid var(--admin-border);border-top-color:#806900;border-radius:50%;animation:catalog-feed-spin .8s linear infinite}
 @keyframes catalog-feed-spin {to {transform:rotate(360deg)}}

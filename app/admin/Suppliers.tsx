@@ -3,6 +3,7 @@ import { AdminBackLink } from "@/components/AdminBackLink";
 import { SupplierDirectory } from "@/components/SupplierDirectory";
 import { IconFwd } from "@/components/icons";
 import { SupplierPreview } from "@/components/SupplierPreview";
+import { SupplierMonitorReports } from "@/components/SupplierMonitorReports";
 import { AddSupplier, CatalogList, CategorySetup, PullProgress, RefreshWhileBusy, RemoveSupplier } from "@/components/SupplierCatalog";
 import { shopDomain } from "@/lib/shopify/config";
 import { manualCollections } from "@/lib/suppliers/shopify";
@@ -16,8 +17,10 @@ import {
   supplierUrl,
 } from "@/lib/suppliers/catalog-model";
 import { prices, readCatalogBatch } from "@/lib/suppliers/catalog-batch";
+import { hasActiveImports } from "@/lib/suppliers/import-queue";
+import { stockUpdateCounts } from "@/lib/suppliers/monitor-report";
 
-type Params = { site?: string; view?: string; cat?: string; page?: string; item?: string };
+type Params = { site?: string; view?: string; cat?: string; page?: string; item?: string; status?: string };
 export async function Suppliers({ params = {} }: { params?: Params } = {}) {
   try {
     return await content(params);
@@ -29,7 +32,7 @@ export async function Suppliers({ params = {} }: { params?: Params } = {}) {
     );
   }
 }
-async function content({ site: domain, view, cat = "", page: pageParam, item }: Params) {
+async function content({ site: domain, view, cat = "", page: pageParam, item, status }: Params) {
   const home = <AdminBackLink href={supplierUrl()} label="חזרה לכל האתרים" />;
   if (view === "add")
     return (
@@ -40,10 +43,13 @@ async function content({ site: domain, view, cat = "", page: pageParam, item }: 
     );
   if (!domain) {
     const sites = await listSites();
-    const counts = await Promise.all(sites.map(site => pendingCount(site.domain)));
+    const [counts, stockCounts] = await Promise.all([
+      Promise.all(sites.map(site => pendingCount(site.domain))),
+      sites.length ? stockUpdateCounts().catch(() => null) : new Map<string, number>(),
+    ]);
     return (
       <>
-        <RefreshWhileBusy active={sites.some((s) => s.state === "queued" || s.state === "running" || s.monitor_hours > 0)}
+        <RefreshWhileBusy active={sites.some((s) => s.state === "queued" || s.state === "running" || s.monitor_hours > 0) || counts.some(Boolean)}
           interval={sites.some(s => s.state === "queued" || s.state === "running") ? 4000 : 60000} />
         <SupplierDirectory entries={sites.map((site, i) => ({
           domain: site.domain,
@@ -62,11 +68,17 @@ async function content({ site: domain, view, cat = "", page: pageParam, item }: 
             }} />}
             {site.last_error && <p className="supplier-site-error">{site.last_error}</p>}
             {site.run_kind === "monitor" && !!site.issues.length && <Link href={supplierUrl(site.domain,"catalog")}>{site.issues.length} מוצרים דורשים בדיקה</Link>}
-            {counts[i] > 0 && <Link className="btn btn-line" href={supplierUrl(site.domain,"review")}>מוצרים חדשים לבדיקה ({counts[i]})</Link>}
-            <MonitorSettings domain={site.domain} hours={site.monitor_hours} ready={!!site.baseline_at} last={site.last_monitor_ok} next={site.next_monitor_at} />
+            <MonitorSettings domain={site.domain} hours={site.monitor_hours} ready={!!site.baseline_at} last={site.last_monitor_ok}
+              next={site.next_monitor_at} fullCatalog={site.pull_all} />
+            {(site.baseline_at || counts[i] > 0 || !!stockCounts?.get(site.domain)) &&
+              <SupplierMonitorReports domain={site.domain} newCount={counts[i]}
+                stockCount={stockCounts ? stockCounts.get(site.domain) ?? 0 : null} />}
             <footer className="supplier-site-actions">
               <Link className="btn supplier-site-open" href={supplierUrl(site.domain, "catalog")}>
                 פתח קטלוג <IconFwd/>
+              </Link>
+              <Link className="btn btn-line" href={supplierUrl(site.domain, "catalog", { status: "imported" })} prefetch={false}>
+                מוצרים שיובאו
               </Link>
               <Link className="btn btn-line" href={supplierUrl(site.domain, "setup")}>
                 בחירת קטגוריות
@@ -80,6 +92,7 @@ async function content({ site: domain, view, cat = "", page: pageParam, item }: 
   }
   const site = await getSite(domain);
   const heading = <h2><bdi>{site.domain}</bdi></h2>;
+  const importedOnly = status === "imported";
   if (view === "review") {
     const page = Math.max(1, Math.floor(Number(pageParam) || 1));
     const rows = await previews(domain,{review_state:"eq.pending",shopify_product_id:"is.null",order:"source_id",limit:"13",offset:String((page-1)*12)});
@@ -117,7 +130,10 @@ async function content({ site: domain, view, cat = "", page: pageParam, item }: 
       <>
         <div className="admin-section-heading">
           <div className="supplier-toolbar">
-            <AdminBackLink href={supplierUrl(domain, "catalog", { cat, page: pageParam || "1" }) + "#catalog-item-" + item} label="חזרה לקטלוג" />
+            <AdminBackLink
+              href={supplierUrl(domain, "catalog", { cat, page: pageParam || "1", ...(importedOnly ? { status } : {}) }) + "#catalog-item-" + item}
+              label={importedOnly ? "חזרה למוצרים שיובאו" : "חזרה לקטלוג"}
+            />
             {home}
           </div>
           {heading}
@@ -150,14 +166,19 @@ async function content({ site: domain, view, cat = "", page: pageParam, item }: 
   }
   const requestedPage = Number(pageParam);
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const initial = await readCatalogBatch(site, cat, 1);
+  const [initial, importing] = await Promise.all([
+    readCatalogBatch(site, cat, 1, importedOnly),
+    importedOnly ? hasActiveImports(site.domain) : false,
+  ]);
   return (
       <CatalogList
-        key={domain + ":" + cat + ":" + page}
+        key={domain + ":" + cat + ":" + page + ":" + importedOnly}
         site={{...site, issues:Array.from(new Map(site.issues.map(i=>[i.id,{...i,title:load(i.title,null,false).text()}])).values())}}
         initial={initial}
         cat={cat}
         page={page}
+        importedOnly={importedOnly}
+        importing={importing}
       />
   );
 }

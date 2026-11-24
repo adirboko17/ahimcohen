@@ -1,6 +1,7 @@
 import "server-only";
 import { processNextImport } from "./import-queue";
 import { randomUUID } from "node:crypto";
+import { revalidateTag } from "next/cache";
 import { shopDomain } from "@/lib/shopify/config";
 import { catalogPageSize, descendants, monitorIntervals, type Site } from "./catalog-model";
 import { canonicalDomain, sourceReader } from "./public-source";
@@ -106,7 +107,7 @@ export async function setPercent(domain: string, percent: number) {
   if (!Number.isFinite(percent) || percent < -100) throw new Error("אחוז שינוי לא תקין.");
   await updateSite(domain, { percent });
 }
-async function runPage(domain: string) {
+async function runPage(domain: string, onStockApplied: () => void) {
   const token = randomUUID();
   const lease = () => new Date(Date.now() + 180000).toISOString();
   const [site] = await updateSite(
@@ -128,7 +129,7 @@ async function runPage(domain: string) {
         if (!(await updateSite(domain, { lease_until: lease() }, { ...owned, select:"domain" })).length) return false;
         try {
           const { refreshLinkedProduct } = await import("./publication");
-          await refreshLinkedProduct(row, false);
+          await refreshLinkedProduct(row, false, site.run_kind === "monitor" ? onStockApplied : undefined);
         } catch (e) {
           if (retryAt(e)) throw e;
           if (!site.excluded_ids?.includes(row.source_id))
@@ -245,8 +246,13 @@ export async function processCatalogJobs() {
     or: `(lease_until.is.null,lease_until.lt.${new Date().toISOString()})`,
     order: "domain",
   });
-  await processNextImport();
-  for (const site of due) await runPage(site.domain);
+  let stockApplied = false;
+  try {
+    await processNextImport();
+    for (const site of due) await runPage(site.domain, () => { stockApplied = true; });
+  } finally {
+    if (stockApplied) revalidateTag("shop-catalog");
+  }
 }
 let active: Promise<void> | undefined;
 export function wakeCatalogWorker() {

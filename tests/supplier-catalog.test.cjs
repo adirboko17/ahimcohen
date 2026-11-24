@@ -309,6 +309,92 @@ test("catalog scrolling requests the next filtered batch and checks one extra ro
     ["0","13","ov.{1,2}","eq.known"],["12","13","ov.{1,2}","eq.known"],
   ]);
 });
+test("imported catalog filters before pagination and reports Shopify draft and storefront states", async () => {
+  const model = moduleFor("catalog-model");
+  const site = { domain: "example.com", percent: 0, categories: [{ id: "1", parent: "0" }] };
+  const requests = [];
+  const rows = Array.from({ length: 28 }, (_, index) => {
+    const id = String(index + 1);
+    return {
+      source_id: id,
+      shopify_product_id: index % 2 === 0 ? "gid" + id : null,
+      review_state: index === 0 ? "ignored" : "known",
+      category_ids: ["1"],
+      manual_price: null,
+      snapshot: { id, variants: [{ price: 100, regular: 100 }], images: ["img"] },
+    };
+  });
+  const api = moduleFor("catalog-batch", {
+    "server-only": {},
+    "./catalog-model": model,
+    "./storage": { previews: async (domain, params) => {
+      assert.equal(domain, site.domain);
+      requests.push(params);
+      const imported = rows.filter(row => row.shopify_product_id);
+      return imported.slice(Number(params.offset), Number(params.offset) + Number(params.limit));
+    } },
+    "./publication": { catalogPublicationStates: async ids => ids.map(id => ({
+      id, handle: "example-product", status: id === "gid1" ? "DRAFT" : "ACTIVE", onSite: id !== "gid1",
+    })) },
+    "./import-queue": { importStatuses: async () => [] },
+  });
+  const first = await api.readCatalogBatch(site, "1", 1, true);
+  const second = await api.readCatalogBatch(site, "1", 2, true);
+  assert.deepEqual([first.more, second.more], [true, false]);
+  assert.deepEqual([...first.items, ...second.items].map(item => item.id),
+    rows.filter(row => row.shopify_product_id).map(row => row.source_id));
+  assert.deepEqual(requests.map(r => [r.shopify_product_id, r.review_state, r.category_ids, r.offset]), [
+    ["not.is.null", undefined, "ov.{1}", "0"], ["not.is.null", undefined, "ov.{1}", "12"],
+  ]);
+  assert.equal(first.items[0].shopifyStatus, "DRAFT");
+  assert.equal(first.items[0].siteUrl, undefined);
+  assert.equal(first.items[1].siteUrl, "/p/example-product");
+});
+test("monitor imports an individual discovery or the full pending list across pages", async () => {
+  const ids = Array.from({ length: 312 }, (_, index) => String(index + 1)).sort();
+  const candidates = ids.map(source_id => ({
+    source_id, title: "New product", revision: "r", category_ids: ["1"], shopify_product_id: null,
+  }));
+  const tasks = [];
+  const queried = [];
+  const preview = {
+    source_id: "9", review_state: "pending", revision: "r", manual_price: null, shopify_product_id: null,
+    snapshot: { variants: [{ price: 100, regular: 100 }] },
+  };
+  const api = moduleFor("import-queue", {
+    "server-only": {}, "@/lib/shopify/config": { shopDomain: () => "shop.example" },
+    "./catalog-model": moduleFor("catalog-model"),
+    "./shopify": { importDraft: async row => { assert.equal(row, preview); preview.review_state = "known"; } },
+    "./storage": {
+      shopFilter: () => ({ shop_domain: "eq.shop.example" }), getPreview: async () => preview,
+      supplierRequest: async (table, method, filters, values) => {
+        if (table === "ahim_supplier_previews") {
+          assert.equal(filters.review_state,"eq.pending");
+          assert.equal(filters.shopify_product_id,"is.null");
+          assert.equal(filters.supplier,"eq.example.com");
+          queried.push(filters.source_id);
+          if (filters.source_id?.startsWith("in.")) return candidates.filter(row => row.source_id === "9");
+          return candidates.filter(row => !filters.source_id || row.source_id > filters.source_id.slice(3)).slice(0,300);
+        }
+        if (method === "POST") { tasks.push(...values); return values; }
+        if (method === "PATCH") return [{ ...tasks[0], ...values }];
+        if (filters.available_at) return [tasks[0]];
+        return [];
+      },
+    },
+  });
+  const site = { domain: "example.com", percent: 0, categories: [{ id: "1", parent: "0" }], mappings: { "1": ["collection"] } };
+  assert.equal((await api.queueImports(site, ["9"], undefined, "draft", "pending")).queued, 1);
+  assert.equal(tasks[0].source_id, "9");
+  tasks[0].manual_price = null;
+  await api.processNextImport();
+  assert.equal(preview.review_state, "known");
+  tasks.length = 0;
+  assert.equal((await api.queueImports(site, [], "", "draft", "pending")).queued, ids.length);
+  assert.deepEqual(queried, ["in.(9)",undefined,"gt." + ids[299]]);
+  assert.deepEqual(tasks.map(task => task.source_id), ids);
+  assert.ok(tasks.every(task => task.intent === "draft"));
+});
 test("publishing a selection imports once and resumes from its linked draft after a publication failure", async () => {
   const task = {domain:"example.com",source_id:"1",revision:"r",manual_price:null,percent:10,
     collection_ids:["collection"],intent:"publish",attempts:0,state:"queued"};

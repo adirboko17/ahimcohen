@@ -5,7 +5,7 @@ import type { CatalogBatch } from "@/lib/suppliers/catalog-model";
 
 type LoadedBatch = { data: CatalogBatch; initial: CatalogBatch };
 
-export function useSupplierFeed(domain: string, category: string, initial: CatalogBatch, returnPage: number) {
+export function useSupplierFeed(domain: string, category: string, initial: CatalogBatch, returnPage: number, importedOnly: boolean) {
   const [depth, setDepth] = useState(returnPage);
   const [loaded, setLoaded] = useState<LoadedBatch[]>([]);
   const [failure, setFailure] = useState<{ initial: CatalogBatch; message: string } | null>(null);
@@ -30,6 +30,7 @@ export function useSupplierFeed(domain: string, category: string, initial: Catal
       body.set("action","catalog-batch");
       body.set("domain",domain);
       body.set("category",category);
+      if (importedOnly) body.set("status","imported");
       body.set("page",String(page));
       const res = await fetch("/admin/suppliers",{method:"POST",body,signal:controller.signal});
       const result = await res.json();
@@ -46,7 +47,7 @@ export function useSupplierFeed(domain: string, category: string, initial: Catal
       if (!controller.signal.aborted) setFailure({initial,message:reason instanceof TypeError ? "החיבור לקטלוג נקטע." : "טעינת המוצרים נכשלה."});
     });
     return () => controller.abort();
-  },[category, domain, initial, next, error]);
+  },[category, domain, importedOnly, initial, next, error]);
 
   const count = batches.length;
   useEffect(() => {

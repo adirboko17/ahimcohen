@@ -14,28 +14,29 @@ import {
   supplierUrl,
   type Site,
   type CatalogBatch,
+  type CatalogItem,
 } from "@/lib/suppliers/catalog-model";
 
 type Collection = { id: string; title: string };
 function useAction(domain?: string) {
   const router = useRouter(),
     [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState<{ message: string; ok: boolean } | null>(null);
   async function run(action: string, data = new FormData(), next?: (reply: { domain?: string }) => void) {
     if (busy) return;
     setBusy(true);
-    setNotice("");
+    setNotice(null);
     try {
       data.set("action", action);
       if (domain) data.set("domain", domain);
       const res = await fetch("/admin/suppliers", { method: "POST", body: data }),
         reply = await res.json();
       if (!res.ok) throw new Error(reply.message);
-      setNotice(reply.message);
+      setNotice({ message: reply.message, ok: true });
       if (next) next(reply);
       router.refresh();
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "החיבור נקטע.");
+      setNotice({ message: e instanceof Error ? e.message : "החיבור נקטע.", ok: false });
     } finally {
       setBusy(false);
     }
@@ -45,8 +46,8 @@ function useAction(domain?: string) {
     busy,
     run,
     feedback: notice ? (
-      <p role="status" className="admin-feedback">
-        {notice}
+      <p role="status" className="admin-feedback" data-ok={notice.ok}>
+        {notice.message}
       </p>
     ) : null,
   };
@@ -69,22 +70,23 @@ export function RemoveSupplier({ domain, pulling }: { domain: string; pulling: b
     </div>
   );
 }
-export function MonitorSettings({ domain, hours, ready, last, next }: {
-  domain:string; hours:number; ready:boolean; last:string|null; next:string|null;
+export function MonitorSettings({ domain, hours, ready, last, next, fullCatalog }: {
+  domain:string; hours:number; ready:boolean; last:string|null; next:string|null; fullCatalog:boolean;
 }) {
   const action = useAction(domain);
-  const frequency = (h:number) => h === 0 ? "כבוי" : h === 1 ? "כל שעה" : h === 24 ? "פעם ביום" : `כל ${h} שעות`;
+  const frequency = (h:number) => h === 0 ? "כבוי" : h === 24 ? "פעם ביום" : "יש לעדכן תדירות";
   const date = (s:string) => new Intl.DateTimeFormat("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(s));
   return <details className="supplier-site-monitor">
     <summary><span>מעקב אוטומטי</span><span className="supplier-monitor-state" data-active={hours > 0}>{frequency(hours)}</span></summary>
     <form onSubmit={e => { e.preventDefault(); void action.run("monitor",new FormData(e.currentTarget)); }}>
     <label>תדירות בדיקה
-      <select name="hours" key={hours} defaultValue={hours} disabled={!ready && !hours}>
+      <select name="hours" key={hours} defaultValue={hours > 0 ? 24 : 0} disabled={!ready && !hours}>
         {monitorIntervals.map(h => <option key={h} value={h}>{frequency(h)}</option>)}
       </select>
     </label>
     {ready || hours ? <button className="btn btn-line" disabled={action.busy}>שמור תדירות</button> :
       <small>המעקב זמין אחרי משיכת קטלוג ראשונה שהושלמה בהצלחה.</small>}
+    {ready && <small>מוצרים חדשים נבדקים {fullCatalog ? "בכל הקטלוג" : "בקטגוריות שנבחרו למשיכה"}</small>}
     {last && <small>בדיקה מוצלחת אחרונה · {date(last)}</small>}
     {next && <small>הבדיקה הבאה · {date(next)}</small>}
     {action.feedback}
@@ -402,18 +404,47 @@ function priceRange(min: number | null, max: number | null, currency: string) {
   const format = new Intl.NumberFormat("he-IL", { style: "currency", currency });
   return min === max ? format.format(min) : format.format(min) + " – " + format.format(max);
 }
+
+function CatalogProductActions({ domain, item, href }: { domain: string; item: CatalogItem; href: string }) {
+  const action = useAction(domain);
+  function removeFromSite() {
+    if (!window.confirm(`להסיר את „${item.title}” מהאתר?\nהמוצר יישאר ב־Shopify ותוכלו לפרסם אותו שוב.`)) return;
+    const form = new FormData();
+    form.set("id", item.id);
+    form.set("revision", item.revision);
+    void action.run("unpublish", form);
+  }
+  return <>
+    <footer className="catalog-product-actions">
+      <Link className="catalog-product-link" href={href}>
+        {item.linked ? "פרטי המוצר" : "פרטים וייבוא"} <IconFwd/>
+      </Link>
+      {item.siteUrl && <button type="button" className="btn catalog-product-remove" disabled={action.busy}
+        aria-label={"הסר מהאתר · " + item.title} onClick={removeFromSite}>
+        <IconTrash/> {action.busy ? "מסיר…" : "הסר מהאתר"}
+      </button>}
+    </footer>
+    {action.feedback}
+  </>;
+}
+
 export function CatalogList({
   site,
   initial,
   cat,
   page,
+  importedOnly,
+  importing,
 }: {
   site: Site;
   initial: CatalogBatch;
   cat: string;
   page: number;
+  importedOnly: boolean;
+  importing: boolean;
 }) {
-  const feed = useSupplierFeed(site.domain, cat, initial, page);
+  const feed = useSupplierFeed(site.domain, cat, initial, page, importedOnly);
+  const statusParams: Record<string, string> = importedOnly ? { status: "imported" } : {};
   const pages = new Map<string,number>();
   const items = feed.batches.flatMap((batch,index) => batch.items.filter(item => {
     if (pages.has(item.id)) return false;
@@ -449,7 +480,7 @@ export function CatalogList({
   const path = (id: string) => paths.get(id) || "";
   return (
     <section className="supplier-catalog">
-      <RefreshWhileBusy active={(pulling || pending) && !feed.loading} />
+      <RefreshWhileBusy active={(pulling || importing || pending) && !feed.loading} />
       <div className="admin-panel supplier-box catalog-overview">
         <AdminBackLink href={supplierUrl()} label="חזרה לכל האתרים" />
         <div className="catalog-identity">
@@ -480,7 +511,7 @@ export function CatalogList({
             <IconFilter/><span>קטגוריה</span>
             <select
               value={cat}
-              onChange={(e) => action.router.push(supplierUrl(site.domain, "catalog", { cat: e.target.value }))}
+              onChange={(e) => action.router.push(supplierUrl(site.domain, "catalog", { ...statusParams, cat: e.target.value }))}
             >
               <option value="">כל המוצרים</option>
               {site.categories.map((c) => (
@@ -491,60 +522,70 @@ export function CatalogList({
             </select>
           </label>
         </div>
-        <div className="supplier-batch-bar">
-          <label className="supplier-check">
-            <input
-              type="checkbox"
-              checked={!!enabled.size && selected.length === enabled.size}
-              disabled={!enabled.size}
-              ref={input => { if (input) input.indeterminate = selected.length > 0 && selected.length < enabled.size; }}
-              onChange={(e) => {setScope("selected");setChecked(e.target.checked ? [...enabled] : []);}}
-            />
-            בחר את המוצרים שנטענו
-          </label>
-          <label>
-            <select aria-label="הפעל פעולה על" value={scope} onChange={e=>setScope(e.target.value === "all" ? "all" : "selected")}>
-              <option value="selected">המוצרים שסומנו ({selected.length})</option>
-              <option value="all">{cat ? "כל המוצרים בקטגוריה" : "כל המוצרים בקטלוג"}</option>
-            </select>
-          </label>
-          <div className="supplier-batch-buttons">
-            <button className="btn admin-primary" disabled={action.busy || scopeUnavailable || scope === "selected" && !selected.length}
-              onClick={()=>confirmPublish.current?.showModal()}>פרסם באתר</button>
-            <button className="btn btn-line" disabled={action.busy || scopeUnavailable || scope === "selected" && !selectedDrafts.length}
-              onClick={()=>submitBatch("draft")}>ייבא כטיוטות</button>
+        <nav className="catalog-status-filter" aria-label="סינון לפי מצב ייבוא">
+          <Link className="btn btn-line" aria-current={!importedOnly ? "page" : undefined} prefetch={false}
+            href={supplierUrl(site.domain, "catalog", { cat })}>כל מוצרי הקטלוג</Link>
+          <Link className="btn btn-line" aria-current={importedOnly ? "page" : undefined} prefetch={false}
+            href={supplierUrl(site.domain, "catalog", { cat, status: "imported" })}>מוצרים שיובאו</Link>
+        </nav>
+        {importing && <p role="status" className="catalog-import-progress">הייבוא מתבצע. הרשימה מתעדכנת אוטומטית.</p>}
+        {!importedOnly && <>
+          <div className="supplier-batch-bar">
+            <label className="supplier-check">
+              <input
+                type="checkbox"
+                checked={!!enabled.size && selected.length === enabled.size}
+                disabled={!enabled.size}
+                ref={input => { if (input) input.indeterminate = selected.length > 0 && selected.length < enabled.size; }}
+                onChange={(e) => {setScope("selected");setChecked(e.target.checked ? [...enabled] : []);}}
+              />
+              בחר את המוצרים שנטענו
+            </label>
+            <label>
+              <select aria-label="הפעל פעולה על" value={scope} onChange={e=>setScope(e.target.value === "all" ? "all" : "selected")}>
+                <option value="selected">המוצרים שסומנו ({selected.length})</option>
+                <option value="all">{cat ? "כל המוצרים בקטגוריה" : "כל המוצרים בקטלוג"}</option>
+              </select>
+            </label>
+            <div className="supplier-batch-buttons">
+              <button className="btn admin-primary" disabled={action.busy || scopeUnavailable || scope === "selected" && !selected.length}
+                onClick={()=>confirmPublish.current?.showModal()}>פרסם באתר</button>
+              <button className="btn btn-line" disabled={action.busy || scopeUnavailable || scope === "selected" && !selectedDrafts.length}
+                onClick={()=>submitBatch("draft")}>ייבא כטיוטות</button>
+            </div>
           </div>
-        </div>
-        <dialog className="supplier-dialog supplier-publish-dialog" ref={confirmPublish} aria-labelledby="supplier-publish-title">
-          <header><h2 id="supplier-publish-title">פרסום באתר</h2></header>
-          <p><strong>{scopeLabel}</strong> מתוך <bdi>{site.domain}</bdi>{cat ? " · "+path(cat) : ""}</p>
-          <p>המוצרים המתאימים יעלו למכירה במחירים שהוגדרו, לאחר אימות התמונות, השיוך לאוספים והזמינות לפי צבע ומידה.</p>
-          <div className="supplier-batch-buttons">
-            <button autoFocus className="btn btn-line" onClick={()=>confirmPublish.current?.close()}>ביטול</button>
-            <button className="btn admin-primary" onClick={()=>submitBatch("publish")}>אישור פרסום באתר</button>
-          </div>
-        </dialog>
-        {action.feedback}
+          <dialog className="supplier-dialog supplier-publish-dialog" ref={confirmPublish} aria-labelledby="supplier-publish-title">
+            <header><h2 id="supplier-publish-title">פרסום באתר</h2></header>
+            <p><strong>{scopeLabel}</strong> מתוך <bdi>{site.domain}</bdi>{cat ? " · "+path(cat) : ""}</p>
+            <p>המוצרים המתאימים יעלו למכירה במחירים שהוגדרו, לאחר אימות התמונות, השיוך לאוספים והזמינות לפי צבע ומידה.</p>
+            <div className="supplier-batch-buttons">
+              <button autoFocus className="btn btn-line" onClick={()=>confirmPublish.current?.close()}>ביטול</button>
+              <button className="btn admin-primary" onClick={()=>submitBatch("publish")}>אישור פרסום באתר</button>
+            </div>
+          </dialog>
+          {action.feedback}
+        </>}
         {!items.length && (
           <p className="supplier-sites-empty">
-            {pulling
+            {importedOnly
+              ? cat ? "אין עדיין מוצרים שיובאו בקטגוריה הזו." : "אין עדיין מוצרים שיובאו מהספק הזה."
+              : pulling
               ? "המוצרים יופיעו כאן עם התקדמות המשיכה."
               : "אין מוצרים בתצוגה זו. בחרו קטגוריות למשיכה או שנו את הסינון."}
           </p>
         )}
         <div className="catalog-product-grid">{items.map((i) => {
           const productPage = pages.get(i.id)!;
-          const href = supplierUrl(site.domain, "product", {item:i.id,cat,page:String(productPage)});
+          const href = supplierUrl(site.domain, "product", {...statusParams,item:i.id,cat,page:String(productPage)});
           const categories = i.categories.map(path).filter(Boolean).join(" · ");
           const status = i.scanError || (i.task === "failed" ? i.error || "הפעולה נכשלה"
-            : i.task === "queued" || i.task === "running" ? (i.intent === "publish" ? "בתור לפרסום באתר" : "בתור לייבוא כטיוטה")
-            : i.published ? "פורסם באתר" : i.linked ? "מקושר לשופיפיי" : "");
+            : i.task === "queued" || i.task === "running" ? (i.intent === "publish" ? "בתור לפרסום באתר" : "בתור לייבוא כטיוטה") : "");
           return <article key={i.id} id={"catalog-item-" + i.id} className="catalog-product" data-catalog-page={productPage} data-selected={selection.has(i.id)}>
             <div className="catalog-photo">
               <Link href={href} prefetch={false} aria-label={"פרטי " + i.title}>
                 {i.image ? <img loading="lazy" src={i.image} alt=""/> : <span>אין תמונת מוצר</span>}
               </Link>
-              <label className="catalog-product-select">
+              {!importedOnly && <label className="catalog-product-select">
               <input
                 aria-label={"בחר " + i.title}
                 type="checkbox"
@@ -554,7 +595,7 @@ export function CatalogList({
                   setChecked(e.target.checked ? [...selected, i.id] : selected.filter((id) => id !== i.id));
                 }}
               />
-              </label>
+              </label>}
             </div>
             <div className="catalog-product-copy">
               <h3><Link href={href}><bdi>{i.title}</bdi></Link></h3>
@@ -562,6 +603,13 @@ export function CatalogList({
               <small className="catalog-stock" data-available={i.available > 0}>
                 {i.available} מתוך {i.variants} וריאציות זמינות · {i.images} תמונות
               </small>
+              {i.linked && <small className="catalog-publication-status" data-published={!!i.siteUrl}>
+                {i.siteUrl ? <Link href={i.siteUrl} prefetch={false} target="_blank" rel="noreferrer" aria-label={"פורסם באתר · " + i.title}>פורסם באתר ↗</Link>
+                  : i.shopifyStatus === "DRAFT" ? "טיוטה ב־Shopify"
+                  : i.shopifyStatus === "ARCHIVED" ? "בארכיון ב־Shopify"
+                  : i.shopifyStatus ? "יובא ל־Shopify · מוסתר מהאתר"
+                  : "קישור ל־Shopify נשמר · המוצר לא נמצא"}
+              </small>}
               {status && <small className="catalog-product-status">{status}</small>}
             </div>
             <div className="catalog-product-prices">
@@ -595,9 +643,7 @@ export function CatalogList({
                 </details>
               )}
             </div>
-            <Link className="catalog-product-link" href={href}>
-              פרטים וייבוא <IconFwd/>
-            </Link>
+            <CatalogProductActions domain={site.domain} item={i} href={href} />
           </article>;
         })}</div>
         <div ref={feed.sentinel} className="catalog-feed-footer">

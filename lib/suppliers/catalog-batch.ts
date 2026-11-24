@@ -10,12 +10,12 @@ export function prices(row: Preview, site: Site) {
   return pricedProduct(row.snapshot, site.percent, row.manual_price).variants;
 }
 
-export async function readCatalogBatch(site: Site, cat: string, page: number): Promise<CatalogBatch> {
+export async function readCatalogBatch(site: Site, cat: string, page: number, importedOnly = false): Promise<CatalogBatch> {
   const domain = site.domain;
   const cats = cat ? descendants([cat], site.categories) : [];
   if (cat && !cats.length) throw new Error("קטגוריה לא מוכרת.");
   const rows = await previews(domain, {
-    review_state: "eq.known",
+    ...(importedOnly ? { shopify_product_id: "not.is.null" } : { review_state: "eq.known" }),
     limit: String(catalogPageSize + 1),
     offset: String((page - 1) * catalogPageSize),
     order: "snapshot->>category.asc,source_id.asc",
@@ -47,7 +47,8 @@ export async function readCatalogBatch(site: Site, cat: string, page: number): P
       finalMax: final.length ? Math.max(...final) : null,
       manual: row.manual_price,
       linked: !!row.shopify_product_id,
-      published: channel?.status === "ACTIVE" && channel.onSite,
+      shopifyStatus: channel?.status,
+      siteUrl: channel?.status === "ACTIVE" && channel.onSite ? "/p/" + encodeURIComponent(channel.handle) : undefined,
       canPublish: !row.shopify_product_id || !!channel && (channel.status === "DRAFT" || channel.status === "ACTIVE" && !channel.onSite),
       intent: job?.intent,
       scanError: row.scan_error,

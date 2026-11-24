@@ -19,6 +19,17 @@ type Task = {
   error: string | null;
 };
 const table = "ahim_supplier_imports";
+export async function hasActiveImports(domain: string) {
+  const rows = await supplierRequest<Pick<Task, "source_id">>(table, "GET", {
+    ...shopFilter(),
+    domain: "eq." + domain,
+    state: "in.(queued,running)",
+    select: "source_id",
+    limit: "1",
+  });
+  return rows.length > 0;
+}
+
 export function importStatuses(domain: string, ids: string[]) {
   return ids.length
     ? supplierRequest<Task>(table, "GET", {
@@ -32,11 +43,16 @@ type Candidate = {
   source_id: string; revision: string; manual_price: number | null; category_ids: string[];
   title: string; currency: string | null; shopify_product_id: string | null; scan_error: string | null; collection_ids: string[];
 };
-export async function queueImports(site: Site, ids: string[], allCategory?: string, intent: "draft" | "publish" = "draft") {
+export async function queueImports(
+  site: Site, ids: string[], allCategory?: string, intent: "draft" | "publish" = "draft", review: "known" | "pending" = "known",
+) {
   if (allCategory === undefined && (!ids.length || ids.some(id => !/^\d+$/.test(id))))
     throw new Error("בחרו מוצרים מהרשימה.");
   if (allCategory && !site.categories.some(c => c.id === allCategory)) throw new Error("קטגוריה לא מוכרת.");
-  const scope = { ...shopFilter(), supplier: "eq." + supplierKey(site.domain), review_state:"eq.known" };
+  const scope = {
+    ...shopFilter(), supplier: "eq." + supplierKey(site.domain), review_state: "eq." + review,
+    ...(review === "pending" ? { shopify_product_id: "is.null" } : {}),
+  };
   const rows: Candidate[] = [];
   const readCandidates = (filters: Record<string,string>) => supplierRequest<Candidate>("ahim_supplier_previews","GET",{
     ...scope, order:"source_id", limit:"300",
@@ -124,7 +140,7 @@ export async function processNextImport() {
   try {
     let row = await getPreview(claimed.domain, claimed.source_id);
     if (
-      !row || row.review_state !== "known" || row.scan_error ||
+      !row || (row.review_state !== "known" && row.review_state !== "pending") || row.scan_error ||
       (!row.shopify_product_id && (row.revision !== claimed.revision || row.manual_price !== claimed.manual_price))
     )
       throw new Error("התצוגה השתנתה. בדקו את המוצר ובחרו אותו מחדש.");

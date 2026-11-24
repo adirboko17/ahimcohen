@@ -2,7 +2,7 @@ import type { SupplierProduct } from "./redback";
 
 export type SourceCategory = { id: string; parent: string; name: string; count: number; handle?: string };
 export type ShopifyIndex = Record<string, { handle: string; categories: string[]; image?: string }>;
-export const monitorIntervals = [0, 1, 6, 12, 24] as const;
+export const monitorIntervals = [0, 24] as const;
 export type Site = {
   domain: string;
   platform: "woo" | "shopify";
@@ -138,7 +138,8 @@ export type CatalogItem = {
   finalMax: number | null;
   manual: number | null;
   linked: boolean;
-  published: boolean;
+  shopifyStatus?: string;
+  siteUrl?: string;
   canPublish: boolean;
   intent?: "draft" | "publish";
   scanError: string | null;
@@ -148,3 +149,18 @@ export type CatalogItem = {
 };
 
 export type CatalogBatch = { items: CatalogItem[]; more: boolean };
+
+export type StockChange = {
+  variantId: string;
+  options: Record<string, string>;
+  before: boolean | null;
+  after: boolean;
+  siteAvailable: boolean;
+};
+
+export type MonitorReport =
+  | { kind: "stock"; more: boolean; items: { id: string; title: string; handle: string; applied_at: string; changes: StockChange[] }[] }
+  | { kind: "new"; more: boolean; total: number; items: {
+    id: string; title: string; category: string; image: string | null;
+    task?: "queued" | "running" | "done" | "failed"; error?: string | null;
+  }[] };

@@ -23,7 +23,8 @@ export type Preview = {
 };
 
 async function supplierResponse(
-  table: "ahim_supplier_previews" | "ahim_supplier_sites" | "ahim_supplier_imports" | "ahim_supplier_runners" | "rpc/ahim_resolve_supplier_issue",
+  table: "ahim_supplier_previews" | "ahim_supplier_sites" | "ahim_supplier_imports" | "ahim_supplier_runners"
+    | "ahim_supplier_stock_updates" | "rpc/ahim_resolve_supplier_issue" | "rpc/ahim_supplier_stock_counts",
   method: string,
   params: Record<string, string>,
   body?: unknown,
@@ -64,8 +65,9 @@ export async function pendingCount(domain: string) {
   return Number(res.headers.get("content-range")?.split("/").pop()) || 0;
 }
 export async function ignoreReview(domain: string, id: string) {
-  await request("PATCH", { ...scope(supplierKey(domain)), source_id: "eq." + id, review_state: "eq.pending",
-    shopify_product_id: "is.null" }, { review_state: "ignored" });
+  const rows = await request("PATCH", { ...scope(supplierKey(domain)), source_id: "eq." + id, review_state: "eq.pending",
+    shopify_product_id: "is.null", import_token: "is.null" }, { review_state: "ignored" });
+  if (!rows.length) throw new Error("הרשימה התעדכנה או שהייבוא כבר התחיל.");
 }
 export function previews(domain = "redback.co.il", params: Record<string, string> = {}) {
   return request("GET", { order: "source_id", ...params, ...scope(supplierKey(domain)) });
@@ -127,6 +129,7 @@ export async function reserveDraft(row: Preview, snapshot: SupplierProduct, coll
       ...scope(row.supplier),
       source_id: "eq." + row.source_id,
       revision: "eq." + row.revision,
+      review_state: "eq." + row.review_state,
       shopify_product_id: "is.null",
       manual_price: row.manual_price === null ? "is.null" : "eq." + row.manual_price,
       import_token: row.import_token ? "eq." + row.import_token : "is.null",
