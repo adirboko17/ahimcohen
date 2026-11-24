@@ -29,7 +29,7 @@ export function CheckoutButton({ onPendingChange }: { onPendingChange?: (pending
     setError("");
     onPendingChange?.(true);
     try {
-      const result = await beginShopifyCheckout(cart.map(({ pid, color, size, qty, variantId }) => ({ pid, color, size, qty, variantId })), cartQuote.quote.total);
+      const result = await beginShopifyCheckout(cart.map(({ pid, color, size, qty, variantId, packUnits }) => ({ pid, color, size, qty, variantId, packUnits })), cartQuote.quote.total);
       if (result.ok) {
         rememberCheckout(localStorage, result.receipt, cart);
         window.location.assign(result.checkoutUrl);

@@ -1,0 +1,564 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Fragment, type ReactNode } from "react";
+import type { Category, Product } from "@/lib/catalog";
+import { AdminBackLink } from "@/components/AdminBackLink";
+import { AdminApproveReviewButton, AdminBundleDialog, AdminBundleFields, AdminForm, AdminLabelEditor, AdminLogin, AdminOfferVisibilityButton, AdminProductField, AdminProductList, AdminProductSummary, AdminRemoveButton, CopyAdminLink } from "@/components/AdminControls";
+import { AdminHeroEditor } from "@/components/AdminHeroEditor";
+import { AdminHeroOrder } from "@/components/AdminHeroOrder";
+import { IconBag, IconCheck, IconFilter, IconFwd, IconGrid, IconHome, IconPackages, IconPencil, IconPlus, IconUpload } from "@/components/icons";
+import { isAdmin } from "@/lib/admin/access";
+import { ReviewRatingInput, ReviewStars } from "@/components/ReviewStars";
+import { bundleCartProductId, bundleGroupSnapshot, heroImageTarget, heroIsPublished, reviewAwaitsApproval, type AdminBundle, type AdminHero, type AdminLabel, type AdminOffer, type AdminRedirect, type AdminReview, type AdminSale, type AdminStore, type HeroDevice } from "@/lib/admin/models";
+import { managedBundleProducts } from "@/lib/admin/bundle-catalog";
+import { readAdminStore } from "@/lib/admin/storage";
+import { readReviews } from "@/lib/admin/reviews";
+import { fmt } from "@/lib/pricing";
+import { quantityOffer } from "@/lib/quantity-offers";
+import { loadShopCatalog } from "@/lib/shopify/load-catalog";
+import "./admin.css";
+import { Suppliers } from "./Suppliers";
+
+export const metadata: Metadata = { title: "ניהול החנות", robots: { index: false, follow: false } };
+
+const tabs = {
+  bundles: { title: "באנדלים למוצרים", create: "באנדל חדש", edit: "עריכת באנדל", description: "נהלו את החבילות שמוצעות ללקוחות בדפי המוצרים.", Icon: IconPackages },
+  offers: { title: "מבצעי כמות", create: "מבצע כמות חדש", edit: "עריכת מבצע כמות", description: "נהלו את המארזים שמוצגים בעמוד מבצעי הכמות באתר.", Icon: IconFilter },
+  sales: { title: "מכירה מהירה", create: "קישור מכירה חדש", edit: "עריכת קישור מכירה", description: "נהלו קישורים ישירים לרכישת מוצר בקופת Shopify.", Icon: IconBag },
+  labels: { title: "תוויות מבצע", create: "תווית חדשה", edit: "עריכת תווית", description: "נהלו את התוויות שמופיעות לצד שמות המוצרים.", Icon: IconGrid },
+  reviews: { title: "ביקורות למוצרים", create: "ביקורת חדשה", edit: "עריכת ביקורת", description: "בחרו מוצר כדי לצפות בביקורות שלו, להוסיף ביקורת או לאשר ביקורות מהאתר.", Icon: IconCheck },
+  links: { title: "קישורים מקוצרים", create: "קישור מקוצר חדש", edit: "עריכת קישור מקוצר", description: "נהלו את הכתובות המקוצרות ואת יעדי ההפניה שלהן.", Icon: IconFwd },
+  heroes: { title: "עיצוב ההירו", create: "הוספת באנר", edit: "עריכת באנר", description: "בחרו תמונות למחשב ולמובייל והגדירו לאן כל אחת תוביל בלחיצה.", Icon: IconUpload },
+} as const;
+type Tab = keyof typeof tabs;
+
+const overview = { title: "סקירת החנות", description: "מצב הקטלוג, הבאנדלים והבאנרים שמוצגים בדף הבית.", Icon: IconHome };
+const toolGroups = [
+  { label: "קטלוג ומכירות", tools: ["bundles", "offers", "sales", "labels"] },
+  { label: "תוכן וקישורים", tools: ["reviews", "links", "heroes"] },
+] as const satisfies ReadonlyArray<{ label: string; tools: readonly Tab[] }>;
+
+const loginErrors: Record<string, string> = {
+  locked: "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.",
+  missing: "חשבון הניהול טרם הוגדר במחשב הזה.",
+  invalid: "כתובת האימייל או הסיסמה שגויות.",
+};
+
+function adminUrl(tab: Tab, options?: { edit?: string; manage?: string; product?: string }) {
+  const query = new URLSearchParams({ tab });
+  if (options?.edit) query.set("edit", options.edit);
+  if (options?.manage) query.set("manage", options.manage);
+  if (options?.product) query.set("product", options.product);
+  return "/admin?" + query;
+}
+
+type AdminQuery = { site?:string; view?:string; cat?:string; page?:string; item?:string; tab?: string; error?: string; product?: string; manage?: string; edit?: string; saved?: string };
+
+export default async function AdminPage({ searchParams }: { searchParams: Promise<AdminQuery> }) {
+  const params=await searchParams;
+  const { tab: query, error, product: requestedProduct, manage, edit: requestedEditor, saved } = params;
+  if (!(await isAdmin())) return <AdminLogin error={error && Object.hasOwn(loginErrors, error) ? loginErrors[error] : undefined} />;
+  const tab = typeof query === "string" && Object.hasOwn(tabs, query) ? query as Tab : undefined;
+  const supplierView = query === "suppliers";
+  const [store, catalog] = await Promise.all([readAdminStore().then(async (data) => tab === "reviews" || (!tab && !supplierView)
+    ? { ...data, reviews: await readReviews(data.reviews) } : data), supplierView ? {products: [], categories: []} : loadShopCatalog()]);
+  const products = new Map(catalog.products.map((item) => [item.id, item]));
+  const reviewProductId = tab === "reviews" && typeof requestedProduct === "string" ? requestedProduct : undefined;
+  const productReviews = reviewProductId ? store.reviews.filter((item) => item.productId === reviewProductId) : [];
+  const reviewProduct = reviewProductId ? products.get(reviewProductId) : undefined;
+  const reviewHref = reviewProductId && (reviewProduct || productReviews.length) ? adminUrl("reviews", { product: reviewProductId }) : undefined;
+  if (tab === "reviews" && typeof requestedEditor === "string" && requestedEditor !== "new") {
+    const pendingReview = (reviewHref ? productReviews : store.reviews).find((item) => item.id === requestedEditor && reviewAwaitsApproval(item));
+    if (pendingReview) redirect(adminUrl("reviews", { product: pendingReview.productId }));
+  }
+  const requestedCatalogProduct = tab === "offers" && requestedEditor === "catalog" && typeof requestedProduct === "string"
+    ? products.get(requestedProduct) : undefined;
+  const catalogOfferProduct = requestedCatalogProduct && quantityOffer(requestedCatalogProduct) ? requestedCatalogProduct : undefined;
+  const group = tab === "bundles" && typeof manage === "string" ? manage : undefined;
+  const groupProductId = group?.startsWith("product:") ? group.slice("product:".length) : undefined;
+  const groupProduct = groupProductId ? products.get(groupProductId) : undefined;
+  const groupBundles = group ? store.bundles.filter((item) => bundleGroup(item) === group) : [];
+  const manageHref = group && (groupProduct || groupBundles.length) ? adminUrl("bundles", { manage: group }) : undefined;
+  const prefilledProduct = manageHref ? requestedEditor === "new" ? groupProduct?.id : undefined
+    : tab === "bundles" && typeof requestedProduct === "string" ? products.get(requestedProduct)?.id : undefined;
+  const create = (requestedEditor === "new" && (!reviewHref || !!reviewProduct)) || (!!prefilledProduct && !requestedEditor);
+  const editableItems = manageHref ? groupBundles : reviewHref ? productReviews : tab ? store[tab] : [];
+  const editId = !create && typeof requestedEditor === "string" && editableItems.some((item) => item.id === requestedEditor)
+    ? requestedEditor : undefined;
+  const editing = !!tab && tab !== "heroes" && (create || !!editId || !!catalogOfferProduct);
+  const info = supplierView ? { title: "ניהול ספקים וייבוא מוצרים", description: "סריקת קטלוגים, התאמת קטגוריות ותמחור מוצרים", Icon: IconPackages } : tab ? tabs[tab] : overview;
+  const Icon = info.Icon;
+  const title = tab === "heroes" ? "באנרים בדף הבית" : manageHref ? "עריכת באנדלים למוצר" : reviewHref ? "ביקורות למוצר"
+    : tab && editing ? (create ? tabs[tab].create : tabs[tab].edit) : info.title;
+  const heroEditing = tab === "heroes" && (create || !!editId);
+  const backHref = tab && (reviewHref || manageHref || editing || heroEditing) ? adminUrl(tab) : undefined;
+
+  return (
+    <main className="admin-page">
+      <header className="admin-header">
+        <div className="admin-brand"><Link href="/admin" aria-label="ניהול החנות"><img src="/logo.avif" alt="Cohen Brothers" width={144} /></Link><span>ניהול החנות</span></div>
+        <div className="admin-header-actions">
+          <Link href="/" className="admin-store-link">לאתר החנות <span aria-hidden="true"><IconFwd /></span></Link>
+          <form action="/admin/session" method="post"><input type="hidden" name="operation" value="logout" /><button className="btn btn-line" type="submit">יציאה</button></form>
+        </div>
+      </header>
+      <div className="admin-layout">
+        <nav aria-label="כלי ניהול" className="admin-nav">
+          <Link className="admin-nav-overview" href="/admin" prefetch={false} aria-current={!tab && !supplierView ? "page" : undefined}>
+            <span className="admin-nav-icon" aria-hidden="true"><IconHome /></span>{overview.title}
+          </Link>
+          {toolGroups.map((group) => <div className="admin-nav-group" key={group.label}>
+            <span className="admin-nav-label">{group.label}</span>
+            {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=suppliers" prefetch={false} aria-current={supplierView ? "page" : undefined}><span className="admin-nav-icon"><IconPackages /></span>ספקים וייבוא מוצרים</Link>}
+            {group.tools.map((key) => {
+              const ToolIcon = tabs[key].Icon;
+              return <Link key={key} href={adminUrl(key)} prefetch={false} aria-current={tab === key ? "page" : undefined}>
+                <span className="admin-nav-icon" aria-hidden="true"><ToolIcon /></span>{tabs[key].title}
+              </Link>;
+            })}
+          </div>)}
+        </nav>
+        <section className="admin-main" aria-labelledby="admin-title">
+          <header className="admin-section-heading">
+            {backHref && <AdminBackLink href={backHref} label={reviewHref ? "חזרה לכל המוצרים" : undefined} />}
+            <div className="admin-section-intro">
+              <span className="admin-section-icon" aria-hidden="true"><Icon /></span>
+              <div className="admin-section-copy">
+                <h1 className="k" id="admin-title">{title}</h1>
+                {!editing && !manageHref && !reviewHref && <p>{info.description}</p>}
+              </div>
+              {tab === "heroes" ? !create && store.heroes.length > 0 && (
+                <Link href={`${adminUrl("heroes", { edit: "new" })}#hero-editor`} className="btn admin-primary admin-section-action" prefetch={false}>
+                  <IconPlus size={16} />{tabs.heroes.create}
+                </Link>
+              ) : tab && (reviewHref
+                ? reviewProduct && !editing && <Link href={`${adminUrl("reviews", { product: reviewProduct.id, edit: "new" })}#review-editor`} className="btn admin-primary admin-section-action" prefetch={false}><IconPlus size={16} />הוספת ביקורת</Link>
+                : manageHref
+                ? groupProduct && <Link href={`${adminUrl(tab, { edit: "new", manage: group })}#bundle-editor`} className="btn admin-section-action admin-product-create"><IconPlus size={16} />הוספת חבילה</Link>
+                : !editing && <Link href={adminUrl(tab, { edit: "new" })} className={`btn admin-section-action ${tab === "bundles" || tab === "offers" ? "admin-product-create" : "admin-primary"}`}><IconPlus size={16} />{tabs[tab].create}</Link>)}
+            </div>
+          </header>
+          {tab && !editing && !create && !editId && saved === "1" && <p className="admin-feedback admin-list-notice" data-ok="true" role="status">השינויים נשמרו.</p>}
+          {supplierView ? <Suppliers params={params} /> : !tab ? <StoreOverview store={store} products={catalog.products} />
+            : tab === "heroes" ? <HeroManager store={store} categories={catalog.categories} editId={editId} create={create} />
+            : manageHref && group ? <>
+              <ProductBundles group={group} productId={groupProductId} items={groupBundles} catalog={products} editId={editId} />
+              {editing && <section className="admin-panel admin-editor admin-bundle-editor" id="bundle-editor"
+                aria-labelledby="bundle-editor-title" tabIndex={-1} key={JSON.stringify([group, editId, create])}>
+                <header className="admin-bundle-editor-header">
+                  <h2 id="bundle-editor-title">{create ? "חבילה חדשה" : "עריכת חבילה"}</h2>
+                  <Link href={manageHref} className="btn btn-line" prefetch={false}>ביטול</Link>
+                </header>
+                <BundleEditor item={groupBundles.find((item) => item.id === editId)} initialProduct={prefilledProduct} returnTo={manageHref}
+                  reservedQuantities={groupBundles.filter((item) => item.id !== editId && item.items.length === 1).map((item) => item.items[0][1])} />
+              </section>}
+            </>
+            : reviewHref && reviewProductId ? <>
+              {editing && <section className="admin-panel admin-editor admin-bundle-editor" id="review-editor" aria-labelledby="review-editor-title"
+                tabIndex={-1} key={JSON.stringify([reviewProductId, editId, create])}>
+                <header className="admin-bundle-editor-header">
+                  <h2 id="review-editor-title">{create ? tabs.reviews.create : tabs.reviews.edit}</h2>
+                  <Link href={reviewHref} className="btn btn-line" prefetch={false}>ביטול</Link>
+                </header>
+                <ReviewEditor item={productReviews.find((item) => item.id === editId)} product={reviewProduct} returnTo={reviewHref} />
+              </section>}
+              <ProductReviewList productId={reviewProductId} product={reviewProduct} items={productReviews} />
+            </>
+            : editing ? <div className="admin-panel admin-editor" key={JSON.stringify([tab, editId, prefilledProduct, catalogOfferProduct?.id])}>
+              <ToolEditor tab={tab} store={store} id={editId} productId={prefilledProduct} catalog={products} catalogOfferProduct={catalogOfferProduct} />
+            </div>
+            : <ToolList tab={tab} store={store} catalog={products} />}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function StoreOverview({ store, products }: { store: AdminStore; products: Product[] }) {
+  const liveBundles = store.bundles.filter((item) => item.active).length;
+  const liveHeroes = store.heroes.filter((item) => heroIsPublished(item, store.activeHero)).length;
+  const offerCount = new Set([...store.offers.map((offer) => offer.productId), ...products.filter(quantityOffer).map((product) => product.id)]).size;
+  return <>
+    <section className="admin-overview-metrics" aria-label="מצב החנות">
+      <div className="admin-panel admin-metric">
+        <span>מוצרים בקטלוג</span><strong>{products.length.toLocaleString("he-IL")}</strong>
+      </div>
+      <Link href={adminUrl("bundles")} className="admin-panel admin-metric" prefetch={false}>
+        <span>באנדלים פעילים</span><strong>{liveBundles}</strong><small>{store.bundles.length - liveBundles} טיוטות</small>
+      </Link>
+      <Link href={adminUrl("heroes")} className="admin-panel admin-metric" prefetch={false}>
+        <span>באנרים בדף הבית</span><strong>{liveHeroes}</strong>
+      </Link>
+    </section>
+    {toolGroups.map(({ label, tools }) => <section key={label} className="admin-overview-group" aria-label={label}>
+      <h2>{label}</h2>
+      <div className="admin-tool-grid">
+        {tools.map((tab) => {
+          const ToolIcon = tabs[tab].Icon;
+          const count = tab === "offers" ? offerCount : store[tab].length;
+          return <Link className="admin-panel admin-tool-card" key={tab} href={adminUrl(tab)} prefetch={false}>
+            <span className="admin-tool-icon" aria-hidden="true"><ToolIcon /></span>
+            <span><strong>{tabs[tab].title}</strong><small>{count} {count === 1 ? "פריט" : "פריטים"}</small></span>
+            <span className="admin-tool-arrow" aria-hidden="true"><IconFwd /></span>
+          </Link>;
+        })}
+      </div>
+    </section>)}
+  </>;
+}
+
+type ListItem = { id: string; title: string; note?: ReactNode; status?: string; active?: boolean; href?: string };
+type ProductIndex = Map<string, Product>;
+
+function HeroManager({ store, categories, editId, create }: { store: AdminStore; categories: Category[]; editId?: string; create: boolean }) {
+  const returnTo = adminUrl("heroes");
+  const categoryOptions = categories.map(({ id, name }) => ({ id, name }));
+  const editor = (hero?: AdminHero) => (
+    <section className="admin-panel admin-editor admin-hero-editor" id="hero-editor" aria-labelledby="hero-editor-title" tabIndex={-1} key={hero?.id ?? "new"}>
+      <header className="admin-bundle-editor-header"><h2 id="hero-editor-title">{hero ? tabs.heroes.edit : tabs.heroes.create}</h2></header>
+      <AdminHeroEditor hero={hero} published={hero ? heroIsPublished(hero, store.activeHero) : true} categories={categoryOptions} returnTo={returnTo} />
+    </section>
+  );
+  const cards = store.heroes.map((hero) => {
+    if (hero.id === editId) return { id: hero.id, content: editor(hero) };
+    const published = heroIsPublished(hero, store.activeHero);
+    const content = <article className="admin-panel admin-hero-card">
+        <div className="admin-hero-files">
+          <HeroImagePreview hero={hero} device="desktop" label="תמונה למחשב" />
+          <HeroImagePreview hero={hero} device="mobile" label="תמונה למובייל" />
+        </div>
+        <footer>
+          <span className="admin-status" data-active={published}>{published ? "מוצג בדף הבית" : "מוסתר מדף הבית"}</span>
+          <div className="admin-row-actions">
+            <Link href={`${adminUrl("heroes", { edit: hero.id })}#hero-editor`} className="btn btn-line admin-row-edit" prefetch={false}>
+              <IconPencil />עריכת באנר
+            </Link>
+            {hero.id !== "default" && <AdminRemoveButton section="heroes" id={hero.id} title="הבאנר" />}
+          </div>
+        </footer>
+    </article>;
+    return { id: hero.id, content };
+  });
+  return <div className="admin-hero-list">
+    {(create || !store.heroes.length) && editor()}
+    {!create && !editId && cards.length > 1
+      ? <AdminHeroOrder key={JSON.stringify(cards.map(({ id }) => id))} cards={cards} returnTo={returnTo} />
+      : cards.map(({ id, content }) => <Fragment key={id}>{content}</Fragment>)}
+  </div>;
+}
+
+function HeroImagePreview({ hero, device, label }: { hero: AdminHero; device: HeroDevice; label: string }) {
+  const image = hero[device];
+  const target = heroImageTarget(hero, device);
+  return <div className="admin-hero-preview" data-device={device}>
+    <strong>{label}</strong>
+    <div className="admin-hero-preview-image">
+      {image ? <img src={image.src} alt="" loading="lazy" /> : <span>משתמש בתמונה השנייה</span>}
+    </div>
+    {image && <p className="admin-hero-preview-target">
+      {target?.kind === "link" ? <>קישור <bdi>{target.href}</bdi></>
+        : target ? <>{target.kind === "product" ? "מוצר" : "קטגוריה"} <bdi>{target.label}</bdi></>
+        : "ללא קישור"}
+    </p>}
+  </div>;
+}
+
+function ToolList({ tab, store, catalog }: { tab: Exclude<Tab, "heroes">; store: AdminStore; catalog: ProductIndex }) {
+  if (tab === "bundles") return <BundleList bundles={store.bundles} catalog={catalog} />;
+  if (tab === "offers") return <OfferList offers={store.offers} hiddenProductIds={store.hiddenQuantityOffers} catalog={catalog} />;
+  if (tab === "reviews") return <ReviewProductCards reviews={store.reviews} catalog={catalog} />;
+  if (tab === "labels") return <LabelList labels={store.labels} catalog={catalog} />;
+  const product = (id: string) => catalog.get(id)?.name ?? id;
+  const rows: ListItem[] = {
+    links: () => store.links.map((item) => ({ id: item.id, title: "/s/" + item.slug, note: item.destination, href: "/s/" + item.slug })),
+    sales: () => store.sales.map((item) => ({ id: item.id, title: item.title, note: product(item.productId) + " · " + item.quantity + " יח׳", href: item.url })),
+  }[tab]();
+  return <section className="admin-records" aria-label="פריטים שמורים">
+    <h2>פריטים שמורים <span>{rows.length}</span></h2>
+    {rows.length ? <ul className="admin-panel admin-record-list">
+      {rows.map((item) => <ListRow key={item.id} tab={tab} item={item} />)}
+    </ul> : <p className="admin-panel admin-empty">עוד לא נשמרו פריטים בכלי הזה.</p>}
+  </section>;
+}
+
+function LabelList({ labels, catalog }: { labels: AdminLabel[]; catalog: ProductIndex }) {
+  return <section className="admin-records admin-labels" aria-labelledby="admin-labels-title">
+    <h2 id="admin-labels-title">מוצרים עם תווית מבצע <span>{labels.length}</span></h2>
+    {labels.length ? <ul className="admin-label-list">
+      {labels.map(label => {
+        const product = catalog.get(label.productId);
+        const name = product?.name ?? label.productId;
+        const image = product?.imgs?.find(Boolean) ?? product?.choices?.find(choice => choice.image)?.image;
+        return <li key={label.id} className="admin-panel admin-label-card">
+          <div className="admin-label-product">
+            <AdminProductSummary item={{ name, sku: product?.sku, imgs: image ? [image] : [] }}/>
+            <span className="badge y product-promo-label admin-label-preview"><bdi>{label.text}</bdi></span>
+          </div>
+          <div className="admin-row-actions admin-label-actions">
+            <Link href={adminUrl("labels", { edit: label.id })} className="btn btn-line" aria-label={`עריכת התווית של ${name}`}>
+              <IconPencil/>עריכה
+            </Link>
+            <AdminRemoveButton section="labels" id={label.id} title={`התווית ${label.text} מהמוצר ${name}`}/>
+          </div>
+        </li>;
+      })}
+    </ul> : <p className="admin-panel admin-empty">עדיין אין מוצרים עם תווית מבצע.</p>}
+  </section>;
+}
+
+function bundleGroup(bundle: AdminBundle) {
+  return bundle.items.length === 1 ? `product:${bundle.items[0][0]}` : `bundle:${bundle.id}`;
+}
+
+function productKeywords(product: Product | undefined, id: string) {
+  return product ? [product.name, product.sku, ...new Set(product.choices?.map(({ sku }) => sku))].filter(Boolean).join(" ") : id;
+}
+
+function ReviewProductCards({ reviews, catalog }: { reviews: AdminReview[]; catalog: ProductIndex }) {
+  const groups = new Map<string, { count: number; pending: number }>();
+  for (const review of reviews) {
+    const group = groups.get(review.productId) ?? { count: 0, pending: 0 };
+    group.count++;
+    if (reviewAwaitsApproval(review)) group.pending++;
+    groups.set(review.productId, group);
+  }
+  const entries = [...groups].sort(([, a], [, b]) => Number(b.pending > 0) - Number(a.pending > 0)).map(([id, { count, pending }]) => {
+    const product = catalog.get(id);
+    return {
+      id, keywords: productKeywords(product, id),
+      card: <Link href={adminUrl("reviews", { product: id })} className="admin-panel admin-review-card" prefetch={false}>
+        <div className="admin-review-card-product"><AdminProductSummary item={product ?? { name: id }} /></div>
+        <div className="admin-review-card-footer">
+          <span>{count === 1 ? "ביקורת אחת" : `${count} ביקורות`}</span>
+          {pending > 0 && <span className="admin-review-pending">{pending === 1 ? "אחת ממתינה לאישור" : `${pending} ממתינות לאישור`}</span>}
+          <IconFwd />
+        </div>
+      </Link>,
+    };
+  });
+  return <AdminProductList section="reviews" entries={entries} />;
+}
+
+function ProductReviewList({ productId, product, items }: { productId: string; product?: Product; items: AdminReview[] }) {
+  return <>
+    <PromotionCard name={product?.name ?? productId} product={product}>
+      {items.map((item) => {
+        const pending = reviewAwaitsApproval(item);
+        return <ListRow key={item.id} tab="reviews" editHref={`${adminUrl("reviews", { product: productId, edit: item.id })}#review-editor`}
+          primaryAction={pending ? <AdminApproveReviewButton id={item.id} author={item.author} /> : undefined} item={{
+            id: item.id, title: item.author, active: item.published,
+            status: pending ? "ממתינה לאישור" : item.published ? "פורסמה" : "טיוטה",
+            note: <>
+              <span className="admin-review-rating"><ReviewStars rating={item.rating} size={15} />{item.source === "customer" && "נשלחה מהאתר"}</span>
+              <span className="admin-review-text" dir="auto">{item.text}</span>
+            </>,
+          }} />;
+      })}
+    </PromotionCard>
+    {!items.length && <p className="admin-panel admin-empty">עדיין אין ביקורות למוצר הזה.</p>}
+  </>;
+}
+
+function BundleList({ bundles, catalog }: { bundles: AdminBundle[]; catalog: ProductIndex }) {
+  const groups = new Map<string, AdminBundle[]>();
+  for (const bundle of bundles) {
+    const key = bundleGroup(bundle);
+    const items = groups.get(key);
+    if (items) items.push(bundle);
+    else groups.set(key, [bundle]);
+  }
+  return <AdminProductList section="bundles" entries={Array.from(groups, ([id, items]) => {
+    const [bundle] = items;
+    const productId = bundle.items.length === 1 ? bundle.items[0][0] : undefined;
+    const product = productId ? catalog.get(productId) : undefined;
+    const name = product?.name ?? productId ?? "ערכה ממספר מוצרים";
+    const relatedIds = new Set(bundle.items.map(([sourceId]) => sourceId));
+    const edit = product && <AdminBundleDialog id={product.id} snapshot={bundleGroupSnapshot(items)}
+      summary={{ name, sku: product.sku, imgs: product.imgs?.slice(0, 1) }} tiers={[...items].sort((a, b) => a.items[0][1] - b.items[0][1]).map((tier) => ({
+        id: tier.id, quantity: tier.items[0][1], total: tier.total ?? (tier.bundleProductId ? catalog.get(tier.bundleProductId)?.price : undefined),
+        title: tier.name, bestValue: tier.bestValue, showInQuantityOffers: tier.showInQuantityOffers, active: tier.active,
+      }))} />;
+    return {
+      id,
+      keywords: Array.from(relatedIds, (sourceId) => productKeywords(catalog.get(sourceId), sourceId)).join(" "),
+      card: <PromotionCard name={name} product={product} actions={edit}
+        editHref={product ? undefined : adminUrl("bundles", { manage: id, edit: items.length === 1 ? bundle.id : undefined })} />,
+    };
+  })} />;
+}
+
+async function OfferList({ offers, hiddenProductIds, catalog }: { offers: AdminOffer[]; hiddenProductIds: string[]; catalog: ProductIndex }) {
+  const saved = new Map(offers.map((offer) => [offer.productId, offer]));
+  const catalogOffers = new Map(Array.from(catalog).flatMap(([id, product]) => {
+    const offer = quantityOffer(product);
+    return offer ? [[id, offer] as const] : [];
+  }));
+  const hidden = new Set(hiddenProductIds);
+  const verified = new Set((await managedBundleProducts([...catalog.values()], [], offers)).map(({ id }) => id));
+  const productIds = new Set([...saved.keys(), ...catalogOffers.keys()]);
+  return <AdminProductList section="offers" entries={Array.from(productIds, (productId) => {
+    const product = catalog.get(productId);
+    const offer = saved.get(productId);
+    const original = catalogOffers.get(productId);
+    const isHidden = hidden.has(productId);
+    const visibleSavedOffer = offer?.active && (!offer.sourceVariantIds?.length || verified.has(bundleCartProductId(offer.id)));
+    const name = original?.title ?? product?.name ?? productId;
+    return {
+      id: productId, keywords: productKeywords(product, productId),
+      card: <PromotionCard name={name} product={product} editHref={adminUrl("offers", { edit: offer?.id ?? "catalog", product: offer ? undefined : productId })}
+        actions={(isHidden || visibleSavedOffer || original) && <AdminOfferVisibilityButton productId={productId} hidden={isHidden} />}>
+        {offer && <PromotionRow section="offers" item={offer} title={`${offer.quantity} ${original?.quantityLabel ?? "יחידות"}`} removeTitle={name}
+          status={isHidden ? "מוסתר" : offer.active && !visibleSavedOffer ? "ממתין לסנכרון" : undefined} />}
+        {original && !visibleSavedOffer && <PromotionRow section="offers" item={{ total: original.total, active: !isHidden }}
+          title={`${original.quantity} ${original.quantityLabel}`} note="מהקטלוג ב־Shopify" status={isHidden ? "מוסתר" : "פעיל"} />}
+      </PromotionCard>,
+    };
+  })} />;
+}
+
+function ProductBundles({ group, productId, items, catalog, editId }: { group: string; productId?: string; items: AdminBundle[]; catalog: ProductIndex; editId?: string }) {
+  const product = productId ? catalog.get(productId) : undefined;
+  const sorted = [...items].sort((a, b) => (a.items[0]?.[1] ?? 0) - (b.items[0]?.[1] ?? 0));
+  return <>
+    <PromotionCard name={product?.name ?? productId ?? "ערכה ממספר מוצרים"} product={product}>
+      {sorted.map((item) => {
+        const contents = item.items.map(([sourceId, quantity]) => productId ? `${quantity} יחידות` : `${quantity} × ${catalog.get(sourceId)?.name ?? sourceId}`);
+        if (item.bundleProductId) contents.push(catalog.get(item.bundleProductId)?.name ?? item.bundleProductId);
+        return <PromotionRow key={item.id} section="bundles" item={item} title={item.name}
+          note={contents.filter((part) => part !== item.name).join(" · ")} editing={item.id === editId}
+          editHref={`${adminUrl("bundles", { edit: item.id, manage: group })}#bundle-editor`} />;
+      })}
+    </PromotionCard>
+    {!sorted.length && <p className="admin-panel admin-empty">אין חבילות למוצר הזה.</p>}
+  </>;
+}
+
+function PromotionCard({ name, product, editHref, actions, children }: { name: string; product?: Product; editHref?: string; actions?: ReactNode; children?: ReactNode }) {
+  const hasDetails = Array.isArray(children) ? children.length > 0 : !!children;
+  return <section className="admin-panel admin-promotion-card" aria-label={name}>
+    <header className="admin-promotion-card-header" data-has-details={hasDetails}>
+      <div className="admin-promotion-card-product"><AdminProductSummary item={{ name, sku: product?.sku, imgs: product?.imgs?.slice(0, 1) }} /></div>
+      <div className="admin-promotion-card-actions">
+        {editHref && <Link href={editHref} className="btn btn-line admin-promotion-edit" prefetch={false} aria-label={`עריכת ${name}`}>
+          <IconPencil />עריכה
+        </Link>}
+        {actions}
+        {product && <Link href={`/p/${encodeURIComponent(product.id)}`} className="btn btn-line" prefetch={false}>לדף המוצר<IconFwd /></Link>}
+      </div>
+    </header>
+    {hasDetails && <ul className="admin-record-list">{children}</ul>}
+  </section>;
+}
+
+function PromotionRow({ section, item, title, note, editHref, editing, status, removeTitle = title }: {
+  section: "bundles" | "offers"; item: { id?: string; total?: number; active: boolean; bestValue?: boolean }; title: string; note?: string; editHref?: string; editing?: boolean; status?: string; removeTitle?: string;
+}) {
+  return <li className="admin-promotion-row" data-editing={editing}>
+    <div className="admin-record-title"><strong dir="auto">{title}</strong>{note && <small dir="auto">{note}</small>}</div>
+    <div className="admin-promotion-row-details">
+      {item.total !== undefined && <strong className="admin-promotion-row-price"><bdi>{fmt(item.total)}</bdi></strong>}
+      <span className="admin-status" data-active={status ? status === "פעיל" : item.active}>{status ?? (item.active ? "פעיל" : "טיוטה")}</span>
+      {item.bestValue && <span className="admin-bundle-best-value-status">הכי משתלם</span>}
+    </div>
+    <div className="admin-row-actions">
+      {editHref && <Link href={editHref} className="btn btn-line admin-row-edit" prefetch={false} aria-label={`עריכת ${title}`} aria-current={editing || undefined}><IconPencil />עריכה</Link>}
+      {item.id && <AdminRemoveButton section={section} id={item.id} title={removeTitle} />}
+    </div>
+  </li>;
+}
+
+function ListRow({ tab, item, editHref, primaryAction }: { tab: Tab; item: ListItem; editHref?: string; primaryAction?: ReactNode }) {
+  return <li className={tab === "reviews" ? "admin-record admin-review-row" : "admin-record"}>
+    <div className="admin-record-main">
+      <span className="admin-record-title"><strong dir="auto">{item.title}</strong>{item.note && <small dir="auto">{item.note}</small>}</span>
+      {item.status && <span className="admin-status" data-active={item.active}>{item.status}</span>}
+    </div>
+    <div className="admin-row-actions">
+      {item.href && <CopyAdminLink href={item.href} />}
+      {primaryAction ?? <Link href={editHref ?? adminUrl(tab, { edit: item.id })} className="btn btn-line admin-row-edit" prefetch={false} aria-label={"עריכת " + item.title}>עריכה</Link>}
+      <AdminRemoveButton section={tab} id={item.id} title={item.title} />
+    </div>
+  </li>;
+}
+
+function ToolEditor({ tab, store, id, productId, catalog, catalogOfferProduct }: { tab: Exclude<Tab, "heroes">; store: AdminStore; id?: string; productId?: string; catalog: ProductIndex; catalogOfferProduct?: Product }) {
+  switch (tab) {
+    case "bundles": return <BundleEditor item={store.bundles.find((item) => item.id === id)} initialProduct={productId} />;
+    case "offers": {
+      const item = store.offers.find((item) => item.id === id);
+      return <OfferEditor item={item} product={item ? catalog.get(item.productId) : catalogOfferProduct} />;
+    }
+    case "reviews": return <ReviewEditor item={store.reviews.find((item) => item.id === id)} />;
+    case "links": return <LinkEditor item={store.links.find((item) => item.id === id)} />;
+    case "sales": return <SaleEditor item={store.sales.find((item) => item.id === id)} />;
+    case "labels": return <AdminLabelEditor item={store.labels.find((item) => item.id === id)} />;
+  }
+}
+
+
+function BundleEditor({ item, initialProduct, returnTo, reservedQuantities }: { item?: AdminBundle; initialProduct?: string; returnTo?: string; reservedQuantities?: number[] }) {
+  const singleProduct = item?.items.length === 1 ? item.items[0] : undefined;
+  return <AdminForm section="bundles" id={item?.id} returnTo={returnTo}>
+    {item && item.items.length > 1 && <p className="admin-hint">הערכה הזו כוללת כמה מוצרים. כדי לעדכן אותה, בחרו מוצר אחד ומחיר כולל.</p>}
+    <AdminBundleFields initialId={singleProduct?.[0] ?? initialProduct} reservedQuantities={reservedQuantities}
+      initial={item && { title: item.name, quantity: singleProduct?.[1] ?? 2, total: item.total, bestValue: item.bestValue, showInQuantityOffers: item.showInQuantityOffers }} />
+    <Check name="active" checked={item?.active ?? true} label="סנכרון ופרסום ב־Shopify בשמירה" />
+    <p className="admin-hint">מחיר החבילה חל אוטומטית על כל הצבעים והמידות של המוצר.</p>
+  </AdminForm>;
+}
+
+function OfferEditor({ item, product }: { item?: AdminOffer; product?: Product }) {
+  const original = product && quantityOffer(product);
+  const fixedQuantity = original?.kind === "pack";
+  return <AdminForm section="offers" id={item?.id}>
+    {product ? <>
+      <input type="hidden" name="productId" value={product.id} />
+      <div className="admin-selected-product"><AdminProductSummary item={{ name: original?.title ?? product.name, sku: product.sku, imgs: product.imgs?.slice(0, 1) }} /></div>
+    </> : <AdminProductField initialId={item?.productId} />}
+    <div className="admin-field-pair">
+      <label className="field">מספר יחידות<input name="quantity" type="number" min={2} max={250} defaultValue={fixedQuantity ? original.quantity : item?.quantity ?? original?.quantity ?? 2} readOnly={fixedQuantity} required /></label>
+      <label className="field">מחיר כולל בש״ח<input name="total" type="number" min="0.01" max={100000} step="0.01" defaultValue={item?.total ?? original?.total} required /></label>
+    </div>
+    {fixedQuantity && <p className="admin-hint">כמות היחידות קבועה במארז הקיים. אפשר לשנות את המחיר הכולל.</p>}
+    <Check name="active" checked={item?.active ?? true} label="סנכרון ופרסום המבצע בשמירה" />
+    <p className="admin-hint">הפרסום יוצר מארז ב־Shopify לכל הצבעים והמידות ומוסיף אותו לעמוד מבצעי הכמות.</p>
+  </AdminForm>;
+}
+
+function ReviewEditor({ item, product, returnTo }: { item?: AdminReview; product?: Product; returnTo?: string }) {
+  return <AdminForm section="reviews" id={item?.id} returnTo={returnTo}>
+    {product && !item ? <>
+      <input type="hidden" name="productId" value={product.id} />
+      <div className="admin-selected-product"><AdminProductSummary item={product} /></div>
+    </> : <AdminProductField initialId={item?.productId} />}
+    <div className="admin-field-pair">
+      <label className="field">שם לתצוגה<input name="author" maxLength={80} defaultValue={item?.author} required /></label>
+      <ReviewRatingInput initialRating={item?.rating ?? 5} />
+    </div>
+    <label className="field">תוכן הביקורת<textarea name="review" rows={4} maxLength={2000} defaultValue={item?.text} required /></label>
+    <Check name="published" checked={item?.published} label="פרסום בעמוד המוצר" />
+  </AdminForm>;
+}
+
+function LinkEditor({ item }: { item?: AdminRedirect }) {
+  return <AdminForm section="links" id={item?.id}>
+    <label className="field">שם הקישור אחרי ‎/s/‎<input name="slug" dir="ltr" placeholder="winter" maxLength={72} pattern="[a-zA-Z0-9]+([_\-][a-zA-Z0-9]+)*" defaultValue={item?.slug} required /></label>
+    <label className="field">יעד הקישור<input name="destination" dir="ltr" placeholder="/offers" maxLength={2048} defaultValue={item?.destination} required /></label>
+  </AdminForm>;
+}
+
+function SaleEditor({ item }: { item?: AdminSale }) {
+  return <AdminForm section="sales" id={item?.id}>
+    <label className="field">שם המכירה<input name="title" maxLength={120} defaultValue={item?.title} required /></label>
+    <AdminProductField initialId={item?.productId} initialVariant={item?.variantId} variants />
+    <div className="admin-field-pair">
+      <label className="field">כמות<input type="number" name="quantity" min={1} max={250} defaultValue={item?.quantity ?? 1} required /></label>
+      <label className="field">קוד הנחה אופציונלי<input name="code" dir="ltr" maxLength={100} defaultValue={item?.code} /></label>
+    </div>
+  </AdminForm>;
+}
+
+function Check({ name, label, checked }: { name: string; label: string; checked?: boolean }) {
+  return <label className="admin-check"><span>{label}</span><input type="checkbox" name={name} defaultChecked={checked} /></label>;
+}

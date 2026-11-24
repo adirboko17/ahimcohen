@@ -27,21 +27,29 @@ export function offerCartQuantity(product: Product) {
   return offer?.kind === "quantity" ? offer.quantity : 1;
 }
 
-export function quantityOffer(product: Product): QuantityOffer | null {
-  const name = product.name.normalize("NFKC").replace(/[–—־]/g, "-").replace(/\s+/g, " ").trim();
-  const build = (quantity: number, total: number, kind: QuantityOffer["kind"], regular: number | undefined, title = product.name): QuantityOffer | null => {
-    if (!Number.isSafeInteger(quantity) || quantity <= 1 || !Number.isFinite(total) || total <= 0) return null;
-    const pairs = /זוגות/.test(name);
-    const regularTotal = regular && Number.isFinite(regular) && regular > total ? regular : null;
-    return {
-      title, quantity, total, unitPrice: total / quantity, regularTotal,
-      saving: regularTotal ? regularTotal - total : 0,
-      kind, quantityLabel: pairs ? "זוגות" : "יחידות", unitLabel: pairs ? "לזוג" : "ליחידה",
-    };
+function buildOffer(product: Product, quantity: number, total: number, kind: QuantityOffer["kind"], regular: number | undefined, title = product.name): QuantityOffer | null {
+  if (!Number.isSafeInteger(quantity) || quantity <= 1 || !Number.isFinite(total) || total <= 0) return null;
+  const pairs = /זוגות/.test(product.name.normalize("NFKC"));
+  const regularTotal = regular && Number.isFinite(regular) && regular > total ? regular : null;
+  return {
+    title, quantity, total, unitPrice: total / quantity, regularTotal,
+    saving: regularTotal ? regularTotal - total : 0,
+    kind, quantityLabel: pairs ? "זוגות" : "יחידות", unitLabel: pairs ? "לזוג" : "ליחידה",
   };
+}
+
+export function managedQuantityOffer(product: Product, quantity: number, total: number) {
+  const original = quantityOffer(product);
+  const regular = original?.kind === "pack" ? original.regularTotal ?? undefined : product.price * quantity;
+  return buildOffer(product, quantity, total, "pack", regular, original?.title);
+}
+
+export function quantityOffer(product: Product): QuantityOffer | null {
+  if (product.quantityOfferHidden) return null;
+  const name = product.name.normalize("NFKC").replace(/[–—־]/g, "-").replace(/\s+/g, " ").trim();
   const deal = product.deal;
   if (deal && deal[1] < product.price * deal[0]) {
-    const offer = build(deal[0], deal[1], "quantity", product.price * deal[0]);
+    const offer = buildOffer(product, deal[0], deal[1], "quantity", product.price * deal[0]);
     if (offer) return offer;
   }
   // Titles can advertise a multi-buy priced per item, or a complete pack whose
@@ -53,12 +61,12 @@ export function quantityOffer(product: Product): QuantityOffer | null {
     if (!Number.isFinite(advertisedTotal) || advertisedTotal <= 0) return null;
     const isPack = Math.abs(product.price - advertisedTotal) < .005 || /מארז|חביל[הת]/.test(name) || /^\s*חביל[הת]/m.test((product.desc ?? []).join("\n"));
     const title = name.slice(0, advertised.index).trim().replace(/^מבצע\s+|\s+מבצע$/g, "").replace(/[\s:()\-]+$/g, "").trim() || product.name;
-    return build(quantity, isPack ? product.price : advertisedTotal, isPack ? "pack" : "quantity", isPack ? product.was : product.price * quantity, title);
+    return buildOffer(product, quantity, isPack ? product.price : advertisedTotal, isPack ? "pack" : "quantity", isPack ? product.was : product.price * quantity, title);
   }
   // A discounted multipack uses the current pack price, not count * pack price.
   if (!(product.was && product.was > product.price)) return null;
   const pack = name.match(packPattern) ?? name.match(/(?:^|\s|\()(\d+)\s+(?:זוגות|יחידות|יח['׳״"`]?)(?:\s|\)|$)/);
-  return pack ? build(countOf(pack[1]), product.price, "pack", product.was) : null;
+  return pack ? buildOffer(product, countOf(pack[1]), product.price, "pack", product.was) : null;
 }
 
 export function isQuantityOffer(product: Product): boolean {

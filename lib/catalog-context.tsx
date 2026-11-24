@@ -31,8 +31,9 @@ export function useCatalog() {
   return useContext(Ctx) ?? staticView;
 }
 
-function makeView(categories: Category[], products: Product[], legacy: boolean): CatalogView {
-  const byProduct = Object.fromEntries(products.map((product) => [product.id, product]));
+function makeView(categories: Category[], allProducts: Product[], legacy: boolean): CatalogView {
+  const byProduct = Object.fromEntries(allProducts.map((product) => [product.id, product]));
+  const products = allProducts.filter((product) => !product.bundleSourceId);
   const byCategory = Object.fromEntries(categories.map((category) => [category.id, category]));
   return {
     categories,

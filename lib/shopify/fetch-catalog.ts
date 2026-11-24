@@ -40,7 +40,7 @@ export async function fetchShopCatalog(): Promise<ShopCatalog> {
     for (const item of await fetchProductsByHandles(handles)) merged.set(item.handle, toProduct(item, "shop"));
   });
 
-  const products = [...merged.values()];
+  const products = [...merged.values()].filter((product) => !/^ahim-bundle-[a-f0-9]{24}$/.test(product.id));
   const categories = CATS.flatMap((parent) => {
     const owned = products.filter((product) => (product.cats ?? [product.cat]).includes(parent.id));
     if (!owned.length) return [];
@@ -182,6 +182,7 @@ function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
   return {
     id: product.handle,
     name: product.title,
+    publishedAt: product.publishedAt,
     cat: collectionHandle,
     cats: collectionHandle === "shop" ? [] : [collectionHandle],
     sub: "",

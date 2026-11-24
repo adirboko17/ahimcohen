@@ -43,7 +43,7 @@ export function CheckoutView() {
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>לפני הנחות</span><span>{cartQuote.error ? "-" : fmt(math.regular)}</span></div>
             {cartQuote.quote && math.savings > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
-                <span style={{ background: "#FFD100", padding: "0 6px" }}>מבצעי כמות</span>
+                <span style={{ background: "#FFD100", padding: "0 6px" }}>הנחות</span>
                 <span dir="ltr">-{fmt(math.savings)}</span>
               </div>
             )}

@@ -40,6 +40,7 @@ export type ShopifyProduct = {
   id: string;
   handle: string;
   title: string;
+  publishedAt: string;
   description: string;
   productType: string;
   vendor: string;
@@ -95,6 +96,7 @@ export type MetafieldIdentifier = {
 export type CartLineDraft = {
   merchandiseId: string;
   quantity: number;
+  configurationKey?: string;
   attributes?: { key: string; value: string }[];
 };
 

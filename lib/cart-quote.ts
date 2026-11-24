@@ -24,7 +24,9 @@ export function cartQuote(cart: ShopifyCart, requested: CartLineDraft[]): CartQu
     entry.regular = round(entry.regular + amount(line.subtotal));
     entry.total = round(entry.total + amount(line.total));
   }
-  if (requested.length !== Object.keys(lines).length || requested.some((line) => lines[line.merchandiseId]?.quantity !== line.quantity)) {
+  const requestedQuantities = new Map<string, number>();
+  for (const line of requested) requestedQuantities.set(line.merchandiseId, (requestedQuantities.get(line.merchandiseId) ?? 0) + line.quantity);
+  if (requestedQuantities.size !== Object.keys(lines).length || Array.from(requestedQuantities).some(([id, quantity]) => lines[id]?.quantity !== quantity)) {
     throw new Error("Cart quantity changed");
   }
   const regular = round(Object.values(lines).reduce((sum, line) => sum + line.regular, 0));

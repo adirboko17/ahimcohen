@@ -63,7 +63,7 @@ test("changing quantity prices and adds exactly the currently visible units", ()
 
 // Exercise the product's event handlers without a browser: keep hook state across
 // renders, select different units, and inspect the actual addMany/quote inputs.
-function productHarness(item = product) {
+function productHarness(item = product, props = {}, packProduct) {
   const states = [];
   let cursor = 0;
   let quoted = [];
@@ -88,7 +88,7 @@ function productHarness(item = product) {
     "./QuantityUnitPicker": { QuantityUnitPicker: function QuantityUnitPicker() {} },
     "./icons": { IconCheck: () => null, IconPackages: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
     "@/lib/catalog": { FREE_SHIPPING: 299, phOf: () => "", colorLabel: String, swatchColor: String },
-    "@/lib/catalog-context": { useCatalog: () => ({ product: () => item, category: () => ({ name: "ביגוד" }), products: [item] }) },
+    "@/lib/catalog-context": { useCatalog: () => ({ product: (id) => id === item.id ? item : packProduct?.id === id ? packProduct : undefined, category: () => ({ name: "ביגוד" }), products: [item] }) },
     "@/lib/colors": { uniqueColors: (colors) => colors },
     "@/lib/product-selection": { productColorIndex: () => 0, productGalleryImages: () => [] },
     "@/lib/product-recommendations": { complementaryAccessories: () => [], similarProducts: () => [] },
@@ -98,6 +98,7 @@ function productHarness(item = product) {
     "@/lib/quantity-selection": { quantitySelection },
     "@/lib/store": { useScrollLock() {}, useStore: () => ({ cart: [], flash() {}, addMany: (items) => added.push(items) }) },
     "@/lib/use-cart-quote": { useCartQuote: (lines) => { quoted = lines; return { pending: false }; } },
+    "./ProductReviews": { ProductReviews: () => null, ProductReviewsLink: () => null, reviewSummary: () => ({}) },
   };
   const code = ts.transpileModule(readFileSync(resolve(__dirname, "../components/ProductView.tsx"), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -106,7 +107,7 @@ function productHarness(item = product) {
   new Function("require", "module", "exports", code)((id) => dependencies[id] ?? require(id), module, module.exports);
   function render() {
     cursor = 0;
-    const element = module.exports.ProductView({ id: item.id, fromQuantityOffer: true });
+    const element = module.exports.ProductView({ id: item.id, fromQuantityOffer: true, ...props });
     return element.type(element.props);
   }
   return { render, added, quote: () => quoted };
@@ -121,6 +122,39 @@ function findElement(node, predicate) {
 }
 const pickerOf = (tree) => findElement(tree, (node) => node.type?.name === "QuantityUnitPicker");
 const addButton = (tree) => findElement(tree, (node) => node.type === "button" && node.props.className === "btn product-add-btn");
+
+test("a managed tier selects its own variant and adds one bundle instead of two base units", () => {
+  const base = { ...product, deal: undefined };
+  const pack = { ...base, id: "bundle-cart-pair", name: "מארז זוגי", bundleSourceId: base.id, price: 70,
+    choices: [{ id: "gid://shopify/ProductVariant/90", color: "white", size: "L", available: true, price: 70 }] };
+  const app = productHarness(base, { fromQuantityOffer: false, bundles: [{ id: "pair", name: "זוג", quantity: 2, total: 70, cartProductId: pack.id }] }, pack);
+  let tree = app.render();
+  findElement(tree, (node) => node.type === "input" && node.props.value === "pair").props.onChange();
+  tree = app.render();
+  assert.equal(pickerOf(tree), undefined);
+  assert.equal(findElement(tree, (node) => node.type === "span" && node.props["aria-live"] === "polite").props.children, "70");
+  addButton(tree).props.onClick();
+  assert.deepEqual(app.added, [[[pack.id, 1, "L", 1]]]);
+});
+
+test("admin bundle options set the displayed total and the number of independently selected units", () => {
+  const app = productHarness({ ...product, deal: undefined }, { fromQuantityOffer: false, bundles: [
+    { id: "two", name: "זוג", quantity: 2, total: 120 },
+    { id: "three", name: "שלישייה", quantity: 3, total: 160 },
+  ] });
+  const pack = (tree, value) => findElement(tree, (node) => node.type === "input" && node.props.type === "radio" && node.props.value === value);
+  let tree = app.render();
+  assert.equal(pack(tree, 1).props.checked, true);
+  pack(tree, 3).props.onChange();
+  tree = app.render();
+  assert.equal(pack(tree, 3).props.checked, true);
+  assert.equal(pickerOf(tree).props.rows.length, 3);
+  assert.equal(findElement(tree, (node) => node.type === "span" && node.props["aria-live"] === "polite").props.children, "160");
+  pack(tree, 2).props.onChange();
+  tree = app.render();
+  assert.equal(pickerOf(tree).props.rows.length, 2);
+  assert.equal(findElement(tree, (node) => node.type === "span" && node.props["aria-live"] === "polite").props.children, "120");
+});
 
 test("complete packs price immediately from the selected variant without a remote quote", () => {
   const app = productHarness({ ...product, name: "מארז שתי חולצות בייסיק", price: 99, was: 119,

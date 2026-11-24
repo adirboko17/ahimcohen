@@ -31,8 +31,8 @@ type CartPayload = {
   userErrors: { field?: string[] | null; message: string }[];
 };
 
-export async function createCart(lines: CartLineDraft[], buyerIp?: string) {
-  const input = { lines: lines.map(toCartLineInput) };
+export async function createCart(lines: CartLineDraft[], buyerIp?: string, discountCodes: string[] = []) {
+  const input = { lines: lines.map(toCartLineInput), ...(discountCodes.length ? { discountCodes } : {}) };
   const data = await storefront<{ cartCreate: CartPayload }>(CART_CREATE, { input }, buyerIp);
   return readCart(data.cartCreate);
 }
@@ -75,7 +75,7 @@ function toCartLineInput(line: CartLineDraft) {
     quantity: assertQuantity(line.quantity),
     attributes: (line.attributes ?? [])
       .filter((attribute) => attribute.key.trim() && attribute.value.trim())
-      .slice(0, 10)
+      .slice(0, 250)
       .map((attribute) => ({ key: attribute.key.slice(0, 80), value: attribute.value.slice(0, 200) })),
   };
 }

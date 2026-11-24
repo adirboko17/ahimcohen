@@ -28,6 +28,7 @@ function load(file, dependencies = {}) {
       : name === "@/lib/brands" ? load("lib/brands.ts")
       : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
       : name === "@/lib/quantity-selection" ? load("lib/quantity-selection.ts", { "./sizes": sizes })
+      : name === "@/lib/quantity-offers" ? load("lib/quantity-offers.ts")
       : name === "@/lib/checkout-return" ? load("lib/checkout-return.ts")
       : name === "@/lib/image-sources" ? load("lib/image-sources.ts") : require(name), module, module.exports,
   );
@@ -288,7 +289,7 @@ test("both category card links carry the color corresponding to the shown image"
   assert.doesNotMatch(plain, /\?color=/);
 });
 
-function renderProduct(product, initialColor, initialSize, extras = [], fromQuantityOffer = false) {
+function renderProduct(product, initialColor, initialSize, extras = [], fromQuantityOffer = false, bundles = []) {
   const { ProductView } = load("components/ProductView.tsx", {
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/navigation": { useRouter: () => ({}) },
@@ -302,11 +303,22 @@ function renderProduct(product, initialColor, initialSize, extras = [], fromQuan
     "@/lib/sizes": sizes,
     "@/lib/pricing": { fmt: String, priceFor: (p, qty) => p.price * qty, saleBadge: () => "Sale" },
     "@/lib/store": { useStore: () => ({ cart: [] }), useScrollLock: () => {} },
-    "./icons": { IconCheck: () => null, IconPackages: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
+    "./icons": { IconCheck: () => null, IconFwd: () => null, IconPackages: () => null, IconPhone: () => null, IconPin: () => null, IconTruck: () => null },
     "./ProductTile": { ProductTile },
+    "./ProductReviews": { ProductReviews: () => null, ProductReviewsLink: () => null, reviewSummary: () => ({}) },
   });
-  return renderToStaticMarkup(React.createElement(ProductView, { id: product.id, initialColor, initialSize, fromQuantityOffer }));
+  return renderToStaticMarkup(React.createElement(ProductView, { id: product.id, initialColor, initialSize, fromQuantityOffer, bundles }));
 }
+
+test("a linked pack is a product link and leaves the base product quantity at one", () => {
+  const html = renderProduct(picturedCatalog[0], "white", "L", [], false, [
+    { id: "linked", name: "מארז זוגי", quantity: 2, total: 95, productId: "sweatshirt-pair", bestValue: true },
+  ]);
+  assert.match(html, /<a class="pack pack-product" href="\/p\/sweatshirt-pair">.*?מארז זוגי.*?95.*?<\/a>/);
+  assert.match(html, /class="badge product-pack-best-value">הכי משתלם<\/span>/);
+  assert.match(html, /class="qty"[\s\S]*?<span>1<\/span>/);
+  assert.doesNotMatch(html, /מידה ליחידה 2/);
+});
 
 test("product purchase controls stay inline and stock reflects available variants", () => {
   const available = renderProduct(picturedCatalog[0], "white", "L");
@@ -369,6 +381,10 @@ test("product route forwards the color query for initial rendering, ignoring rep
   const { default: Page } = load("app/p/[id]/page.tsx", {
     "next/navigation": { notFound: () => { throw new Error("not found"); } },
     "@/components/ProductView": { ProductView: () => null },
+    "@/lib/admin/models": load("lib/admin/models.ts"),
+    "@/lib/admin/bundle-catalog": { managedBundleProducts: async () => [] },
+    "@/lib/admin/storage": { readAdminStore: async () => ({ reviews: [], bundles: [], offers: [] }) },
+    "@/lib/admin/reviews": { publishedReviews: async () => [] },
     "@/lib/shopify/load-catalog": { loadShopCatalog: async () => ({ products: picturedCatalog }) },
   });
   for (const color of ["white", "לבן", undefined, ["white", "navy"]]) {
@@ -378,6 +394,89 @@ test("product route forwards the color query for initial rendering, ignoring rep
     assert.equal(element.props.initialColor, typeof color === "string" ? color : undefined);
     assert.equal(element.props.initialSize, typeof requestedSize === "string" ? requestedSize : undefined);
   }
+});
+
+test("product route exposes only its published bundle tiers without exposing discount codes", async () => {
+  const pack = { ...picturedCatalog[0], id: "sweatshirt-pair", price: 95 };
+  const { default: Page } = load("app/p/[id]/page.tsx", {
+    "next/navigation": { notFound: () => { throw new Error("not found"); }, redirect: (destination) => { throw new Error(destination); } },
+    "@/components/ProductView": { ProductView: () => null },
+    "@/lib/admin/models": load("lib/admin/models.ts"),
+    "@/lib/admin/bundle-catalog": { managedBundleProducts: async () => [{ id: "bundle-cart-managed" }, { id: "bundle-cart-offer" }] },
+    "@/lib/admin/reviews": { publishedReviews: async () => [] },
+    "@/lib/admin/storage": { readAdminStore: async () => ({ reviews: [], bundles: [
+      { id: "two", name: "זוג", active: true, total: 120, items: [["variants", 2]], code: "PRIVATE" },
+      { id: "three", name: "שלישייה", active: true, total: 160, items: [["variants", 3]] },
+      { id: "draft", name: "טיוטה", active: false, total: 200, items: [["variants", 4]] },
+      { id: "other", active: true, total: 200, items: [["other", 4]] },
+      { id: "old", active: true, items: [["variants", 2], ["other", 1]] },
+      { id: "missing", active: true, items: [["variants", 6]], bundleProductId: "missing" },
+      { id: "linked", name: "מארז זוגי", active: true, total: 90, items: [["variants", 2]], bundleProductId: pack.id },
+      { id: "managed", name: "מארז שלישייה", active: true, total: 99, items: [["variants", 3]], sourceVariantIds: ["private"], bestValue: true },
+      { id: "pending", name: "ממתין", active: true, total: 119, items: [["variants", 4]], sourceVariantIds: ["private"] },
+    ], offers: [
+      { id: "offer", productId: "variants", active: true, total: 75, quantity: 3, sourceVariantIds: ["private"] },
+      { id: "draft-offer", productId: "variants", active: false, total: 42, quantity: 2, sourceVariantIds: ["private"] },
+    ] }) },
+    "@/lib/shopify/load-catalog": { loadShopCatalog: async () => ({ products: [...picturedCatalog, pack] }) },
+  });
+  const element = await Page({ params: Promise.resolve({ id: "variants" }), searchParams: Promise.resolve({ bundle: "three" }) });
+  assert.equal(element.props.initialBundle, "three");
+  assert.deepEqual(element.props.bundles, [
+    { id: "two", name: "זוג", quantity: 2, total: 120 },
+    { id: "three", name: "שלישייה", quantity: 3, total: 160 },
+    { id: "linked", name: "מארז זוגי", quantity: 2, total: 95, productId: pack.id },
+    { id: "managed", name: "מארז שלישייה", quantity: 3, total: 99, cartProductId: "bundle-cart-managed", bestValue: true },
+  ]);
+  const offerView = await Page({ params: Promise.resolve({ id: "variants" }), searchParams: Promise.resolve({ bundle: "offer" }) });
+  assert.deepEqual(offerView.props.bundles, [
+    { id: "offer", name: "3 יחידות", quantity: 3, total: 75, cartProductId: "bundle-cart-offer", quantityOffer: true, mixedUnits: true },
+  ]);
+  await assert.rejects(Page({ params: Promise.resolve({ id: "variants" }), searchParams: Promise.resolve({ bundle: "linked" }) }), /\/p\/sweatshirt-pair/);
+});
+
+test("quantity offers page links only verified managed offers to the selected pack", () => {
+  const product = { ...picturedCatalog[0], name: "Shirt", price: 49, deal: [2, 85] };
+  const offer = { id: "offer", productId: product.id, quantity: 3, total: 120 };
+  const pack = { id: "bundle-cart-offer", bundleSourceId: product.id };
+  const feature = { id: "feature", productId: product.id, quantity: 2, total: 90, managed: true };
+  const featurePack = { id: "bundle-cart-feature", bundleSourceId: product.id };
+  function render(verified) {
+    const { QuantityOffersView } = load("components/QuantityOffersView.tsx", {
+      "next/link": ({ children, ...props }) => React.createElement("a", props, children),
+      "@/lib/admin/models": load("lib/admin/models.ts"),
+      "@/lib/catalog-context": { useCatalog: () => ({ products: [product], product: (id) => [product, ...(verified ? [pack, featurePack] : [])].find((item) => item.id === id) }) },
+      "@/lib/pricing": { fmt: String },
+      "@/lib/quantity-offers": load("lib/quantity-offers.ts"),
+      "./ProductTile": { ProductTile }, "./icons": { IconBag: () => null },
+    });
+    return renderToStaticMarkup(React.createElement(QuantityOffersView, { managedOffers: [offer], featuredBundles: [feature] }));
+  }
+  const verified = render(true);
+  assert.match(verified, /href="\/p\/variants\?bundle=offer"/);
+  assert.match(verified, /href="\/p\/variants\?bundle=feature"/);
+  assert.match(verified, /<bdi>120<\/bdi>/);
+  assert.doesNotMatch(verified, /quantity-offer=1/);
+  const unverified = render(false);
+  assert.doesNotMatch(unverified, /bundle=offer/);
+  assert.doesNotMatch(unverified, /bundle=feature/);
+  assert.match(unverified, /quantity-offer=1/);
+});
+
+test("general offers show current product discounts without a separate quantity listing", () => {
+  const discounted = { ...picturedCatalog[0], price: 49, was: 65, deal: [2, 85] };
+  const quantityOnly = { ...discounted, id: "quantity-only", was: undefined };
+  const { QuantityOffersView } = load("components/QuantityOffersView.tsx", {
+    "next/link": ({ children, ...props }) => React.createElement("a", props, children),
+    "@/lib/admin/models": load("lib/admin/models.ts"),
+    "@/lib/catalog-context": { useCatalog: () => ({ products: [discounted, quantityOnly] }) },
+    "@/lib/pricing": { fmt: String },
+    "@/lib/quantity-offers": load("lib/quantity-offers.ts"),
+    "./ProductTile": { ProductTile }, "./icons": { IconBag: () => null },
+  });
+  const html = renderToStaticMarkup(React.createElement(QuantityOffersView, { discountedOnly: true }));
+  assert.match(html, /href="\/p\/variants"/);
+  assert.doesNotMatch(html, /quantity-only|quantity-offer=1|מבצעי כמות/);
 });
 
 test("size-only and multiple filters carry a matching color-size pair into both product links", () => {

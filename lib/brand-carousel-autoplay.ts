@@ -6,7 +6,15 @@ export function brandLoopLength(element: HTMLElement) {
 }
 
 export function startBrandAutoplay(element: HTMLElement) {
-  const mobile = window.matchMedia("(max-width: 767px)");
+  return startLoopAutoplay(element, brandLoopLength, "(max-width: 767px)");
+}
+
+export function startLoopAutoplay(
+  element: HTMLElement,
+  loopLength: (element: HTMLElement) => number,
+  viewport = "(min-width: 0px)",
+) {
+  const screen = window.matchMedia(viewport);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let visible = false;
   let stopped = false;
@@ -20,7 +28,7 @@ export function startBrandAutoplay(element: HTMLElement) {
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const clearIdle = () => { clearTimeout(idleTimer); idleTimer = undefined; };
   const cancel = () => { cancelAnimationFrame(frame); frame = 0; previous = 0; };
-  const canMove = () => !stopped && !interacting && visible && mobile.matches && !reducedMotion.matches && !document.hidden;
+  const canMove = () => !stopped && !interacting && visible && screen.matches && !reducedMotion.matches && !document.hidden;
   const tick = (now: number) => {
     frame = 0;
     if (!canMove()) return;
@@ -28,7 +36,7 @@ export function startBrandAutoplay(element: HTMLElement) {
     if (!previous) position = Math.abs(element.scrollLeft);
     previous = now;
     const max = element.scrollWidth - element.clientWidth;
-    const cycle = brandLoopLength(element);
+    const cycle = loopLength(element);
     if (max > 1 && cycle > 0) {
       // Keep fractional pixels between frames; scrollLeft may be rounded by
       // the browser. The duplicate set makes this rebase visually identical.
@@ -84,7 +92,7 @@ export function startBrandAutoplay(element: HTMLElement) {
   document.addEventListener("touchcancel", touchEnd, { passive: true });
   window.addEventListener("blur", blur);
   document.addEventListener("visibilitychange", sync);
-  mobile.addEventListener("change", sync);
+  screen.addEventListener("change", sync);
   reducedMotion.addEventListener("change", sync);
   const stop = () => {
     stopped = true;
@@ -104,7 +112,7 @@ export function startBrandAutoplay(element: HTMLElement) {
     document.removeEventListener("touchcancel", touchEnd);
     window.removeEventListener("blur", blur);
     document.removeEventListener("visibilitychange", sync);
-    mobile.removeEventListener("change", sync);
+    screen.removeEventListener("change", sync);
     reducedMotion.removeEventListener("change", sync);
   };
   return { stop, interact };

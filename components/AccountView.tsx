@@ -1,86 +1,75 @@
 "use client";
 
-import { ProductImage } from "./ProductImage";
-
 import { useEffect, useRef, useState } from "react";
-import { ORDERS, phOf, colorLabel } from "@/lib/catalog";
-import { useCatalog } from "@/lib/catalog-context";
-import { fmt, priceFor } from "@/lib/pricing";
-import { sizeLabel } from "@/lib/sizes";
-import { previewReorder, type ReorderVariantEdit } from "@/lib/reorder";
+import { verifyAccountPreview } from "@/app/account/actions";
+import { ORDERS } from "@/lib/catalog";
 import { useStore } from "@/lib/store";
+import { AccountOrders } from "./AccountOrders";
 import { IconBack } from "./icons";
-import { ReorderVariantPicker } from "./ReorderVariantPicker";
-
-const STEPS = ["התקבלה", "בהכנה", "נשלחה", "נמסרה"];
 
 export function AccountView() {
-  const { auth, phone, login, logout, addMany, flash } = useStore();
-  const { product } = useCatalog();
+  const { auth, phone, accountPreviewPhone, login, logout, flash } = useStore();
   const [stage, setStage] = useState<"phone" | "code">("phone");
-  const [draft, setDraft] = useState(phone);
+  const [draft, setDraft] = useState(accountPreviewPhone ?? "");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [err, setErr] = useState("");
-  const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [left, setLeft] = useState(0);
   const [tab, setTab] = useState("orders");
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [reorderReview, setReorderReview] = useState<Record<string, boolean>>({});
-  const [reorderQuantities, setReorderQuantities] = useState<Record<string, Record<number, number>>>({});
-  const [reorderVariants, setReorderVariants] = useState<Record<string, Record<number, ReorderVariantEdit>>>({});
-  const editReorderVariant = (order: string, index: number, edit: ReorderVariantEdit) => {
-    setReorderVariants((edits) => ({ ...edits, [order]: { ...edits[order], [index]: { ...edits[order]?.[index], ...edit } } }));
-  };
-  const editReorderQuantity = (order: string, index: number, quantity: number) => {
-    if (!Number.isSafeInteger(quantity) || quantity < 0) return;
-    setReorderQuantities((edits) => ({ ...edits, [order]: { ...edits[order], [index]: quantity } }));
-  };
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const verificationPending = useRef(false);
 
   useEffect(() => {
-    if (left <= 0) return;
-    const t = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
-    return () => clearInterval(t);
-  }, [left]);
+    if (stage === "code") refs.current[0]?.focus();
+  }, [stage]);
 
-  const digits = (draft || "").replace(/\D/g, "");
+  const digits = (auth ? phone : draft).replace(/\D/g, "");
   const masked = digits.length === 10 ? `${digits.slice(0, 3)}-•••-${digits.slice(6)}` : draft;
   const pretty = digits.length === 10 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : draft;
 
-  const send = () => {
+  const startPreview = () => {
+    if (!accountPreviewPhone) return;
     if (!/^05\d{8}$/.test(digits)) {
       setErr("הזינו מספר נייד תקין בן 10 ספרות");
       return;
     }
-    setSending(true);
+    if (digits !== accountPreviewPhone) {
+      setErr("המספר הזה אינו מוגדר לחשבון הדמה.");
+      return;
+    }
     setErr("");
-    setTimeout(() => {
-      setSending(false);
-      setStage("code");
-      setOtp(["", "", "", "", "", ""]);
-      setLeft(30);
-      setTimeout(() => refs.current[0]?.focus(), 60);
-    }, 700);
+    setOtp(["", "", "", "", "", ""]);
+    setStage("code");
   };
 
-  const verify = (code: string[]) => {
-    if (verifying) return;
-    if (!code.every(Boolean)) {
+  const verify = async (code: string[]) => {
+    if (verificationPending.current) return;
+    const value = code.join("");
+    if (!/^\d{6}$/.test(value)) {
       setErr("הזינו את כל 6 הספרות");
       return;
     }
+    verificationPending.current = true;
     setVerifying(true);
     setErr("");
-    setTimeout(() => {
-      setVerifying(false);
-      login(draft);
+    try {
+      if (!(await verifyAccountPreview(digits, value))) {
+        setErr("קוד האימות שגוי. נסו שוב.");
+        setOtp(["", "", "", "", "", ""]);
+        refs.current[0]?.focus();
+        return;
+      }
+      login(digits);
       setStage("phone");
       setOtp(["", "", "", "", "", ""]);
       setTab("orders");
       flash("התחברתם בהצלחה");
       window.scrollTo({ top: 0 });
-    }, 800);
+    } catch {
+      setErr("לא ניתן לאמת את הקוד כרגע. נסו שוב.");
+    } finally {
+      verificationPending.current = false;
+      setVerifying(false);
+    }
   };
 
   const setDigit = (i: number, raw: string) => {
@@ -100,37 +89,41 @@ export function AccountView() {
   if (!auth) {
     return (
       <main className="wrap" style={{ padding: "clamp(24px, 5vw, 72px) var(--gutter) clamp(56px, 7vw, 112px)" }}>
+        <header className="account-intro">
+          <h1 className="k">האזור האישי</h1>
+        </header>
         <div className="account-grid">
           <div className="panel">
             {stage === "phone" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <span className="muted" style={{ fontSize: 14, fontWeight: 700 }}>כניסה / הרשמה</span>
-                  <h1 className="k" style={{ fontSize: "clamp(52px, 6vw, 84px)", lineHeight: 0.82, margin: 0 }}>כניסה עם קוד לנייד</h1>
-                  <p className="muted" style={{ margin: 0, fontSize: 17, lineHeight: 1.55, maxWidth: "44ch" }}>נשלח אליכם קוד חד־פעמי ב-SMS, בלי סיסמה. אם זו הפעם הראשונה שלכם, החשבון ייפתח אוטומטית.</p>
+                  <h2 className="k account-form-title">כניסה עם קוד לנייד</h2>
+                  <p className="muted" style={{ margin: 0, fontSize: 17, lineHeight: 1.55, maxWidth: "44ch" }}>
+                    {accountPreviewPhone ? "כניסת דמה מקומית לצורך עיצוב האזור האישי." : "הכניסה לאזור האישי עדיין אינה זמינה."}
+                  </p>
                 </div>
                 <label className="field">
                   מספר טלפון נייד
-                  <input className="big" value={draft} onChange={(e) => { setDraft(e.target.value.replace(/[^\d-]/g, "").slice(0, 11)); setErr(""); }} onKeyDown={(e) => { if (e.key === "Enter") send(); }} type="tel" inputMode="numeric" autoComplete="tel" placeholder="050-0000000" dir="ltr" style={{ textAlign: "right", boxShadow: err ? "inset 0 0 0 2px #B3261E" : undefined }} />
+                  <input className="big" value={draft} disabled={!accountPreviewPhone} onChange={(e) => { setDraft(e.target.value.replace(/[^\d-]/g, "").slice(0, 11)); setErr(""); }} onKeyDown={(e) => { if (e.key === "Enter") startPreview(); }} type="tel" inputMode="numeric" autoComplete="tel" placeholder="050-0000000" dir="ltr" style={{ textAlign: "right", boxShadow: err ? "inset 0 0 0 2px #B3261E" : undefined }} />
                 </label>
-                {err && <span className="err" style={{ marginTop: -16 }}>{err}</span>}
-                <button className="btn" style={{ height: 60, fontSize: 17 }} onClick={send}>{sending ? "שולחים קוד…" : "שליחת קוד ב-SMS"}</button>
-                <span className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>בכניסה לחשבון אתם מאשרים את תקנון האתר ומדיניות הפרטיות.</span>
+                {err && <span className="err" role="alert" style={{ marginTop: -16 }}>{err}</span>}
+                <button className="btn" style={{ height: 60, fontSize: 17 }} disabled={!accountPreviewPhone} onClick={startPreview}>המשך להזנת קוד</button>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-                <button onClick={() => { setStage("phone"); setErr(""); }} style={{ background: "none", border: 0, fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
+                <button disabled={verifying} onClick={() => { setStage("phone"); setErr(""); }} style={{ background: "none", border: 0, fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
                   <IconBack /> שינוי מספר
                 </button>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <h1 className="k" style={{ fontSize: "clamp(52px, 6vw, 84px)", lineHeight: 0.82, margin: 0 }}>הזנת קוד אימות</h1>
+                  <h2 className="k account-form-title">הזנת קוד אימות</h2>
                   <p className="muted" style={{ margin: 0, fontSize: 17, lineHeight: 1.55 }}>
-                    שלחנו קוד בן 6 ספרות למספר <span dir="ltr" style={{ fontWeight: 800, color: "#111" }}>{masked}</span>
+                    הזינו את קוד הדמה בן 6 הספרות עבור <span dir="ltr" style={{ fontWeight: 800, color: "#111" }}>{masked}</span>
                   </p>
                 </div>
                 <div className="otp">
                   {otp.map((v, i) => (
-                    <input key={i} ref={(el) => { refs.current[i] = el; }} className={err ? "bad" : v ? "fill" : ""} value={v} inputMode="numeric" autoComplete="one-time-code" aria-label={`ספרה ${i + 1}`} onFocus={(e) => e.target.select()} onChange={(e) => setDigit(i, e.target.value)} onKeyDown={(e) => {
+                    <input key={i} ref={(el) => { refs.current[i] = el; }} className={err ? "bad" : v ? "fill" : ""} value={v} readOnly={verifying} inputMode="numeric" autoComplete="one-time-code" aria-label={`ספרה ${i + 1}`} onFocus={(e) => e.target.select()} onChange={(e) => setDigit(i, e.target.value)} onKeyDown={(e) => {
+                      if (verifying) return;
                       if (e.key === "Backspace" && !otp[i] && i > 0) {
                         const next = otp.slice();
                         next[i - 1] = "";
@@ -141,17 +134,8 @@ export function AccountView() {
                     }} />
                   ))}
                 </div>
-                {err && <span className="err" style={{ marginTop: -16 }}>{err}</span>}
-                <button className="btn" style={{ height: 60, fontSize: 17, maxWidth: 440 }} onClick={() => verify(otp)}>{verifying ? "מאמתים…" : "אימות וכניסה"}</button>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 14 }}>
-                  <span className="muted">לא קיבלתם קוד?</span>
-                  {left <= 0 ? (
-                    <button onClick={() => { setOtp(["", "", "", "", "", ""]); setErr(""); setLeft(30); flash("נשלח קוד חדש"); }} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>שליחה חוזרת</button>
-                  ) : (
-                    <span style={{ fontWeight: 700 }}>שליחה חוזרת בעוד 0:{String(left).padStart(2, "0")}</span>
-                  )}
-                </div>
-                <span style={{ alignSelf: "flex-start", background: "#FFD100", padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>הדגמה: כל קוד בן 6 ספרות יתקבל</span>
+                {err && <span className="err" role="alert" style={{ marginTop: -16 }}>{err}</span>}
+                <button className="btn" disabled={verifying} style={{ height: 60, fontSize: 17, maxWidth: 440 }} onClick={() => verify(otp)}>{verifying ? "מאמתים…" : "אימות וכניסה"}</button>
               </div>
             )}
           </div>
@@ -159,7 +143,7 @@ export function AccountView() {
             <span className="k" style={{ fontSize: "clamp(44px, 4.5vw, 64px)", lineHeight: 0.85, color: "#FFD100" }}>באזור האישי</span>
             <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid #333" }}>
               {[
-                ["01", "מעקב אחרי הזמנות", "סטטוס כל הזמנה, מהקבלה ועד המסירה."],
+                ["01", "היסטוריית הזמנות", "הפריטים והסכומים של כל הזמנה."],
                 ["02", "הזמנה חוזרת בלחיצה", "אותם פריטים, צבעים ומידות, ישר לסל."],
                 ["03", "כתובות ופרטי עסק שמורים", "קופה מהירה יותר וחשבונית על שם העסק."],
               ].map(([n, t, d]) => (
@@ -179,7 +163,7 @@ export function AccountView() {
   }
 
   const nav = [
-    ["orders", "ההזמנות שלי", "3"],
+    ["orders", "ההזמנות שלי", String(ORDERS.length)],
     ["addr", "כתובות למשלוח", ""],
     ["details", "פרטים אישיים", ""],
   ] as const;
@@ -215,158 +199,7 @@ export function AccountView() {
             ))}
           </nav>
           <div style={{ flex: "1 1 560px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-            {tab === "orders" && ORDERS.map((o) => {
-              let tot = 0;
-              let units = 0;
-              const lines = o.lines.flatMap(([pid, orderedColor, z, q]) => {
-                const item = product(pid);
-                if (!item) return [];
-                const sz = z;
-                const pr = priceFor(item, q);
-                tot += pr;
-                units += q;
-                // Display the ordered size, even if the current catalog uses another alias.
-                return [{ pid, orderedColor, sz, q, item, pr, sizeText: sizeLabel(z) || "מידה אחת" }];
-              });
-              const active = o.st < 3;
-              const shown = open[o.no] ?? active;
-              const quantityEdits = reorderQuantities[o.no] || {};
-              const variantEdits = reorderVariants[o.no] || {};
-              const hasReorderEdits = Object.keys(quantityEdits).length > 0 || Object.keys(variantEdits).length > 0;
-              const reorder = reorderReview[o.no] ? previewReorder(o.lines, product, quantityEdits, variantEdits) : null;
-              return (
-                <article key={o.no} className="order" style={{ boxShadow: active ? "inset 0 0 0 2px #111" : "inset 0 0 0 1px #E4E4E1" }}>
-                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12 }}>
-                    <span>
-                      <b style={{ display: "block", fontSize: 18 }}>הזמנה #{o.no}</b>
-                      <span className="muted" style={{ fontSize: 14 }}>{o.date} · {units} יחידות</span>
-                    </span>
-                    <span className="pill" style={{ background: active ? "#FFD100" : "#F4F4F2" }}>{active ? "בדרך אליכם" : "נמסרה"}</span>
-                  </div>
-                  {active && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div className="track">
-                        {STEPS.map((label, i) => (
-                          <span key={label}>
-                            <b className={i <= o.st ? "on" : ""} />
-                            <span style={{ fontSize: 13, fontWeight: i === o.st ? 800 : 600, color: i <= o.st ? "#111" : "#8a8a86" }}>{label}</span>
-                          </span>
-                        ))}
-                      </div>
-                      <span style={{ fontSize: 15, fontWeight: 700 }}>{o.eta}</span>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {lines.map((l) => (
-                      <span key={JSON.stringify([l.pid, l.orderedColor, l.sz])} style={{ position: "relative", width: 64, height: 64, background: "#F4F4F2", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {l.item.imgs?.[0] ? <ProductImage sizes="160px" maxWidth={480} src={l.item.imgs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} /> : <span className="k" style={{ color: "#8a8a86", fontSize: 22 }}>{phOf(l.item)}</span>}
-                        <span style={{ position: "absolute", bottom: 0, left: 0, background: "#111", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 5px" }}>×{l.q}</span>
-                      </span>
-                    ))}
-                  </div>
-                  {shown && (
-                    <div style={{ borderTop: "1px solid #E4E4E1" }}>
-                      {lines.map((l) => (
-                        <div key={JSON.stringify([l.pid, l.orderedColor, l.sz])} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: "1px solid #EFEFEC", fontSize: 15 }}>
-                          <span>
-                            <b style={{ display: "block" }}>{l.item.name}</b>
-                            <span className="muted" style={{ fontSize: 13 }}>{[colorLabel(l.orderedColor), l.sizeText, l.q + " יח׳"].filter(Boolean).join(" · ")}</span>
-                          </span>
-                          <b>{fmt(l.pr)}</b>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: "1px solid #E4E4E1", paddingTop: 16 }}>
-                    <span><span className="muted" style={{ fontSize: 14 }}>סה״כ </span><b style={{ fontSize: 22 }}>{fmt(tot)}</b></span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                      <button onClick={() => setOpen((s) => ({ ...s, [o.no]: !shown }))} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>{shown ? "הסתרת פרטים" : "פרטי הזמנה"}</button>
-                      <button type="button" className="btn" style={{ height: 46, padding: "0 18px" }} aria-expanded={!!reorder} onClick={() => {
-                        if (!reorderReview[o.no]) {
-                          setReorderQuantities((edits) => ({ ...edits, [o.no]: {} }));
-                          setReorderVariants((edits) => ({ ...edits, [o.no]: {} }));
-                        }
-                        setReorderReview((review) => ({ ...review, [o.no]: true }));
-                      }}>הזמנה חוזרת</button>
-                    </span>
-                  </div>
-                  {reorder && (
-                    <div style={{ background: "#F4F4F2", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                          <b style={{ fontSize: 17 }}>הפריטים שיתווספו לסל</b>
-                          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                            {reorder.available.map((line) => (
-                              <li key={line.sourceIndex} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "12px 0", borderBottom: "1px solid #D6D6D1" }}>
-                                <div style={{ minWidth: 0 }}>
-                                  <b style={{ fontSize: 15 }}>{line.name}</b>
-                                  <div className="muted" style={{ fontSize: 13 }}>{[line.color && `צבע: ${line.color}`, `מידה: ${line.size}`, `${line.quantity} יח׳`].filter(Boolean).join(" · ")}</div>
-                                  <div className="muted" style={{ fontSize: 13 }}>{fmt(line.unitPrice)} ליחידה</div>
-                                  <ReorderVariantPicker product={product(line.pid)} color={line.color} size={line.size} onChange={(edit) => editReorderVariant(o.no, line.sourceIndex, edit)} />
-                                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 8 }}>
-                                    <div className="qty-sm">
-                                      <button type="button" aria-label={`הוספת יחידה: ${line.name}, ${line.color}, ${line.size}`} onClick={() => editReorderQuantity(o.no, line.sourceIndex, line.quantity + 1)}>+</button>
-                                      <input type="number" min={1} step={1} inputMode="numeric" aria-label={`כמות: ${line.name}, ${line.color}, ${line.size}`} value={line.quantity} onChange={(event) => {
-                                        const value = event.target.valueAsNumber;
-                                        if (value >= 1) editReorderQuantity(o.no, line.sourceIndex, value);
-                                      }} style={{ width: 58, minWidth: 0, height: 36, border: 0, background: "transparent", textAlign: "center", fontSize: 15, fontWeight: 700 }} />
-                                      <button type="button" disabled={line.quantity <= 1} aria-label={`הפחתת יחידה: ${line.name}, ${line.color}, ${line.size}`} onClick={() => editReorderQuantity(o.no, line.sourceIndex, line.quantity - 1)}>−</button>
-                                    </div>
-                                    <button type="button" onClick={() => editReorderQuantity(o.no, line.sourceIndex, 0)} aria-label={`הסרת ${line.name}, ${line.color}, ${line.size} מההזמנה החוזרת`} style={{ background: "none", border: 0, padding: "8px 0", textDecoration: "underline", fontSize: 13, fontWeight: 600 }}>הסרה</button>
-                                  </div>
-                                </div>
-                                <b style={{ fontSize: 15, whiteSpace: "nowrap" }}>{fmt(line.lineTotal)}</b>
-                              </li>
-                            ))}
-                          </ul>
-                          <div role="status" aria-live="polite" aria-atomic="true" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 17, fontWeight: 800 }}>
-                            <span>סה״כ לפריטים שיתווספו · {reorder.quantity} יח׳</span>
-                            <span>{fmt(reorder.total)}</span>
-                          </div>
-                          <span className="muted" style={{ fontSize: 13 }}>לפי המחירים הנוכחיים, לא כולל משלוח.</span>
-                        </div>
-                      <div role="status" aria-live="polite">
-                        <b style={{ fontSize: 15 }}>{reorder.unavailable.length ? "בחרו חלופה לפריטים שאינם זמינים במידה ובצבע שנבחרו:" : reorder.items.length ? "כל הפריטים ברשימה זמינים כעת." : "הרשימה ריקה."}</b>
-                        {reorder.unavailable.length > 0 && (
-                          <ul style={{ margin: "10px 0 0", paddingInlineStart: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                            {reorder.unavailable.map((line) => (
-                              <li key={line.sourceIndex}>
-                                <b style={{ fontSize: 14 }}>{line.name}</b>
-                                <div className="muted" style={{ fontSize: 13 }}>{[line.color && `צבע: ${line.color}`, `מידה: ${line.size}`, `${line.quantity} יח׳`].filter(Boolean).join(" · ")}</div>
-                                <ReorderVariantPicker product={product(line.pid)} color={line.color} size={line.size} onChange={(edit) => editReorderVariant(o.no, line.sourceIndex, edit)} />
-                                <button type="button" onClick={() => editReorderQuantity(o.no, line.sourceIndex, 0)} aria-label={`הסרת ${line.name}, ${line.color}, ${line.size} מההזמנה החוזרת`} style={{ background: "none", border: 0, padding: "8px 0", textDecoration: "underline", fontSize: 13, fontWeight: 600 }}>הסרה</button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <p style={{ margin: "10px 0 0", fontSize: 14 }}>{reorder.items.length ? "עדיין לא נוספו פריטים לסל. באישור יתווספו רק הפריטים הזמינים שברשימה." : hasReorderEdits ? "אין פריטים להוספה לסל. בחרו חלופה זמינה או אפסו את השינויים כדי לחזור לרשימה המקורית." : "אין כרגע פריטים זמינים להזמנה חוזרת. אפשר לבחור צבע או מידה אחרים."}</p>
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {reorder.items.length > 0 && (
-                          <button type="button" className="btn" style={{ minHeight: 46, padding: "10px 18px" }} onClick={() => {
-                            // Re-resolve against the current catalog at confirmation time.
-                            const current = previewReorder(o.lines, product, quantityEdits, variantEdits);
-                            if (JSON.stringify(current) !== JSON.stringify(reorder)) {
-                              setReorderReview((review) => ({ ...review, [o.no]: true }));
-                              flash("פרטי ההזמנה התעדכנו. בדקו את הפירוט והסכום לפני ההוספה.");
-                              return;
-                            }
-                            if (!current.items.length) return;
-                            setReorderReview((review) => ({ ...review, [o.no]: false }));
-                            addMany(current.items, true);
-                            flash(`נוספו לסל ${current.quantity} יח׳ מהזמנה #${o.no}`);
-                          }}>הוספת הפריטים לסל · {fmt(reorder.total)}</button>
-                        )}
-                        {hasReorderEdits && <button type="button" className="btn btn-line" style={{ minHeight: 46, padding: "10px 18px" }} onClick={() => {
-                          setReorderQuantities((edits) => ({ ...edits, [o.no]: {} }));
-                          setReorderVariants((edits) => ({ ...edits, [o.no]: {} }));
-                        }}>איפוס השינויים</button>}
-                        <button type="button" className="btn btn-line" style={{ minHeight: 46, padding: "10px 18px" }} onClick={() => setReorderReview((review) => ({ ...review, [o.no]: false }))}>סגירה</button>
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+            {tab === "orders" && <AccountOrders />}
             {tab === "addr" && (
               <div className="addr-grid">
                 <div className="addr main">

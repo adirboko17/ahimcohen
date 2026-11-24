@@ -6,7 +6,7 @@ const ts = require("typescript");
 const compiled = ts.transpileModule(readFileSync(resolve(__dirname, "../app/actions/shopify-checkout.ts"), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-function harness(fail = false, returnedCart) {
+function harness(fail = false, returnedCart, discountCodes = [], resolveOffer) {
   const calls = [];
   class ShopifyError extends Error {}
   const dependencies = {
@@ -20,9 +20,11 @@ function harness(fail = false, returnedCart) {
     "@/lib/catalog": { PM: {} },
     "@/lib/shopify/config": { ShopifyError },
     "@/lib/shopify/checkout-status": { checkoutReceipt: () => "test-checkout-receipt" },
+    "@/lib/admin/commerce": { managedDiscountCodes: async () => discountCodes },
+    "@/lib/admin/quantity-offer-cart": { quantityOfferCartResolver: async () => resolveOffer },
     "@/lib/shopify/products": { findVariantForSelection: () => { throw new Error("Unexpected SKU lookup"); } },
-    "@/lib/shopify/cart": { createCart: async (lines, buyerIp) => {
-      calls.push({ lines, buyerIp });
+    "@/lib/shopify/cart": { createCart: async (lines, buyerIp, codes) => {
+      calls.push({ lines, buyerIp, ...(codes ? { codes } : {}) });
       if (fail) throw new ShopifyError("Shopify unavailable");
       return { checkoutUrl: "https://store.myshopify.com/cart/c/test", ...returnedCart };
     } },
@@ -74,6 +76,76 @@ test("multiple local lines for one variant are merged before Shopify applies the
   await checkout([{ pid: "shirt", color: "blue", size: "XXL", qty: 1, variantId }, { pid: "shirt", color: "כחול", size: "2XL", qty: 1, variantId }]);
   assert.equal(calls[0].lines.length, 1);
   assert.equal(calls[0].lines[0].quantity, 2);
+});
+
+test("mixed pack compositions are separate Shopify lines even when they share a pack variant", async () => {
+  const variantId = "gid://shopify/ProductVariant/123";
+  const money = { amount: "120", currencyCode: "ILS" };
+  const shopifyLine = { merchandiseId: variantId, quantity: 1, subtotal: money, total: money };
+  const { checkout, quote, calls } = harness(false, { lines: [shopifyLine, shopifyLine] }, [], (_, id, qty, units) => ({
+    merchandiseId: id, quantity: qty, configurationKey: JSON.stringify(units),
+    attributes: [{ key: "הרכב מארז 1", value: units.map(({ variantId }) => variantId).join(", ") }],
+  }));
+  const line = { pid: "bundle-cart-offer", color: "", size: "", qty: 1, variantId };
+  const lines = [
+    { ...line, packUnits: [{ variantId: "blue-m", quantity: 1 }, { variantId: "white-l", quantity: 2 }] },
+    { ...line, packUnits: [{ variantId: "blue-m", quantity: 2 }, { variantId: "black-xl", quantity: 1 }] },
+  ];
+  assert.equal((await quote(lines)).quote.total, 240);
+  assert.equal((await checkout(lines, 240)).ok, true);
+  assert.deepEqual(calls[1].lines.map(({ attributes }) => attributes[0].value), ["blue-m, white-l", "blue-m, black-xl"]);
+});
+
+test("managed quantity discount codes are sent to both the quote and checkout", async () => {
+  const variantId = "gid://shopify/ProductVariant/123";
+  const money = (amount) => ({ amount: String(amount), currencyCode: "ILS" });
+  const cart = { lines: [{ merchandiseId: variantId, quantity: 2, subtotal: money(178), total: money(140) }] };
+  const { checkout, quote, calls } = harness(false, cart, ["BULK-CODE"]);
+  const lines = [{ pid: "shirt", qty: 2, variantId }];
+  assert.equal((await quote(lines)).quote.total, 140);
+  assert.equal((await checkout(lines, 140)).ok, true);
+  assert.deepEqual(calls.map((call) => call.codes), [["BULK-CODE"], ["BULK-CODE"]]);
+});
+
+test("managed bundle tiers use the highest qualifying package for each product", async () => {
+  const compiled = ts.transpileModule(readFileSync(resolve(__dirname, "../lib/admin/commerce.ts"), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const models = { exports: {} };
+  new Function("module", "exports", ts.transpileModule(readFileSync(resolve(__dirname, "../lib/admin/models.ts"), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText)(models, models.exports);
+  const products = [
+    { id: "shirt", choices: [{ id: "shirt-m" }, { id: "shirt-l" }] },
+    { id: "pants", choices: [{ id: "pants-s" }] },
+  ];
+  const bundles = [
+    { items: [["shirt", 2]], total: 119, code: "IGNORE", active: true, bundleProductId: "shirt-pack" },
+    { items: [["shirt", 2]], total: 120, code: "SHIRT2", active: true },
+    { items: [["shirt", 3]], total: 160, code: "SHIRT3", active: true },
+    { items: [["shirt", 4]], total: 180, code: "DRAFT", active: false },
+    { items: [["shirt", 5]], total: 220, code: "", active: true },
+  ];
+  const offers = [{ productId: "pants", quantity: 2, code: "PANTS2", active: true }];
+  let hiddenQuantityOffers = [];
+  const deps = {
+    "./models": models.exports,
+    "./storage": { readAdminStore: async () => ({ offers, bundles, hiddenQuantityOffers }) },
+    "@/lib/shopify/load-catalog": { loadShopCatalog: async () => ({ products }) },
+  };
+  const module = { exports: {} };
+  new Function("require", "module", "exports", compiled)((name) => deps[name] ?? {}, module, module.exports);
+  const codes = (shirtLarge) => module.exports.managedDiscountCodes([
+    { merchandiseId: "shirt-m", quantity: 1 },
+    { merchandiseId: "shirt-l", quantity: shirtLarge },
+    { merchandiseId: "pants-s", quantity: 2 },
+  ]);
+  assert.deepEqual(await codes(1), ["SHIRT2", "PANTS2"]);
+  assert.deepEqual(await codes(2), ["SHIRT3", "PANTS2"]);
+  assert.deepEqual(await codes(3), ["SHIRT3", "PANTS2"]);
+  assert.deepEqual(await codes(4), ["PANTS2"]);
+  hiddenQuantityOffers = ["pants"];
+  assert.deepEqual(await codes(1), ["SHIRT2"]);
 });
 
 test("same product in different colors and sizes keeps separate quantities and variant IDs", async () => {

@@ -5,7 +5,7 @@ import { cachedCartQuote, invalidateCartQuotes, quoteSignature, requestCartQuote
 import type { CartLine } from "./types";
 import type { CartQuote } from "./cart-quote";
 
-export function useCartQuote(lines: Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId">[]) {
+export function useCartQuote(lines: Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId" | "packUnits">[]) {
   const signature = quoteSignature(lines);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{ key: string; quote?: CartQuote; error?: string }>();

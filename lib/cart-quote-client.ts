@@ -1,7 +1,7 @@
 import type { CartQuote } from "./cart-quote";
 import type { CartLine } from "./types";
 
-export type QuoteLine = Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId">;
+export type QuoteLine = Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId" | "packUnits">;
 type Response = { ok: true; quote: CartQuote } | { ok: false; error: string };
 const TTL = 30_000;
 const cache = new Map<string, { quote: CartQuote; expires: number }>();
@@ -12,10 +12,11 @@ export function quoteSignature(lines: QuoteLine[]) {
   const merged = new Map<string, QuoteLine>();
   for (const line of lines) {
     const direct = /^gid:\/\/shopify\/ProductVariant\/\d+$/.test(line.variantId ?? "");
-    const key = direct ? line.variantId! : JSON.stringify([line.pid, line.color, line.size]);
+    const key = line.packUnits ? JSON.stringify([line.pid, line.variantId, line.packUnits])
+      : direct ? line.variantId! : JSON.stringify([line.pid, line.color, line.size]);
     const previous = merged.get(key);
     if (previous) previous.qty += line.qty;
-    else merged.set(key, direct
+    else merged.set(key, line.packUnits ? { pid: line.pid, color: "", size: "", qty: line.qty, variantId: line.variantId, packUnits: line.packUnits } : direct
       ? { pid: "", color: "", size: "", variantId: line.variantId, qty: line.qty }
       : { pid: line.pid, color: line.color, size: line.size, qty: line.qty });
   }

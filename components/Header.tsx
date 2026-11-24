@@ -33,6 +33,7 @@ export function Header() {
   const [navHidden, setNavHidden] = useState(false);
   const st = useRef({ compact: false, navHidden: false, y: 0 });
   const catId = path.startsWith("/c/") ? path.split("/")[2] : "";
+  const brandsActive = path === "/brands" || path.startsWith("/brands/");
 
   useEffect(() => {
     st.current.y = window.scrollY;
@@ -105,7 +106,7 @@ export function Header() {
         <div className="nav-wrap">
           <div className="nav-clip">
             <nav className="main-nav scroller">
-              {categories.map((c) => (
+              {categories.filter((c) => c.id !== "redback").map((c) => (
                 <Link
                   key={c.id}
                   href={`/c/${c.id}`}
@@ -115,8 +116,8 @@ export function Header() {
                   {c.name}
                 </Link>
               ))}
-              <Link href="/quantity-offers" className={`nav-link ${path === "/quantity-offers" ? "on" : ""}`} aria-current={path === "/quantity-offers" ? "page" : undefined} onMouseEnter={() => setMega(null)} onClick={() => setMega(null)}>
-                <span className="deal-pill">מבצעי כמות</span>
+              <Link href="/brands" className={`nav-link ${brandsActive ? "on" : ""}`} aria-current={brandsActive ? "page" : undefined} onMouseEnter={() => setMega(null)} onFocus={() => setMega(null)} onClick={() => setMega(null)}>
+                מותגים
               </Link>
             </nav>
           </div>
@@ -152,14 +153,17 @@ export function Header() {
             <button className="m-ico" onClick={openMenu} aria-label="תפריט">
               <IconMenu />
             </button>
+            <button className="m-ico" onClick={openSearch} aria-label="חיפוש">
+              <IconSearch size={22} />
+            </button>
           </div>
           <Link href="/" aria-label="דף הבית" style={{ display: "flex", justifyContent: "center" }}>
             <img src="/logo.avif" alt="Cohen Brothers" style={{ height: 24, display: "block" }} />
           </Link>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button className="m-ico" onClick={openSearch} aria-label="חיפוש">
-              <IconSearch size={22} />
-            </button>
+            <Link href="/account" className="m-ico" aria-label="אזור אישי">
+              <IconUser size={22} />
+            </Link>
             <button className="m-ico" onClick={openCart} aria-label="סל">
               <IconBag size={22} />
               {count > 0 && <span className="m-count">{count}</span>}

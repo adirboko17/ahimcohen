@@ -17,29 +17,43 @@ import { complementaryAccessories, similarProducts } from "@/lib/product-recomme
 import { productColorIndex, productGalleryImages } from "@/lib/product-selection";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useStore } from "@/lib/store";
-import { IconCheck, IconPackages, IconPhone, IconPin, IconTruck } from "./icons";
+import { IconCheck, IconFwd, IconPackages, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
+import { ProductReviews, ProductReviewsLink, reviewSummary, type ReviewInteraction } from "./ProductReviews";
 import { QuantityUnitPicker } from "./QuantityUnitPicker";
 import { quantitySelection, type QuantityUnit } from "@/lib/quantity-selection";
-import type { AddItem } from "@/lib/types";
+import type { AddItem, PackUnit } from "@/lib/types";
+import type { PublishedBundle, PublishedReview } from "@/lib/admin/models";
 
 function bundleOf(p: Product, extras: Product[], q: number): [string, number][] {
   const rest = extras.filter((item) => item.id !== p.id).slice(0, 2).map((item) => [item.id, 1] as [string, number]);
   return [[p.id, q], ...rest];
 }
 
-export function ProductView({ id, initialColor, initialSize, fromQuantityOffer = false }: { id: string; initialColor?: string; initialSize?: string; fromQuantityOffer?: boolean }) {
-  return <ProductDetails key={JSON.stringify([id, initialColor, initialSize, fromQuantityOffer])} id={id} fromQuantityOffer={fromQuantityOffer} initialColor={initialColor} initialSize={initialSize} />;
+type ProductViewProps = { id: string; initialColor?: string; initialSize?: string; initialBundle?: string; fromQuantityOffer?: boolean; bundles?: PublishedBundle[]; reviews?: PublishedReview[] };
+
+export function ProductView(props: ProductViewProps) {
+  return <ProductDetails key={JSON.stringify([props.id, props.initialColor, props.initialSize, props.initialBundle, props.fromQuantityOffer])} {...props} />;
 }
 
-function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = false }: { id: string; initialColor?: string; initialSize?: string; fromQuantityOffer?: boolean }) {
+function ProductDetails({ id, initialColor, initialSize, initialBundle, fromQuantityOffer = false, bundles = [], reviews = [] }: ProductViewProps) {
   const { product, category, products } = useCatalog();
-  const p = product(id);
-  const accP = useMemo(() => p ? complementaryAccessories(p, products) : [], [p, products]);
-  const related = useMemo(() => p ? similarProducts(p, products.filter((item) => !accP.some((accessory) => accessory.id === item.id))) : [], [p, products, accP]);
+  const base = product(id);
+  const [reviewInteraction, setReviewInteraction] = useState<ReviewInteraction>(null);
+  const [managedId, setManagedId] = useState(() => bundles.find((bundle) => bundle.cartProductId && bundle.id === initialBundle)?.id);
+  const managed = managedId ? bundles.find((bundle) => bundle.id === managedId) : undefined;
+  const packProduct = managed?.cartProductId ? product(managed.cartProductId) : undefined;
+  const p = packProduct ?? base;
+  const accP = useMemo(() => base ? complementaryAccessories(base, products) : [], [base, products]);
+  const related = useMemo(() => base ? similarProducts(base, products.filter((item) => !accP.some((accessory) => accessory.id === item.id))) : [], [base, products, accP]);
   const router = useRouter();
   const { addMany, flash, toastOn, cart } = useStore();
-  const [color, setColor] = useState(() => p ? productColorIndex(p, initialColor, initialSize) : 0);
+  const [color, setColor] = useState(() => {
+    if (!p) return 0;
+    const requested = productColorIndex(p, initialColor, initialSize);
+    if (!p.bundleSourceId || p.choices?.some((choice) => choice.available && choice.color === (p.colors[requested] || ""))) return requested;
+    return Math.max(0, p.colors.indexOf(p.choices?.find((choice) => choice.available)?.color ?? ""));
+  });
   const sizeOptions = useMemo(() => p ? productSizeOptions(p, p.colors[color] || "") : [], [p, color]);
   const [selectedSize, setSize] = useState<string | null>(() => {
     if (initialSize) return sizeOptions.find((option) => option.available && option.label === sizeLabel(initialSize))?.label ?? null;
@@ -47,17 +61,30 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   });
   const selectedOption = sizeOptions.find((option) => option.label === selectedSize && option.available);
   const size = selectedOption?.label ?? null;
-  const [qty, setQty] = useState(() => p && fromQuantityOffer ? offerCartQuantity(p) : 1);
-  const offer = p ? quantityOffer(p) : null;
-  const separateUnits = offer?.kind === "quantity" && qty > 1;
+  const [qty, setQty] = useState(() => bundles.find((bundle) => !bundle.productId && !bundle.cartProductId && bundle.id === initialBundle)?.quantity
+    ?? (base && !packProduct && fromQuantityOffer ? offerCartQuantity(base) : 1));
+  const baseOffer = base ? quantityOffer(base) : null;
+  const offer = packProduct ? null : baseOffer;
+  const hasPackages = bundles.some((bundle) => !bundle.productId && !bundle.cartProductId) || baseOffer?.kind === "quantity" || !!base?.deal;
+  const mixedOffer = !!(packProduct && managed?.mixedUnits);
+  const separateUnits = mixedOffer || !packProduct && hasPackages && qty > 1;
+  const selectionProduct = mixedOffer ? base : p;
+  const unitCount = mixedOffer ? managed!.quantity : qty;
   const [unitSelections, setUnitSelections] = useState<Record<number, QuantityUnit>>({});
   const unitPicker = useRef<HTMLDivElement>(null);
-  const units = useMemo(() => p && separateUnits ? quantitySelection(p, Array.from({ length: qty }, (_, index) =>
+  const units = useMemo(() => selectionProduct && separateUnits ? quantitySelection(selectionProduct, Array.from({ length: unitCount }, (_, index) =>
     unitSelections[index] ?? { color, size: selectedSize },
-  )) : null, [p, separateUnits, qty, unitSelections, color, selectedSize]);
-  const selectionReady = separateUnits ? !!units?.complete : !!selectedOption;
+  )) : null, [selectionProduct, separateUnits, unitCount, unitSelections, color, selectedSize]);
+  const packUnits: PackUnit[] | undefined = mixedOffer && units?.complete
+    ? units.quoteLines.flatMap((row) => row.variantId ? [{ variantId: row.variantId, quantity: row.qty }] : [])
+      .sort((a, b) => a.variantId.localeCompare(b.variantId)) : undefined;
+  const anchor = packUnits?.length ? base?.choices?.find((choice) => choice.id === packUnits[0].variantId) : undefined;
+  const mixedVariant = anchor && packProduct?.choices?.find((choice) => choice.available && choice.color === anchor.color && choice.size === anchor.size);
+  const selectionReady = mixedOffer ? !!mixedVariant && !!units?.complete : separateUnits ? !!units?.complete : !!selectedOption;
   const variant = p?.choices?.find((choice) => choice.available && choice.color === (p.colors[color] || "") && (!selectedOption || choice.size === selectedOption.value));
-  const quoteState = useCartQuote(separateUnits ? units?.quoteLines ?? [] : p && offer?.kind === "quantity" && variant ? [{ pid: p.id, color: variant.color, size: variant.size, qty, variantId: variant.id }] : []);
+  const quoteState = useCartQuote(mixedOffer
+    ? packProduct && mixedVariant && packUnits ? [{ pid: packProduct.id, color: mixedVariant.color, size: mixedVariant.size, qty, variantId: mixedVariant.id, packUnits }] : []
+    : separateUnits ? units?.quoteLines ?? [] : p && offer?.kind === "quantity" && variant ? [{ pid: p.id, color: variant.color, size: variant.size, qty, variantId: variant.id }] : []);
   const [sizeErr, setSizeErr] = useState(false);
   const [acc, setAcc] = useState<string | null>(() => p?.desc ? "desc" : "spec");
   const [gal, setGal] = useState(0);
@@ -66,7 +93,8 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   const [bSize, setBSize] = useState<Record<string, string>>({});
   const [bErr, setBErr] = useState(false);
 
-  if (!p) return null;
+  if (!p || !base) return null;
+  const ratings = reviewSummary(reviews);
   const sizeLabels = sizeOptions.map((option) => option.label);
   const catName = category(p.cat)?.name || "";
   const imgs = productGalleryImages(p, p.colors[color] || "");
@@ -79,17 +107,26 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   const current = slides[gi];
 
   const inCart = cart.filter((l) => l.pid === p.id).reduce((a, l) => a + l.qty, 0);
-  const line = quoteState.quote?.total ?? (offer?.kind === "pack" ? qty * (variant?.price ?? p.price) : priceFor(p, qty));
+  const deal: [number, number] | undefined = baseOffer?.kind === "quantity" ? [baseOffer.quantity, baseOffer.total] : base.deal;
+  const unitPrice = variant?.price ?? p.price;
+  const baseUnitPrice = packProduct
+    ? (base.choices?.find((choice) => choice.color === base.colors[color] && choice.size === selectedOption?.value)?.price ?? base.price)
+    : unitPrice;
+  const bundledQuantities = new Map<number, PublishedBundle>();
+  for (const bundle of bundles) if (!bundle.productId && !bundle.cartProductId && !bundledQuantities.has(bundle.quantity)) bundledQuantities.set(bundle.quantity, bundle);
+  const options = [...bundledQuantities.values()];
+  if (deal && !bundledQuantities.has(deal[0])) options.push({ id: "catalog", name: `חבילת ${deal[0]}`, quantity: deal[0], total: deal[1] });
+  options.sort((a, b) => a.quantity - b.quantity);
+  const selectedPack = !packProduct ? options.find((pack) => pack.quantity === qty) : undefined;
+  const galleryOffer = packProduct ? managed : selectedPack ?? options[0];
+  const galleryDeal: [number, number] | undefined = galleryOffer && [galleryOffer.quantity, galleryOffer.total];
+  const packs = [...options, ...bundles.filter((bundle) => bundle.productId || bundle.cartProductId)].sort((a, b) => a.quantity - b.quantity);
+  packs.unshift({ id: "single", name: "יחידה אחת", quantity: 1, total: baseUnitPrice });
+  const line = quoteState.quote?.total ?? selectedPack?.total ?? (qty === 1 || offer?.kind === "pack" ? qty * unitPrice : priceFor(p, qty));
   const lineLabel = separateUnits && !selectionReady ? "בחרו מידה לכל יחידה" : quoteState.pending ? "מחשב מחיר…" : quoteState.error ? "המחיר יתעדכן בסל" : fmt(line);
-  const deal: [number, number] | undefined = offer?.kind === "quantity" ? [offer.quantity, offer.total] : p.deal;
-  const packs = deal ? [1, deal[0]].map((n) => {
-    const pr = n === 1 ? (variant?.price ?? p.price) : deal[1];
-    return { n, pr, sv: n * (variant?.price ?? p.price) - pr, on: qty === n };
-  }) : [];
-  const feedback = quoteState.pending ? "מעדכנים את מחיר המבצע…" : quoteState.error ? quoteState.error
+  const feedback = quoteState.pending ? "מעדכנים את המחיר…" : quoteState.error ? quoteState.error
     : quoteState.quote ? `${qty} ${offer?.kind === "pack" ? "מארזים" : "יחידות"} ב־${fmt(line)}${quoteState.quote.savings > 0 ? ` · חסכתם ${fmt(quoteState.quote.savings)}` : ""}`
-    : deal ? `מבצע ${deal[0]} יחידות ב־${fmt(deal[1])}` : "";
-  const fbColor = "#111";
+    : selectedPack ? `מבצע ${qty} יחידות ב־${fmt(selectedPack.total)}` : "";
 
   const accs = [
     ...(p.desc ? [{ id: "desc", title: "תיאור", lines: p.desc.map((v) => ({ k: "", v: "- " + v })) }] : []),
@@ -117,7 +154,8 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
   ];
 
   const items = bundleOf(p, accP, qty);
-  const mainItems: AddItem[] = separateUnits ? units?.items ?? [] : selectedOption ? [[p.id, color, selectedOption.value, qty]] : [];
+  const mainItems: AddItem[] = mixedOffer ? mixedVariant && packUnits ? [[p.id, Math.max(0, p.colors.indexOf(mixedVariant.color)), mixedVariant.size, qty, packUnits]] : []
+    : separateUnits ? units?.items ?? [] : selectedOption ? [[p.id, color, selectedOption.value, qty]] : [];
   const requireSelection = () => {
     setSizeErr(true);
     flash(separateUnits ? "בחרו צבע ומידה לכל יחידה" : "בחרו מידה");
@@ -193,7 +231,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               </button>
             ))}
           </div>
-          <GalleryFrame slide={current} name={p.name} deal={deal} was={p.was} price={p.price} />
+          <GalleryFrame slide={current} name={p.name} deal={galleryDeal} was={p.was} price={p.price} />
         </div>
         <div className="mob-block" style={{ position: "relative" }}>
           <div
@@ -229,7 +267,7 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               <i key={i} style={{ width: i === gal ? 20 : 8, opacity: i === gal ? 1 : 0.25 }} />
             ))}
           </div>
-          {deal && <span className="badge y" style={{ position: "absolute", top: 12, right: 12 }}>{deal[0]} ב-{deal[1]} ₪</span>}
+          {galleryDeal && <span className="badge y" style={{ position: "absolute", top: 12, right: 12 }}>{galleryDeal[0]} ב-{galleryDeal[1]} ₪</span>}
           <button className="back-fab" aria-label="חזרה" onClick={() => (window.history.length > 1 ? router.back() : router.push(`/c/${p.cat}`))}>
             →
           </button>
@@ -241,12 +279,15 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               {brandByName(p.brand) ? <ProductBrand name={p.brand} inline /> : <span>{p.brand || "האחים כהן"}</span>}
               <span dir="ltr">{p.sku ? `מק״ט ${p.sku}` : ""}</span>
             </div>
+            {p.promoLabel && <span className="badge y product-promo-label">{p.promoLabel}</span>}
             <h1>{p.name}</h1>
+            <ProductReviewsLink summary={ratings} interaction={reviewInteraction} onReviewInteraction={setReviewInteraction} />
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{offer ? lineLabel : fmt(variant?.price ?? p.price)}</span>
-              {offer ? quoteState.quote && quoteState.quote.savings > 0 && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(quoteState.quote.regular)}</s> : p.was && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(p.was)}</s>}
+              <span style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{selectedPack || managed?.quantityOffer ? fmt(line) : offer || hasPackages ? lineLabel : fmt(unitPrice)}</span>
+              {offer || hasPackages ? quoteState.quote && quoteState.quote.savings > 0 && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(quoteState.quote.regular)}</s> : p.was && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(p.was)}</s>}
             </div>
             {offer && <span className="muted" style={{ fontSize: 14 }}>מחיר כולל {offer.kind === "pack" && qty === 1 ? "למארז אחד" : `ל־${qty} ${offer.kind === "pack" ? "מארזים" : "יחידות"}`}{quoteState.quote || offer.kind === "pack" ? ` · ${fmt(line / (qty * (offer.kind === "pack" ? offer.quantity : 1)))} ${offer.unitLabel}` : ""}</span>}
+            {!offer && selectedPack && <span className="muted" style={{ fontSize: 14 }}>מחיר כולל ל־{qty} יחידות</span>}
             {p.std && (
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {p.std.map((t) => (
@@ -256,26 +297,52 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
             )}
           </div>
 
-          {deal && (
-            <div className="buy-pad" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>בחרו חבילה</span>
-              {packs.map((t) => (
-                <button key={t.n} className={`pack ${t.on ? "on" : ""}`} onClick={() => setQty(t.n)}>
-                  <span className="radio"><i /></span>
-                  <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800 }}>
-                      {t.n === 1 ? "יחידה אחת" : `חבילת ${t.n}`}
-                      {t.n > 1 && <span className="badge y" style={{ fontSize: 12 }}>{t.n === deal![0] ? "מבצע" : "לצוות"}</span>}
-                    </span>
-                    <span className="muted" style={{ fontSize: 13 }}>{t.n === 1 ? `${fmt(p.price)} ליחידה` : `${fmt(t.pr / t.n)} ליחידה · חיסכון ${fmt(t.sv)}`}</span>
+          {managed && packProduct && <div className="buy-pad product-pack-feedback">{managed.quantity} יחידות בכל מארז</div>}
+
+          {packs.length > 1 && !managed?.quantityOffer && (
+            <div className="buy-pad product-pack-options" role="group" aria-label="בחרו חבילה">
+              <strong className="product-pack-heading">בחרו חבילה</strong>
+              {packs.map(({ id: optionId, name, quantity, total, productId, cartProductId, bestValue }) => {
+                const regular = baseUnitPrice * quantity;
+                const saving = Math.round((regular - total) * 100) / 100;
+                const detail = <>
+                  <span className="product-pack-copy">
+                    <strong>
+                      <bdi>{name}</bdi>
+                      {bestValue ? <span className="badge product-pack-best-value">הכי משתלם</span>
+                        : !productId && !cartProductId && saving > 0 && <span className="badge y">מבצע</span>}
+                    </strong>
+                    <small className="muted"><bdi>{fmt(total / quantity)}</bdi> ליחידה{saving > 0 && <> · חיסכון <bdi>{fmt(saving)}</bdi></>}</small>
                   </span>
-                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                    <span style={{ fontSize: 18, fontWeight: 800 }}>{fmt(t.pr)}</span>
-                    {t.sv > 0 && <s style={{ fontSize: 13, color: "#8a8a86" }}>{fmt(t.n * p.price)}</s>}
+                  <span className="product-pack-price">
+                    <strong><bdi>{fmt(total)}</bdi></strong>
+                    {saving > 0 && <s><bdi>{fmt(regular)}</bdi></s>}
                   </span>
-                </button>
-              ))}
-              <span style={{ fontSize: 14, fontWeight: 700, color: fbColor, marginTop: 4 }}>{feedback}</span>
+                </>;
+                const checked = cartProductId ? !!packProduct && managed?.id === optionId : !packProduct && qty === quantity;
+                return productId ? <Link key={optionId} className="pack pack-product" href={`/p/${encodeURIComponent(productId)}`}>
+                  <span className="pack-product-arrow" aria-hidden="true"><IconFwd /></span>{detail}
+                </Link> : <label key={optionId} className={`pack${checked ? " on" : ""}`}>
+                  <input type="radio" name={`package-${id}`} value={cartProductId ? optionId : quantity} checked={checked} onChange={() => {
+                    setManagedId(cartProductId ? optionId : undefined);
+                    setQty(cartProductId ? 1 : quantity);
+                    setSizeErr(false);
+                    if (cartProductId) {
+                      const pack = product(cartProductId);
+                      if (!pack) return;
+                      const current = pack.colors[color] || "";
+                      const preferred = pack.choices?.find((choice) => choice.available && choice.color === current) ?? pack.choices?.find((choice) => choice.available);
+                      const nextColor = Math.max(0, pack.colors.indexOf(preferred?.color ?? ""));
+                      const sizes = productSizeOptions(pack, pack.colors[nextColor] || "").filter((option) => option.available);
+                      setColor(nextColor);
+                      setSize(sizes.find((option) => option.label === selectedSize)?.label ?? (sizes.length === 1 ? sizes[0].label : null));
+                      setGal(0);
+                    }
+                  }} />
+                  <span className="radio" aria-hidden="true"><i /></span>{detail}
+                </label>;
+              })}
+              {feedback && <strong className="product-pack-feedback">{feedback}</strong>}
             </div>
           )}
 
@@ -287,8 +354,8 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
           </div>}
           {quoteState.error && <button type="button" className="cart-edit-link" onClick={quoteState.retry}>עדכון המחיר</button>}
 
-          {separateUnits && units && <div ref={unitPicker}>
-            <QuantityUnitPicker product={p} rows={units.rows} showErrors={sizeErr} onChange={(index, selection) => {
+          {separateUnits && units && selectionProduct && <div ref={unitPicker}>
+            <QuantityUnitPicker product={selectionProduct} rows={units.rows} showErrors={sizeErr} onChange={(index, selection) => {
               setUnitSelections((previous) => ({ ...previous, ...Object.fromEntries(units.rows.map((row, rowIndex) => [rowIndex, row.selection])), [index]: selection }));
               setSizeErr(false);
               setColor(selection.color);
@@ -304,7 +371,8 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {p.colors.map((c, i) => (
-                  <button key={c} className={`color-dot lg ${i === color ? "on" : "off"}`} style={{ background: swatchColor(c) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === color} onClick={() => {
+                  <button key={c} className={`color-dot lg ${i === color ? "on" : "off"}`} style={{ background: swatchColor(c) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === color}
+                    disabled={!!packProduct && !p.choices?.some((choice) => choice.available && choice.color === c)} onClick={() => {
                     setColor(i);
                     setGal(0);
                     mobileGallery.current?.scrollTo({ left: 0, behavior: "instant" });
@@ -322,11 +390,14 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
               </span>
             </div>
             <div className="size-grid">
-              {sizeOptions.map(({ label, available }) => (
-                <button type="button" key={label} disabled={!available} aria-pressed={size === label} title={!available ? "המידה אינה זמינה בצבע שנבחר" : undefined} className={`size ${size === label ? "on" : ""} ${sizeErr && available && size !== label ? "err" : ""}`} onClick={() => { setSize(label); setSizeErr(false); }}>
-                  {label}
-                </button>
-              ))}
+              {sizeOptions.map(({ label, available }) => {
+                const shoeSize = label.match(/^(AU\s*\d+(?:\.\d+)?)\s*\/\s*(EU\s*\d+(?:\.\d+)?)$/i);
+                return (
+                  <button type="button" key={label} disabled={!available} aria-label={label} aria-pressed={size === label} title={!available ? "המידה אינה זמינה בצבע שנבחר" : undefined} className={`size ${size === label ? "on" : ""} ${sizeErr && available && size !== label ? "err" : ""}`} onClick={() => { setSize(label); setSizeErr(false); }}>
+                    {shoeSize ? <><span className="size-system">{shoeSize[1]}</span><span className="size-system">{shoeSize[2]}</span></> : label}
+                  </button>
+                );
+              })}
             </div>
             {sizeErr && <span className="err">יש לבחור מידה לפני ההוספה לסל</span>}
           </div>}
@@ -422,6 +493,9 @@ function ProductDetails({ id, initialColor, initialSize, fromQuantityOffer = fal
           </div>
         </div>
       </div>
+
+      <ProductReviews productId={id} productName={base.name} reviews={reviews} summary={ratings}
+        interaction={reviewInteraction} onReviewInteraction={setReviewInteraction} />
 
       {(related.length > 0 || accP.length > 0) && (
         <div className="pdp-recommendations">

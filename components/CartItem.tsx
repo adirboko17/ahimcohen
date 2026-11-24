@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { colorLabel, phOf, type Product } from "@/lib/catalog";
+import { useCatalog } from "@/lib/catalog-context";
 import { cartProductImage } from "@/lib/product-selection";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { fmt } from "@/lib/pricing";
@@ -10,6 +11,7 @@ import type { CartLine } from "@/lib/types";
 import { ProductImage } from "./ProductImage";
 
 export function CartItem({ line, product, disabled = false, unitNumber }: { line: CartLine; product: Product; disabled?: boolean; unitNumber?: number }) {
+  const catalog = useCatalog();
   const { setQtyLine, setLineSelection, setUnitSelection, cartQuote } = useStore();
   const quoted = line.variantId ? cartQuote.quote?.lines[line.variantId] : undefined;
   const total = quoted ? quoted.total * line.qty / quoted.quantity : line.qty * (line.unitPrice ?? product.price);
@@ -21,6 +23,7 @@ export function CartItem({ line, product, disabled = false, unitNumber }: { line
   const selected = sizes.find((option) => option.label === size);
   const preview = editing ? { color, size: selected?.value ?? "", variantId: undefined } : line;
   const img = cartProductImage(product, preview);
+  const source = line.packUnits && product.bundleSourceId ? catalog.product(product.bundleSourceId) : undefined;
   const edit = () => {
     setColor(line.color);
     setSize(sizeLabel(line.size) || "מידה אחת");
@@ -37,8 +40,11 @@ export function CartItem({ line, product, disabled = false, unitNumber }: { line
           <span>{unitNumber ? `יחידה ${unitNumber}` : product.name}</span>
           {!unitNumber && <strong aria-live="polite">{cartQuote.error ? "המחיר לא זמין" : <>{regular > total && <s className="muted cart-item-was">{fmt(regular)}</s>}<span className="cart-item-price">{fmt(total)}</span>{cartQuote.pending && <small className="price-estimate-label">משוער</small>}</>}</strong>}
         </div>
-        <span className="muted cart-item-meta">{[colorLabel(line.color), sizeLabel(line.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>
-        {!editing && <button type="button" className="cart-edit-link" disabled={disabled} onClick={edit}>שינוי צבע ומידה</button>}
+        {line.packUnits ? <span className="muted cart-item-meta">{line.packUnits.map(({ variantId, quantity }) => {
+          const choice = source?.choices?.find(({ id }) => id === variantId);
+          return choice ? `${quantity} × ${[colorLabel(choice.color), sizeLabel(choice.size) || "מידה אחת"].filter(Boolean).join(" · ")}` : `${quantity} × מק״ט ${variantId.split("/").pop()}`;
+        }).join(" / ")}</span> : <span className="muted cart-item-meta">{[colorLabel(line.color), sizeLabel(line.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>}
+        {!editing && !line.packUnits && <button type="button" className="cart-edit-link" disabled={disabled} onClick={edit}>שינוי צבע ומידה</button>}
         {editing && (
           <div className="cart-item-editor">
             {product.colors.length > 0 && <label>

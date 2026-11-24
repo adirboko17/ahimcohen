@@ -4,6 +4,7 @@ import { quantityOffer } from "./quantity-offers";
 
 export function heroDeals(products: Product[]) {
   return products.flatMap(product => {
+    if (product.quantityOfferHidden) return [];
     if (product.choices?.length && !product.choices.some(choice => choice.available)) return [];
     const offer = quantityOffer(product);
     if (!offer && !(product.was && product.was > product.price)) return [];

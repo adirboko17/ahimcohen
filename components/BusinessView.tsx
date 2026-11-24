@@ -1,26 +1,58 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { SERVICES, colorLabel } from "@/lib/catalog";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SERVICES, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
-import { IconBack, IconCheck, IconFwd, IconUpload } from "./icons";
+import { categoryProductImage } from "@/lib/category-filters";
+import { productSizeOptions } from "@/lib/sizes";
+import { IconBack, IconBag, IconCheck, IconFwd, IconUpload } from "./icons";
+import { ProductImage } from "./ProductImage";
 
-type Row = { pid: string; color: number; sizes: Record<string, string> };
+type Row = { id: number; pid: string; sku: string; color: string; sizes: Record<string, string> };
+type ProductOption = { sku: string; product: Product };
+const BUSINESS_SKUS = ["108", "101", "104", "135-4", "115", "211", "528", "097", "1045", "141", "004"] as const;
+const CATALOG_SKU_ALIASES: Partial<Record<(typeof BUSINESS_SKUS)[number], string>> = {
+  "115": "115-6",
+  "528": "528N-5",
+  "097": "097N",
+  "004": "004-1",
+};
 const LABELS = ["פריטים וכמויות", "מיתוג", "פרטי התקשרות", "סיכום ושליחה"];
 const TITLES = [
-  ["אילו פריטים צריך?", "בחרו פריט וצבע והזינו כמות לכל מידה. אפשר להוסיף כמה פריטים לאותה בקשה."],
+  ["אילו פריטים צריך?", "בחרו פריט מהתמונות, ואז הגדירו צבע וכמות לכל מידה."],
   ["איך ממתגים?", "בחרו שיטת מיתוג והעלו את קובץ הלוגו. אם הקובץ לא זמין כרגע, אפשר לשלוח אותו גם אחר כך."],
   ["למי לשלוח את ההצעה?", "הצעת המחיר תישלח לפרטים האלה."],
   ["בדיקה אחרונה", "עברו על הפרטים לפני השליחה. אפשר לחזור לכל שלב ולערוך."],
 ];
 const BRAND_DESC: Record<string, string> = { רקמה: "לוגו רקום על הבגד", הדפסה: "לוגו מודפס על הבגד", "ללא מיתוג": "פריטים ללא לוגו" };
 
+function businessProductOptions(products: Product[]): ProductOption[] {
+  const bySku = new Map<string, Product>();
+  for (const product of products) {
+    if (!product.sizes.length) continue;
+    for (const sku of [product.sku, ...(product.choices?.map((choice) => choice.sku) ?? [])]) {
+      const key = sku?.trim().toUpperCase();
+      if (key && !bySku.has(key)) bySku.set(key, product);
+    }
+  }
+  return BUSINESS_SKUS.flatMap((sku) => {
+    const product = bySku.get(sku) ?? bySku.get(CATALOG_SKU_ALIASES[sku] ?? "");
+    return product ? [{ sku, product }] : [];
+  });
+}
+
+function sizedOptions(product: Product, color: string) {
+  return productSizeOptions(product, color).filter((option) => option.value);
+}
+
 export function BusinessView() {
   const { products: catalogProducts, product } = useCatalog();
-  const products = catalogProducts.filter((item) => item.sizes.length > 0);
-  const firstProduct = products.find((item) => item.cat === "pro" && item.sizes.length > 1) ?? products[0];
+  const products = useMemo(() => businessProductOptions(catalogProducts), [catalogProducts]);
   const formRef = useRef<HTMLElement>(null);
-  const [rows, setRows] = useState<Row[]>(() => [{ pid: firstProduct?.id ?? "", color: 0, sizes: {} }]);
+  const nextRowId = useRef(0);
+  const pendingFocus = useRef<number | "picker" | null>(null);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(true);
   const [brand, setBrand] = useState<string[]>(["רקמה"]);
   const [logo, setLogo] = useState("");
   const [step, setStep] = useState(0);
@@ -30,12 +62,41 @@ export function BusinessView() {
   const units = rows.reduce((a, r) => a + Object.values(r.sizes).reduce((s, v) => s + (+v || 0), 0), 0);
   const brandLabel = brand.length ? brand.join(" + ") : "לא נבחר";
 
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (step !== 0 || target === null) return;
+    pendingFocus.current = null;
+    const selector = target === "picker" ? ".business-product-picker" : `[data-business-row="${target}"]`;
+    const section = formRef.current?.querySelector(selector);
+    section?.querySelector<HTMLElement>(target === "picker" ? "button" : "select")?.focus({ preventScroll: true });
+    section?.scrollIntoView({ behavior: "instant", block: "start" });
+  }, [pickerOpen, rows, step]);
+
+  const selectProduct = ({ sku, product }: ProductOption) => {
+    const row = { id: nextRowId.current++, pid: product.id, sku, color: product.colors[0] ?? "", sizes: {} };
+    pendingFocus.current = row.id;
+    setRows((current) => [...current, row]);
+    setPickerOpen(false);
+    setErr("");
+  };
+
+  const updateRow = (id: number, update: (row: Row) => Row) => {
+    setRows((current) => current.map((row) => row.id === id ? update(row) : row));
+  };
+
+  const removeRow = (index: number) => {
+    const remaining = rows.filter((_, i) => i !== index);
+    pendingFocus.current = remaining[Math.min(index, remaining.length - 1)]?.id ?? "picker";
+    setRows(remaining);
+    if (!remaining.length) setPickerOpen(true);
+  };
+
   const scrollForm = () => {
     const el = formRef.current;
     el?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
   const valid = (i: number) => (i === 0 ? units > 0 : i === 2 ? !!(ct.org && ct.name && ct.phone) : true);
-  const errs = ["הזינו כמות לפחות במידה אחת", "", "מלאו שם עסק, איש קשר וטלפון", ""];
+  const errs = [rows.length ? "הזינו כמות לפחות במידה אחת" : "בחרו פריט כדי להתחיל", "", "מלאו שם עסק, איש קשר וטלפון", ""];
   const go = (i: number) => {
     for (let j = 0; j < i; j++) {
       if (!valid(j)) {
@@ -114,45 +175,84 @@ export function BusinessView() {
                   <p className="muted" style={{ fontSize: 16, lineHeight: 1.55, maxWidth: "56ch" }}>{TITLES[step][1]}</p>
                 </div>
                 {step === 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div className="business-items">
+                    {pickerOpen && (
+                      <div className="business-product-picker">
+                        {products.length ? (
+                          <div className="business-product-grid" role="group" aria-label="פריטים לבחירה">
+                            {products.map((option) => (
+                              <button key={option.sku} type="button" className="business-product-option" onClick={() => selectProduct(option)}>
+                                <span className="business-product-photo">
+                                  {option.product.imgs?.[0]
+                                    ? <ProductImage src={option.product.imgs[0]} alt="" sizes="(max-width: 767px) 42vw, 240px" maxWidth={480} />
+                                    : <IconBag size={34} />}
+                                </span>
+                                <span className="business-product-info">
+                                  <span className="business-product-sku">מק״ט <bdi>{option.sku}</bdi></span>
+                                  <span className="business-product-name" dir="auto">{option.product.name}</span>
+                                  <span className="business-product-add" aria-hidden="true">+</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : <p className="muted">אין כרגע פריטים זמינים לבחירה.</p>}
+                        {rows.length > 0 && <button className="business-row-link" type="button" onClick={() => {
+                          pendingFocus.current = rows[rows.length - 1].id;
+                          setPickerOpen(false);
+                        }}>חזרה לפריטים שנבחרו</button>}
+                      </div>
+                    )}
                     {rows.map((r, ri) => {
                       const rp = product(r.pid);
                       if (!rp) return null;
                       const sum = Object.values(r.sizes).reduce((a, b) => a + (+b || 0), 0);
-                      const upd = (fn: (row: Row) => Row) => setRows((all) => all.map((x, j) => (j === ri ? fn(x) : x)));
+                      const sizes = sizedOptions(rp, r.color);
+                      const image = categoryProductImage(rp, { colors: r.color ? [r.color] : [], sizes: [], stock: false });
                       return (
-                        <div className="b-card" key={ri}>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10 }}>
-                            <label className="field">פריט
-                              <select value={r.pid} onChange={(e) => upd(() => ({ pid: e.target.value, color: 0, sizes: {} }))}>
-                                {products.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                              </select>
-                            </label>
-                            <label className="field">צבע
-                              <select value={r.color} onChange={(e) => upd((x) => ({ ...x, color: +e.target.value }))}>
-                                {(rp.colors.length ? rp.colors : ["ללא"]).map((c, i) => <option key={c} value={i}>{colorLabel(c)}</option>)}
-                              </select>
-                            </label>
+                        <div className="b-card business-item" key={r.id} data-business-row={r.id}>
+                          <div className="business-item-heading">
+                            <span className="business-item-photo">
+                              {image ? <ProductImage src={image} alt="" sizes="64px" maxWidth={160} width={64} height={64} /> : <IconBag size={26} />}
+                            </span>
+                            <div className="business-item-name">
+                              <span className="business-product-sku">מק״ט <bdi>{r.sku}</bdi></span>
+                              <h4 dir="auto">{rp.name}</h4>
+                            </div>
+                            <button className="business-row-link" type="button" aria-label={`הסרת ${rp.name}`} onClick={() => removeRow(ri)}>הסרה</button>
                           </div>
-                          <div>
-                            <span style={{ fontSize: 14, fontWeight: 700 }}>כמות לפי מידה</span>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: 6, marginTop: 8 }}>
-                              {rp.sizes.map((z) => (
-                                <label key={z} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 700, direction: "ltr" }}>
-                                  {z}
-                                  <input className="inp" type="number" min={0} inputMode="numeric" placeholder="0" value={r.sizes[z] || ""} onChange={(e) => upd((x) => ({ ...x, sizes: { ...x.sizes, [z]: e.target.value } }))} style={{ textAlign: "center", height: 46 }} />
-                                </label>
-                              ))}
+                          <div className="business-item-options">
+                            <label className="field">צבע
+                              <select value={r.color} onChange={(e) => {
+                                const color = e.target.value;
+                                const labels = new Set(sizedOptions(rp, color).map((option) => option.label));
+                                updateRow(r.id, (row) => ({ ...row, color, sizes: Object.fromEntries(Object.entries(row.sizes).filter(([label]) => labels.has(label))) }));
+                              }}>
+                                {(rp.colors.length ? rp.colors : [""]).map((c) => <option key={c} value={c}>{c ? colorLabel(c) : "ללא"}</option>)}
+                              </select>
+                            </label>
+                            <div>
+                              <span className="business-size-label">כמות לפי מידה</span>
+                              <div className="business-size-grid">
+                                {sizes.map(({ label }) => (
+                                  <label key={label}>
+                                    <bdi>{label}</bdi>
+                                    <input className="inp" type="number" min={0} inputMode="numeric" placeholder="0" value={r.sizes[label] || ""} onChange={(e) => {
+                                      const value = e.target.value;
+                                      updateRow(r.id, (row) => ({ ...row, sizes: { ...row.sizes, [label]: value } }));
+                                    }} />
+                                  </label>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-                            <b>{sum ? `${sum} יחידות` : "טרם הוזנו כמויות"}</b>
-                            {rows.length > 1 && <button onClick={() => setRows((all) => all.filter((_, j) => j !== ri))} style={{ background: "none", border: 0, textDecoration: "underline", fontWeight: 600 }}>הסרה</button>}
-                          </div>
+                          <b className="business-item-quantity">{sum ? `${sum} יחידות` : "טרם הוזנו כמויות"}</b>
                         </div>
                       );
                     })}
-                    <button className="btn btn-line" disabled={!products.length} style={{ alignSelf: "flex-start", height: 44, padding: "0 18px", borderStyle: "dashed" }} onClick={() => setRows((all) => all.concat({ pid: firstProduct?.id ?? "", color: 0, sizes: {} }))}>+ הוספת פריט</button>
+                    {!pickerOpen && <button className="business-add-product btn btn-line" type="button" onClick={() => {
+                      pendingFocus.current = "picker";
+                      setPickerOpen(true);
+                    }}>+ הוספת פריט</button>}
                   </div>
                 )}
                 {step === 1 && (
@@ -200,15 +300,16 @@ export function BusinessView() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div className="b-card">
                       <div style={{ display: "flex", justifyContent: "space-between" }}><b>פריטים</b><button onClick={() => go(0)} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>עריכה</button></div>
-                      {rows.map((r, i) => {
+                      {rows.map((r) => {
                         const rp = product(r.pid);
                         if (!rp) return null;
                         const ent = Object.entries(r.sizes).filter(([, v]) => +v > 0);
                         const n = ent.reduce((a, [, v]) => a + +v, 0);
                         return (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, borderTop: "1px solid #EFEFEC", paddingTop: 12 }}>
+                          <div key={r.id} style={{ display: "flex", justifyContent: "space-between", gap: 16, borderTop: "1px solid #EFEFEC", paddingTop: 12 }}>
                             <span>
-                              <b style={{ display: "block" }}>{rp.name}{rp.colors[r.color] ? " · " + colorLabel(rp.colors[r.color]) : ""}</b>
+                              <b style={{ display: "block" }}>{rp.name}{r.color ? " · " + colorLabel(r.color) : ""}</b>
+                              <span className="business-product-sku">מק״ט <bdi>{r.sku}</bdi></span>
                               <span className="muted" dir="ltr" style={{ display: "block", textAlign: "right" }}>{ent.length ? ent.map(([z, v]) => `${z} × ${v}`).join("   ") : "ללא כמויות"}</span>
                             </span>
                             <b>{n} יח׳</b>

@@ -31,6 +31,7 @@ type Store = {
   toastOn: boolean;
   auth: boolean;
   phone: string;
+  accountPreviewPhone?: string;
   extraLock: boolean;
   anyOverlay: boolean;
   openCart: () => void;
@@ -53,8 +54,9 @@ type Store = {
 };
 
 const Ctx = createContext<Store | null>(null);
+const accountPreviewStorageKey = "ahim-account-preview-phone";
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
+export function StoreProvider({ children, accountPreviewPhone }: { children: React.ReactNode; accountPreviewPhone?: string }) {
   const catalog = useCatalog();
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
@@ -72,8 +74,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [qSize, setQSize] = useState<string | null>(null);
   const [toast, setToast] = useState("");
   const [toastOn, setToastOn] = useState(false);
-  const [auth, setAuth] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [previewSession, setPreviewSession] = useState("");
+  const auth = !!accountPreviewPhone && previewSession === accountPreviewPhone;
+  const phone = auth ? previewSession : "";
   const [extraLockCount, setExtraLockCount] = useState(0);
   const extraLock = extraLockCount > 0;
   const setExtraLock = useCallback((on: boolean) => {
@@ -90,16 +93,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (Array.isArray(parsed)) setCart(parsed.filter((l) => l && catalogRef.current.product(l.pid) && l.qty > 0)
           .map((line) => ({ ...line, instanceId: line.instanceId || crypto.randomUUID() })));
       }
-      const savedPhone = localStorage.getItem("ahim-phone");
-      if (localStorage.getItem("ahim-auth") === "1" && savedPhone) {
-        setAuth(true);
-        setPhone(savedPhone);
-      }
     } catch {
       /* ignore broken storage */
     }
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!accountPreviewPhone) return;
+    try {
+      const saved = localStorage.getItem(accountPreviewStorageKey);
+      if (saved === accountPreviewPhone) setPreviewSession(saved);
+    } catch {
+      /* The preview can still run without saved browser state. */
+    }
+  }, [accountPreviewPhone]);
 
   useEffect(() => {
     if (ready) localStorage.setItem("ahim-cart", JSON.stringify(cart));
@@ -172,15 +180,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (list: AddItem[], open = false) => {
       setCart((prev) => {
         const next = prev.slice();
-        list.forEach(([pid, ci, size, qty]) => {
+        list.forEach(([pid, ci, size, qty, packUnits]) => {
           const p = catalog.product(pid);
           if (!p || qty <= 0) return;
           const color = p.colors[ci] || "";
-          const variant = pickVariant(p, color, size);
-          const key = `${pid}|${color}|${size}`;
+          const variant = packUnits ? p.choices?.find((choice) => choice.available && choice.color === color && choice.size === size)
+            : pickVariant(p, color, size);
+          if (packUnits && !variant) return;
+          const key = packUnits ? JSON.stringify([pid, variant?.id, packUnits]) : `${pid}|${color}|${size}`;
           const i = next.findIndex((l) => l.key === key);
           if (i >= 0) next[i] = { ...next[i], qty: next[i].qty + qty };
-          else next.push({ key, pid, color, size, qty, instanceId: crypto.randomUUID(), variantId: variant?.id, unitPrice: variant?.price ?? p.price });
+          else next.push({ key, pid, color, size, qty, instanceId: crypto.randomUUID(), variantId: variant?.id, unitPrice: variant?.price ?? p.price, ...(packUnits && { packUnits }) });
         });
         return next;
       });
@@ -215,15 +225,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [catalog]);
 
   const login = useCallback((value: string) => {
-    setAuth(true);
-    setPhone(value);
-    localStorage.setItem("ahim-auth", "1");
-    localStorage.setItem("ahim-phone", value);
-  }, []);
+    if (value !== accountPreviewPhone) return;
+    setPreviewSession(value);
+    try {
+      localStorage.setItem(accountPreviewStorageKey, value);
+    } catch { /* Continue with the preview for this page session. */ }
+  }, [accountPreviewPhone]);
 
   const logout = useCallback(() => {
-    setAuth(false);
-    localStorage.removeItem("ahim-auth");
+    setPreviewSession("");
+    try {
+      localStorage.removeItem(accountPreviewStorageKey);
+    } catch { /* Browser storage is unavailable. */ }
     flash("התנתקתם מהחשבון");
   }, [flash]);
 
@@ -253,6 +266,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       toastOn,
       auth,
       phone,
+      accountPreviewPhone,
       extraLock,
       anyOverlay,
       openCart,
@@ -290,6 +304,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       toastOn,
       auth,
       phone,
+      accountPreviewPhone,
       extraLock,
       anyOverlay,
       openCart,

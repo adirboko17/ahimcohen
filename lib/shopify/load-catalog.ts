@@ -34,7 +34,7 @@ const readCachedCatalog = unstable_cache(
     inFlight.set(scope, request);
     return request;
   },
-  ["shop-catalog-v8-canonical-brands"],
+  ["shop-catalog-v9-published-at"],
   { revalidate: 60, tags: ["shop-catalog"] },
 );
 

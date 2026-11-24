@@ -12,7 +12,7 @@ import { categoryProductImage } from "@/lib/category-filters";
 import { fmt } from "@/lib/pricing";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
-import { IconBack, IconBag, IconCase, IconCheck, IconFwd, IconLock, IconPackages, IconPin, IconSearch, IconTruck, IconUser } from "./icons";
+import { IconBack, IconBag, IconCase, IconCheck, IconFwd, IconGrid, IconLock, IconPin, IconSearch, IconTruck, IconUser } from "./icons";
 import { CartContents } from "./CartContents";
 import { CheckoutButton } from "./CheckoutButton";
 
@@ -87,7 +87,7 @@ export function Overlays() {
               <span className="cart-empty-icon"><IconBag size={38} /></span>
               <h3 className="k">הסל עוד מחכה לך.</h3>
               <p>כל מה שצריך ליום העבודה הבא,<br />במקום אחד.</p>
-              <Link href="/quantity-offers" className="btn btn-yellow" onClick={s.closeAll}>למבצעי הכמות <IconFwd /></Link>
+              <Link href="/brands" className="btn btn-yellow" onClick={s.closeAll}>לכל המותגים <IconFwd /></Link>
               <button type="button" className="cart-edit-link" onClick={s.closeAll}>להמשיך להסתכל</button>
             </div>
           )}
@@ -97,7 +97,7 @@ export function Overlays() {
           <div className="drawer-foot">
             {priceReady && math.savings > 0 && (
               <div className="cart-savings-summary">
-                <span><IconCheck /> חסכתם במבצעי כמות</span>
+                <span><IconCheck /> החיסכון שלכם</span>
                 <span dir="ltr">-{fmt(math.savings)}</span>
               </div>
             )}
@@ -136,17 +136,18 @@ export function Overlays() {
                 <span className="menu-intro-mark" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 6 6 18M6 7v11h11" /></svg></span>
               </div>
               <nav className="menu-categories" aria-label="קטגוריות מוצרים">
-                {categories.map((c) => (
+                {categories.filter((c) => c.id !== "redback").map((c) => (
                   <button key={c.id} className="menu-link menu-category" onClick={() => s.setMenuCat(c.id)}>
-                    <span className="menu-category-icon"><MenuCategoryIcon name={c.name} /></span>
-                    <span className="menu-category-name">{c.name}</span>
-                    <span className="menu-arrow"><IconFwd /></span>
+                    <span>{c.name}</span>
+                    <svg className="menu-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                      <path d="M20 12H4m7-7-7 7 7 7" />
+                    </svg>
                   </button>
                 ))}
               </nav>
-              <nav className="menu-shortcuts" aria-label="שירותים ואזור אישי">
-                <Link href="/quantity-offers" className="menu-shortcut" onClick={s.closeAll}>
-                  <IconPackages /><span>מבצעי כמות</span><IconFwd />
+              <nav className="menu-shortcuts" aria-label="קישורים נוספים">
+                <Link href="/brands" className="menu-shortcut" aria-current={path === "/brands" || path.startsWith("/brands/") ? "page" : undefined} onClick={s.closeAll}>
+                  <IconGrid /><span>מותגים</span><IconFwd />
                 </Link>
                 <Link href="/business" className="menu-shortcut" onClick={s.closeAll}>
                   <IconCase /><span>הזמנות לעסקים</span><IconFwd />
@@ -173,7 +174,7 @@ export function Overlays() {
               <nav className="menu-categories" aria-label="תתי קטגוריות">
                 {(category(s.menuCat || "")?.subs ?? []).map((name) => (
                   <Link key={name} href={`/c/${s.menuCat}?sub=${encodeURIComponent(name)}`} className="menu-link menu-subcategory" onClick={s.closeAll}>
-                    <span>{name}</span><span className="menu-arrow"><IconFwd /></span>
+                    <span>{name}</span><IconFwd />
                   </Link>
                 ))}
               </nav>
@@ -192,17 +193,6 @@ export function Overlays() {
       </div>
     </>
   );
-}
-
-function MenuCategoryIcon({ name }: { name: string }) {
-  const path = /נעל|redback/i.test(name) ? "M5 3h7v8l3 3 5 2v4H3v-7h2V3ZM5 8h4M5 11h4M3 17h17"
-    : /חורף/.test(name) ? "M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 3 3-3M9 20l3-3 3 3M4 10l4-1-1-4M17 19l-1-4 4-1M4 14l4 1-1 4M17 5l-1 4 4 1"
-    : /בטיחות/.test(name) ? "M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3ZM8 12l3 3 5-6"
-    : /מטבח/.test(name) ? "M9 3h6v5l4 5v8H5v-8l4-5V3ZM8 14h8v4H8v-4"
-    : /חד פעמי/.test(name) ? "M3 7l9-4 9 4v11l-9 4-9-4V7ZM3 7l9 4 9-4M12 11v11M8 5l9 4"
-    : /אביזר/.test(name) ? "M4 14a8 8 0 0 1 16 0H4ZM12 6v8M4 14l-2 4h20l-2-4"
-    : "m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0ZM9 14h6";
-  return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"><path d={path} /></svg>;
 }
 
 function QuickSheet() {
@@ -337,11 +327,6 @@ function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => 
             </button>
           ))}
         </div>
-        {!q && <Link href="/quantity-offers" className="search-offer" onClick={s.closeAll}>
-          <span className="search-offer-icon"><IconPackages /></span>
-          <span><strong>קונים יותר, משלמים פחות</strong><span>לכל מבצעי הכמות</span></span>
-          <IconFwd />
-        </Link>}
         {q && (
           <>
             <div className="search-results-heading" role="status"><strong>{results.length} תוצאות</strong>{results.length > 10 && <span>מציגים את 10 הראשונות</span>}</div>

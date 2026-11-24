@@ -23,6 +23,7 @@ function productFields(inventory: boolean, metafields: boolean) {
     id
     handle
     title
+    publishedAt
     description
     productType
     vendor

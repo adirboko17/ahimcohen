@@ -1,0 +1,60 @@
+import "server-only";
+import { catalogPageSize, descendants, pricedProduct, type CatalogBatch, type CatalogItem, type Site } from "./catalog-model";
+import { previews, type Preview } from "./storage";
+import { catalogPublicationStates } from "./publication";
+import { importStatuses } from "./import-queue";
+
+export function prices(row: Preview, site: Site) {
+  if (row.draft_snapshot && row.shopify_product_id) return row.draft_snapshot.variants;
+  if (row.snapshot.currency && row.snapshot.currency !== "ILS" && row.manual_price === null) return [];
+  return pricedProduct(row.snapshot, site.percent, row.manual_price).variants;
+}
+
+export async function readCatalogBatch(site: Site, cat: string, page: number): Promise<CatalogBatch> {
+  const domain = site.domain;
+  const cats = cat ? descendants([cat], site.categories) : [];
+  if (cat && !cats.length) throw new Error("קטגוריה לא מוכרת.");
+  const rows = await previews(domain, {
+    review_state: "eq.known",
+    limit: String(catalogPageSize + 1),
+    offset: String((page - 1) * catalogPageSize),
+    order: "snapshot->>category.asc,source_id.asc",
+    ...(cat ? { category_ids: "ov.{" + cats.join(",") + "}" } : {}),
+  });
+  const visible = rows.slice(0,catalogPageSize);
+  const [jobs, channels] = await Promise.all([
+    importStatuses(domain,visible.map(row => row.source_id)),
+    catalogPublicationStates(visible.flatMap(row => row.shopify_product_id ? [row.shopify_product_id] : [])),
+  ]);
+  const items: CatalogItem[] = visible.map((row) => {
+    const p = row.snapshot,
+      source = p.variants.map((v) => v.price),
+      final = prices(row, site).map((v) => v.price),
+      job = jobs.find((j) => j.source_id === row.source_id);
+    const channel = channels.find(c => c.id === row.shopify_product_id);
+    return {
+      id: p.id,
+      title: p.title,
+      image: p.images[0],
+      categories: row.category_ids,
+      variants: p.variants.length,
+      available: p.variants.filter((v) => v.available).length,
+      images: p.images.length,
+      currency: p.currency || "ILS",
+      sourceMin: Math.min(...source),
+      sourceMax: Math.max(...source),
+      finalMin: final.length ? Math.min(...final) : null,
+      finalMax: final.length ? Math.max(...final) : null,
+      manual: row.manual_price,
+      linked: !!row.shopify_product_id,
+      published: channel?.status === "ACTIVE" && channel.onSite,
+      canPublish: !row.shopify_product_id || !!channel && (channel.status === "DRAFT" || channel.status === "ACTIVE" && !channel.onSite),
+      intent: job?.intent,
+      scanError: row.scan_error,
+      revision: row.revision,
+      task: job?.state,
+      error: job?.error,
+    };
+  });
+  return { items, more: rows.length > catalogPageSize };
+}

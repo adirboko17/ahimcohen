@@ -14,7 +14,7 @@ export function cartGroups(cart: CartLine[], productOf: (id: string) => Product 
   for (const line of cart) {
     const product = productOf(line.pid);
     if (!product) continue;
-    const offer = quantityOffer(product);
+    const offer = product.bundleSourceId ? null : quantityOffer(product);
     const grouped = offer?.kind === "quantity";
     const key = grouped ? `offer:${product.id}` : `line:${line.key}`;
     const group = groups.get(key);

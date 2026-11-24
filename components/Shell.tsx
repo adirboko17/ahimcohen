@@ -18,6 +18,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     closeAll();
   }, [path, closeAll]);
 
+  if (path === "/admin" || path.startsWith("/admin/")) return <>{children}</>;
+
   return (
     <CategoryHistoryProvider>
       <NavigationWarmup />

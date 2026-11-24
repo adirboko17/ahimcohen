@@ -8,8 +8,10 @@ import { findVariantForSelection } from "@/lib/shopify/products";
 import type { CartLineDraft } from "@/lib/shopify/types";
 import { cartQuote } from "@/lib/cart-quote";
 import { checkoutReceipt } from "@/lib/shopify/checkout-status";
+import { managedDiscountCodes } from "@/lib/admin/commerce";
+import type { PackUnit } from "@/lib/types";
 
-type CheckoutLine = { pid: string; color: string; size: string; qty: number; variantId?: string };
+type CheckoutLine = { pid: string; color: string; size: string; qty: number; variantId?: string; packUnits?: PackUnit[] };
 
 export async function beginShopifyCheckout(lines: CheckoutLine[], expectedTotal?: number) {
   const result = await prepareCart(lines);
@@ -45,6 +47,7 @@ async function prepareCart(lines: CheckoutLine[]) {
     const headerList = await headers();
     const buyerIp = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || headerList.get("x-real-ip")?.trim() || undefined;
     const drafts: CartLineDraft[] = [];
+    let resolveQuantityOffer: Awaited<ReturnType<typeof import("@/lib/admin/quantity-offer-cart").quantityOfferCartResolver>> | undefined;
     for (const line of lines) {
       const product = PM[line.pid];
       const qty = Number(line.qty);
@@ -52,6 +55,13 @@ async function prepareCart(lines: CheckoutLine[]) {
         return { ok: false as const, error: "אחד הפריטים בסל לא זמין." };
       }
       const directId = line.variantId?.trim() ?? "";
+      if (line.packUnits !== undefined) {
+        resolveQuantityOffer ??= await (await import("@/lib/admin/quantity-offer-cart")).quantityOfferCartResolver();
+        const configured = resolveQuantityOffer(line.pid, directId, qty, line.packUnits);
+        if (!configured) return { ok: false as const, error: "הרכב המארז השתנה. בחרו שוב צבע ומידה לכל יחידה." };
+        drafts.push(configured);
+        continue;
+      }
       if (/^gid:\/\/shopify\/ProductVariant\/\d+$/.test(directId)) {
         drafts.push({
           merchandiseId: directId,
@@ -91,7 +101,8 @@ async function prepareCart(lines: CheckoutLine[]) {
       });
     }
     const merged = mergeDrafts(drafts);
-    const cart = await createCart(merged, buyerIp);
+    const discountCodes = await managedDiscountCodes(merged);
+    const cart = discountCodes.length ? await createCart(merged, buyerIp, discountCodes) : await createCart(merged, buyerIp);
     return { ok: true as const, cart, drafts: merged };
   } catch (error) {
     if (error instanceof ShopifyError) return { ok: false as const, error: hebrewShopifyError(error.message) };
@@ -102,9 +113,10 @@ async function prepareCart(lines: CheckoutLine[]) {
 function mergeDrafts(lines: CartLineDraft[]) {
   const merged = new Map<string, CartLineDraft>();
   for (const line of lines) {
-    const current = merged.get(line.merchandiseId);
+    const key = line.configurationKey ? JSON.stringify([line.merchandiseId, line.configurationKey]) : line.merchandiseId;
+    const current = merged.get(key);
     if (!current) {
-      merged.set(line.merchandiseId, { ...line, attributes: line.attributes ?? [] });
+      merged.set(key, { ...line, attributes: line.attributes ?? [] });
       continue;
     }
     current.quantity += line.quantity;

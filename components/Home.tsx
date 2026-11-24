@@ -3,115 +3,49 @@
 import { ProductImage } from "./ProductImage";
 import { ProductBrand } from "./ProductBrand";
 import { HeroDeals } from "./HeroDeals";
+import { HeroPromotions } from "./HeroPromotions";
 import { EmbroideryBanner } from "./EmbroideryBanner";
+import { NewArrivalsStrip } from "./NewArrivalsStrip";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FREE_SHIPPING, KITS, phOf, type Category, type Product } from "@/lib/catalog";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { FREE_SHIPPING, KITS, phOf, type Product } from "@/lib/catalog";
 import { BrandGrid } from "./BrandGrid";
 import { useCatalog } from "@/lib/catalog-context";
+import type { AdminBundle, AdminHero } from "@/lib/admin/models";
 import { fmt, priceFor } from "@/lib/pricing";
+import { productSizeOptions } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
 import { IconBag, IconCheck, IconLock, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
 
-const CATEGORY_ART: Record<string, string> = {
-  shoes: "/images/categories/shoes-v1.webp",
-  winter: "/images/categories/winter-v1.webp",
-  pro: "/images/categories/pro-v1.webp",
-  safety: "/images/categories/safety-v1.webp",
-  rep: "/images/categories/rep-v1.webp",
-  kitchen: "/images/categories/kitchen-v1.webp",
-  disp: "/images/categories/disp-v1.webp",
-  acc: "/images/categories/acc-v1.webp",
-  redback: "/images/categories/redback-v1.webp",
+const parkesId = "parkes-zip-מגף-בטיחות-s3-אוסטרלי-עם-שרוך-ורוכסן";
+const softshellId = "מעיל-סופטשל-טקטי-עם-כובע-נשלף";
+const productScenes: Record<string, string | undefined> = {
+  [parkesId]: "parkes-workshop",
+  [softshellId]: "softshell-yard",
 };
 
-function CategoryTile({ category, products }: { category: Category; products: Product[] }) {
-  const pictured = products.filter((item) =>
-    (item.cats ?? [item.cat]).includes(category.id) && item.imgs?.[0]
+function bannerProduct(products: Product[], categoryId: string, subcategory: string, preferredId: string) {
+  const candidates = products.filter((item) =>
+    item.cat === categoryId && (item.sub === subcategory || item.subs?.includes(subcategory))
+    && item.imgs?.[0] && item.choices?.some((choice) => choice.available)
   );
-  // Prefer the main subcategory's product photography over promotional collection banners.
-  const representative = pictured.find((item) =>
-    (item.subs ?? [item.sub]).includes(category.subs[0])
-  ) ?? pictured[0];
-  const artwork = CATEGORY_ART[category.id];
-  const image = artwork ?? representative?.imgs?.[0];
-  const [failedImage, setFailedImage] = useState<string | null>(null);
-
-  return (
-    <Link href={`/c/${category.id}`} className="cat-tile">
-      <span className={`cat-visual${artwork ? " cat-artwork" : ""}`} aria-hidden="true">
-        {image && failedImage !== image ? (
-          <img src={artwork ? artwork.replace(".webp", "-320.webp") : image} srcSet={artwork ? `${artwork.replace(".webp", "-320.webp")} 320w, ${artwork.replace(".webp", "-640.webp")} 640w` : undefined} sizes="(max-width: 767px) 104px, 240px" alt="" loading="lazy" decoding="async" onError={() => setFailedImage(image)} />
-        ) : (
-          <span className="cat-placeholder"><IconBag size={56} /></span>
-        )}
-      </span>
-      <span className="cat-foot">
-        <span className="cat-copy">
-          <span className="cat-name">{category.name}</span>
-        </span>
-        <span className="cat-arrow" aria-hidden="true">←</span>
-      </span>
-    </Link>
-  );
+  return candidates.find((item) => item.id === preferredId) ?? candidates[0];
 }
 
-function CategoryBrowser({ categories, products }: { categories: Category[]; products: Product[] }) {
-  const track = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ start: true, end: false });
-
-  useEffect(() => {
-    const row = track.current;
-    if (!row) return;
-    const sync = () => {
-      const position = Math.abs(row.scrollLeft);
-      const start = position < 2;
-      const end = position >= row.scrollWidth - row.clientWidth - 2;
-      setEdges(current => current.start === start && current.end === end ? current : { start, end });
-    };
-    const observer = new ResizeObserver(sync);
-    observer.observe(row);
-    // Card layout can change without resizing the viewport (for example when
-    // styles or images finish loading), so also watch the scrollable content.
-    for (const card of row.children) observer.observe(card);
-    row.addEventListener("scroll", sync, { passive: true });
-    row.addEventListener("load", sync, true);
-    window.addEventListener("resize", sync);
-    const frame = requestAnimationFrame(sync);
-    sync();
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-      row.removeEventListener("scroll", sync);
-      row.removeEventListener("load", sync, true);
-      window.removeEventListener("resize", sync);
-    };
-  }, [categories.length]);
-
-  const move = (direction: number) => {
-    const row = track.current;
-    const card = row?.firstElementChild;
-    if (!row || !card) return;
-    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
-    const step = card.getBoundingClientRect().width + gap;
-    const visibleColumns = Math.max(1, Math.floor((row.clientWidth + gap + 1) / step));
-    row.scrollBy({ left: direction * step * visibleColumns });
-  };
-
-  return <>
-    <div id="home-categories" className="cat-grid" ref={track} role="region" aria-label="קטגוריות מוצרים">
-      {categories.map(category => <CategoryTile key={category.id} category={category} products={products} />)}
-    </div>
-    <div className="cat-navigation">
-      <span>{categories.length} קטגוריות<span className="cat-swipe-hint"> · החליקו לעוד</span></span>
-      <div>
-        <button type="button" aria-label="הקטגוריות הקודמות" aria-controls="home-categories" disabled={edges.start} onClick={() => move(1)}>→</button>
-        <button type="button" className="cat-next" aria-label="הקטגוריות הבאות" aria-controls="home-categories" disabled={edges.end} onClick={() => move(-1)}><span className="cat-next-label">קטגוריות נוספות</span><span aria-hidden="true">←</span></button>
-      </div>
-    </div>
-  </>;
+function BannerProductPhoto({ item }: { item: Product }) {
+  const scene = productScenes[item.id];
+  return (
+    <Link href={`/p/${encodeURIComponent(item.id)}`} className="banner-product-photo" data-scene={scene}>
+      {scene ? (
+        <picture>
+          <source media="(max-width: 767px)" srcSet={`/images/hero/${scene}-mobile.webp?v=2`} />
+          <img src={`/images/hero/${scene}.webp`} alt={item.name} loading="lazy" decoding="async" />
+        </picture>
+      ) : <ProductImage src={item.imgs?.[0]} alt={item.name} sizes="(max-width: 767px) 100vw, 50vw" maxWidth={1280} />}
+    </Link>
+  );
 }
 
 function quantityOffer(product: Product) {
@@ -137,7 +71,7 @@ function DealCard({ product, duplicate = false }: { product: Product; duplicate?
         ) : (
           <span className="deal-image-fallback"><IconBag size={48} /><span>תמונת המוצר תעלה בקרוב</span></span>
         )}
-        <span className="deal-badge">{bundle ? "מבצע כמות" : percent > 0 ? `${percent}% הנחה` : "במבצע"}</span>
+        <span className="deal-badge">{bundle ? "מארז במבצע" : percent > 0 ? `${percent}% הנחה` : "במבצע"}</span>
         <ProductBrand name={product.brand} />
       </div>
       <div className="deal-body">
@@ -156,12 +90,43 @@ function DealCard({ product, duplicate = false }: { product: Product; duplicate?
   );
 }
 
+function DealsMarquee() {
+  const viewport = useRef<HTMLDivElement>(null);
+  const firstItem = useRef<HTMLSpanElement>(null);
+  const [repeatCount, setRepeatCount] = useState<number | null>(null);
+  const itemCount = repeatCount ?? 8;
+
+  useEffect(() => {
+    const band = viewport.current;
+    const item = firstItem.current;
+    if (!band || !item) return;
+
+    const fit = () => {
+      const width = item.getBoundingClientRect().width;
+      // Keep one extra item in view after shifting an entire item to the left.
+      if (width > 0) setRepeatCount(Math.ceil(band.getBoundingClientRect().width / width) + 1);
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(band);
+    observer.observe(item);
+    fit();
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={viewport} className="deals-marquee" aria-hidden="true">
+    <div className="deals-marquee-track" data-ready={repeatCount !== null} style={{ "--marquee-items": itemCount } as CSSProperties}>
+      {Array.from({ length: itemCount }, (_, index) => (
+        <span className="k deals-marquee-item" key={index} ref={index === 0 ? firstItem : undefined}>המבצעים שלנו <i>✦</i></span>
+      ))}
+    </div>
+  </div>;
+}
+
 function DealsCarousel({ products }: { products: Product[] }) {
   const track = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState({ start: 0, count: 3 });
-  const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(true);
-  const playing = !paused && !reducedMotion;
+  const playing = !reducedMotion;
   const looping = products.length > range.count;
 
   useEffect(() => {
@@ -241,13 +206,7 @@ function DealsCarousel({ products }: { products: Product[] }) {
 
   return (
     <section className="deals-band" aria-labelledby="deals-title" data-playing={playing}>
-      <div className="deals-marquee" aria-hidden="true">
-        <div className="deals-marquee-track">
-          {[0, 1].map(copy => <div className="deals-marquee-group" key={copy}>
-            {[0, 1, 2, 3].map(item => <span className="k" key={item}>המבצעים שלנו <i>✦</i></span>)}
-          </div>)}
-        </div>
-      </div>
+      <DealsMarquee />
       <div className="wrap">
         <h2 id="deals-title" className="deals-accessible-title">המבצעים שלנו</h2>
         <div id="home-deals" ref={track} className="deal-row" role="region" aria-roledescription="קרוסלה" aria-label="מוצרים במבצע" tabIndex={0}>
@@ -257,9 +216,6 @@ function DealsCarousel({ products }: { products: Product[] }) {
         <div className="deals-navigation">
           <span aria-live={playing ? "off" : "polite"} aria-atomic="true">מבצע {range.start + 1} מתוך {products.length}</span>
           <div className="deals-buttons">
-            {!reducedMotion && <button type="button" className="deals-play" aria-label={paused ? "הפעלת תנועת המבצעים" : "עצירת תנועת המבצעים"} aria-pressed={paused} onClick={() => setPaused(value => !value)}>
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">{paused ? <path d="M4 2 13 8 4 14Z" fill="currentColor" /> : <path d="M5 3v10M11 3v10" stroke="currentColor" strokeWidth="3" />}</svg>
-            </button>}
             <button type="button" aria-label="המבצעים הקודמים" aria-controls="home-deals" disabled={!looping} onClick={() => move(1)}>→</button>
             <button type="button" className="deals-next" aria-label="מבצעים נוספים" aria-controls="home-deals" disabled={!looping} onClick={() => move(-1)}>מבצעים נוספים <span aria-hidden="true">←</span></button>
           </div>
@@ -269,24 +225,41 @@ function DealsCarousel({ products }: { products: Product[] }) {
   );
 }
 
-export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
+type Kit = Pick<AdminBundle, "id" | "name" | "items" | "total" | "bundleProductId"> & { cartProductId?: string };
+
+export function Home({ heroPreview, promotions = [], bundles = [], showNewArrivals = false }: {
+  heroPreview?: "wide" | "fade";
+  promotions?: AdminHero[];
+  bundles?: Kit[];
+  showNewArrivals?: boolean;
+} = {}) {
   const { addMany } = useStore();
   const { products, categories, product } = useCatalog();
   const pictured = products.filter((item) => item.imgs?.[0]);
-  const deals = products.filter((item) => quantityOffer(item) || (item.was && item.was > item.price)).slice(0, 7);
+  const deals = products.filter((item) => !item.quantityOfferHidden && (quantityOffer(item) || (item.was && item.was > item.price))).slice(0, 7);
   const best = (pictured.length ? pictured : products).slice(0, 8);
   const shop = categories[0];
-  const kits = KITS.filter((kit) => kit.items.every(([pid]) => product(pid)));
+  const footwear = categories.find((category) => category.id === "shoes");
+  const winter = categories.find((category) => category.id === "winter");
+  const boot = bannerProduct(products, "shoes", "נעלי בטיחות", parkesId);
+  const jacket = bannerProduct(products, "winter", "מעילים", softshellId);
+  const winterLinks = (winter?.subs ?? []).slice(0, 3).map((name) => ({
+    name,
+    image: products.find((item) => item.cat === winter?.id && item.sub === name && item.imgs?.[0])?.imgs?.[0],
+  }));
+  const allKits: Kit[] = [...bundles, ...KITS];
+  const kits = allKits.filter((kit) => kit.items.every(([pid]) => product(pid)) && (!kit.bundleProductId || product(kit.bundleProductId))
+    && (!kit.cartProductId || product(kit.cartProductId)));
   const [kitId, setKitId] = useState<string | null>(null);
   const [kOff, setKOff] = useState<Record<string, boolean>>({});
   const [kSize, setKSize] = useState<Record<string, string>>({});
   const [kErr, setKErr] = useState(false);
-  useScrollLock(!!kitId);
-
+  const selectedKit = kits.find((kit) => kit.id === kitId);
+  useScrollLock(!!selectedKit);
   return (
     <main>
       <section className="home-hero">
-        <div className="hero">
+        {promotions.length ? <HeroPromotions promotions={promotions} /> : <div className="hero">
           <div className="hero-copy">
             <div className="hero-intro">
               <span className="kicker">
@@ -363,17 +336,10 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
             />
             </picture>
           </div>
-        </div>
+        </div>}
       </section>
 
-      <section className="wrap sec home-categories" aria-labelledby="categories-title">
-        <div className="sec-head">
-          <h2 id="categories-title" className="k sec-title">קטגוריות</h2>
-        </div>
-        <CategoryBrowser categories={categories} products={products} />
-      </section>
-
-      {deals.length > 0 && <DealsCarousel products={deals} />}
+      {showNewArrivals && <NewArrivalsStrip products={products} />}
 
       <section id="our-brands" className="wrap sec home-brands" aria-labelledby="brands-title">
         <div className="sec-head">
@@ -383,6 +349,21 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         <p className="brands-intro">בוחרים מותג ומגלים את כל המוצרים שלו.</p>
         <BrandGrid featured />
       </section>
+
+      {footwear && boot && (
+        <section className="footwear-banner" aria-labelledby="footwear-title">
+          <BannerProductPhoto item={boot} />
+          <div className="footwear-banner-copy">
+            <p className="footwear-category">{footwear.name}</p>
+            <h2 id="footwear-title" className="k">יום עבודה מתחיל<br /> <em>בצעד הנכון.</em></h2>
+            <Link href="/c/shoes" className="btn btn-yellow">
+              לכל נעלי העבודה <span aria-hidden="true">←</span>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {deals.length > 0 && <DealsCarousel products={deals} />}
 
       <section className="wrap sec">
         <div className="sec-head">
@@ -398,30 +379,55 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         </div>
       </section>
 
+      {winter && jacket && (
+        <section className="winter-banner" aria-labelledby="winter-banner-title">
+          <div className="winter-banner-hero">
+            <BannerProductPhoto item={jacket} />
+            <div className="winter-banner-copy">
+              <span className="kicker"><span className="sq" />{winter.name}</span>
+              <h2 id="winter-banner-title" className="k">קר בחוץ.<br /><em>ממשיכים לעבוד.</em></h2>
+              <Link href={`/c/${winter.id}`} className="btn btn-yellow">
+                לכל ביגוד החורף <span aria-hidden="true">←</span>
+              </Link>
+            </div>
+          </div>
+          {winterLinks.length > 0 && <div className="winter-banner-links">
+            {winterLinks.map(({ name, image }) => (
+              <Link key={name} href={`/c/${winter.id}?sub=${encodeURIComponent(name)}`}>
+                {image && <ProductImage src={image} maxWidth={1280} sizes={`${Math.ceil(100 / winterLinks.length)}vw`} alt="" />}
+                <span>{name}</span><span aria-hidden="true">←</span>
+              </Link>
+            ))}
+          </div>}
+        </section>
+      )}
+
       {kits.length > 0 && <section className="wrap sec">
         <div className="sec-head">
           <h2 className="k sec-title">ערכות עבודה</h2>
           <p className="muted" style={{ margin: 0, fontSize: 16, maxWidth: "38ch", lineHeight: 1.5 }}>
-            סטים מוכנים מהקטלוג, עם מבצעי הכמות כבר בפנים. בוחרים מידות ומוסיפים הכל בלחיצה.
+            בוחרים צבע ומידה ומוסיפים לסל.
           </p>
         </div>
         <div className="kit-grid">
           {kits.map((k) => {
-            let total = 0;
+            let calculatedTotal = 0;
             let regular = 0;
             k.items.forEach(([pid, q]) => {
               const item = product(pid);
               if (!item) return;
-              total += priceFor(item, q);
+              calculatedTotal += priceFor(item, q);
               regular += q * item.price;
             });
+            const packProduct = k.bundleProductId ? product(k.bundleProductId) : undefined;
+            const total = packProduct?.price ?? k.total ?? calculatedTotal;
             return (
-              <div key={k.id} className="kit">
+              <div key={k.id} className="kit" data-priced={!!packProduct || k.total !== undefined || undefined}>
                 <div className="kit-thumbs">
                   {k.items.map(([pid, q]) => {
                     const p = product(pid);
                     if (!p) return null;
-                    const img = p.imgs?.[0];
+                    const img = packProduct?.imgs?.[0] ?? p.imgs?.[0];
                     return (
                       <div key={pid} className="kit-th">
                         {img ? <ProductImage src={img} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, color: "#cfcfca" }}>{phOf(p)}</span>}
@@ -442,11 +448,14 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                     <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                         <span style={{ fontSize: 26, fontWeight: 800 }}>{fmt(total)}</span>
-                        <s className="was" style={{ fontSize: 15 }}>{fmt(regular)}</s>
+                        {regular > total && <s className="was" style={{ fontSize: 15 }}>{fmt(regular)}</s>}
                       </span>
-                      <span className="save-tag y">חיסכון {fmt(regular - total)}</span>
+                      {regular > total && <span className="save-tag y">חיסכון {fmt(regular - total)}</span>}
                     </span>
-                    <button
+                    {packProduct || k.total !== undefined ? <Link className="btn" style={{ height: 50, padding: "0 20px", fontSize: 15 }}
+                      href={packProduct ? `/p/${encodeURIComponent(packProduct.id)}` : `/p/${encodeURIComponent(k.items[0][0])}?bundle=${encodeURIComponent(k.id)}`}>
+                      {packProduct ? "למארז" : "בחירת מידות"}
+                    </Link> : <button
                       className="btn"
                       style={{ height: 50, padding: "0 20px", fontSize: 15 }}
                       onClick={() => {
@@ -457,7 +466,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
                       }}
                     >
                       בחירת מידות
-                    </button>
+                    </button>}
                   </div>
                 </div>
               </div>
@@ -466,7 +475,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         </div>
       </section>}
 
-      <section className="wrap sec">
+      <section className="wrap sec b2b-section">
         <div className="b2b-banner">
           <div className="b2b-copy">
             <span className="kicker">
@@ -546,9 +555,10 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
         </div>
       </section>
 
-      {kitId && (
+      {selectedKit && (
         <KitSheet
-          kitId={kitId}
+          key={selectedKit.id}
+          kit={selectedKit}
           kOff={kOff}
           kSize={kSize}
           kErr={kErr}
@@ -567,7 +577,7 @@ export function Home({ heroPreview }: { heroPreview?: "wide" | "fade" } = {}) {
 }
 
 function KitSheet(props: {
-  kitId: string;
+  kit: Kit;
   kOff: Record<string, boolean>;
   kSize: Record<string, string>;
   kErr: boolean;
@@ -578,30 +588,31 @@ function KitSheet(props: {
   onAdd: (list: [string, number, string, number][]) => void;
 }) {
   const { product } = useCatalog();
-  const kit = KITS.find((k) => k.id === props.kitId);
+  const { kit } = props;
+  const fixedPrice = kit.total !== undefined;
+  const [colors, setColors] = useState<Record<string, number>>({});
   const view = useMemo(() => {
-    if (!kit) return null;
     let total = 0;
     let regular = 0;
     let count = 0;
     const rows = kit.items.map(([pid, qty]) => {
       const p = product(pid);
       if (!p) return null;
-      const on = !props.kOff[pid];
-      const multi = p.sizes.length > 1;
-      const size = multi ? props.kSize[pid] || "" : p.sizes[0];
-      const pr = priceFor(p, qty);
+      const on = fixedPrice || !props.kOff[pid];
+      const availableColor = p.choices?.find((choice) => choice.available)?.color;
+      const color = colors[pid] ?? Math.max(0, p.colors.indexOf(availableColor ?? ""));
+      const sizes = productSizeOptions(p, p.colors[color] || "").filter((option) => option.available);
+      const size = sizes.find((option) => option.value === props.kSize[pid])?.value ?? (sizes.length === 1 ? sizes[0].value : "");
+      const pr = kit.total ?? priceFor(p, qty);
       if (on) {
         total += pr;
         regular += qty * p.price;
         count += qty;
       }
-      return { p, qty, on, multi, size, pr, count };
+      return { p, qty, on, sizes, size, color, pr };
     });
     return { rows: rows.filter((row): row is NonNullable<typeof row> => row !== null), total, regular, count };
-  }, [kit, product, props.kOff, props.kSize]);
-
-  if (!kit || !view) return null;
+  }, [kit, fixedPrice, product, colors, props.kOff, props.kSize]);
 
   return (
     <>
@@ -616,14 +627,14 @@ function KitSheet(props: {
         <div className="sheet-b">
           <div>
             {view.rows.map((r) => (
-              <div key={r.p.id} className="bundle-row" style={{ paddingInline: 0, opacity: r.on ? 1 : 0.45, gridTemplateColumns: "24px 64px minmax(0,1fr)" }}>
-                <button
+              <div key={r.p.id} className="bundle-row" style={{ paddingInline: 0, opacity: r.on ? 1 : 0.45, gridTemplateColumns: fixedPrice ? "64px minmax(0,1fr)" : "24px 64px minmax(0,1fr)" }}>
+                {!fixedPrice && <button
                   className={`tick ${r.on ? "on" : ""}`}
                   aria-label="בחירה"
                   onClick={() => props.setKOff({ ...props.kOff, [r.p.id]: !props.kOff[r.p.id] })}
                 >
                   {r.on && <IconCheck />}
-                </button>
+                </button>}
                 <div className="mini-ph" style={{ width: 64, height: 70 }}>
                   {r.p.imgs?.[0] ? <ProductImage src={r.p.imgs[0]} alt="" /> : <span className="k" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#bdbdb7" }}>{phOf(r.p)}</span>}
                 </div>
@@ -633,11 +644,16 @@ function KitSheet(props: {
                     <span style={{ fontSize: 15, fontWeight: 700 }}>{r.p.name}</span>
                     <span style={{ fontSize: 15, fontWeight: 800 }}>{fmt(r.pr)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <span className="muted" style={{ fontSize: 13 }}>{r.qty > 1 ? `${r.qty} יחידות` : "יחידה אחת"}</span>
-                    {r.multi && (
+                    {r.p.colors.length > 1 && <select className="plain" aria-label={`צבע עבור ${r.p.name}`} value={r.color} onChange={(event) => {
+                      setColors((current) => ({ ...current, [r.p.id]: Number(event.target.value) }));
+                      props.setKErr(false);
+                    }}>{r.p.colors.map((color, index) => <option key={color} value={index}>{color}</option>)}</select>}
+                    {(r.sizes.length !== 1) && (
                       <select
                         className="plain"
+                        aria-label={`מידה עבור ${r.p.name}`}
                         style={{ height: 36, minWidth: 88, boxShadow: `inset 0 0 0 1px ${props.kErr && r.on && !r.size ? "#B3261E" : "#CFCFCA"}`, border: 0 }}
                         value={r.size}
                         onChange={(e) => {
@@ -646,9 +662,9 @@ function KitSheet(props: {
                         }}
                       >
                         <option value="">מידה</option>
-                        {r.p.sizes.map((z) => (
-                          <option key={z} value={z}>
-                            {z}
+                        {r.sizes.map((option) => (
+                          <option key={option.label} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>
@@ -663,20 +679,20 @@ function KitSheet(props: {
             <span style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span style={{ fontSize: 24, fontWeight: 800 }}>{fmt(view.total)}</span>
-                <s className="was">{fmt(view.regular)}</s>
+                {view.regular > view.total && <s className="was">{fmt(view.regular)}</s>}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>חיסכון {fmt(view.regular - view.total)}</span>
+              {view.regular > view.total && <span style={{ fontSize: 13, fontWeight: 700 }}>חיסכון {fmt(view.regular - view.total)}</span>}
             </span>
             <button
               className="btn"
               style={{ flex: 1, maxWidth: 280, height: 56, fontSize: 16 }}
               onClick={() => {
                 const sel = view.rows.filter((r) => r.on);
-                if (sel.some((r) => r.multi && !r.size)) {
+                if (sel.some((r) => !r.size)) {
                   props.setKErr(true);
                   return;
                 }
-                props.onAdd(sel.map((r) => [r.p.id, 0, r.multi ? r.size : r.p.sizes[0], r.qty]));
+                props.onAdd(sel.map((r) => [r.p.id, r.color, r.size, r.qty]));
               }}
             >
               הוספת {view.count} פריטים לסל

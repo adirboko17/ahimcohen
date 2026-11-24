@@ -31,6 +31,7 @@ type RawProduct = {
   id: string;
   handle: string;
   title: string;
+  publishedAt: string;
   description?: string | null;
   productType?: string | null;
   vendor?: string | null;
@@ -181,6 +182,7 @@ function mapProduct(product: RawProduct): ShopifyProduct {
     id: product.id,
     handle: product.handle,
     title: product.title,
+    publishedAt: product.publishedAt,
     description: product.description ?? "",
     productType: product.productType ?? "",
     vendor: product.vendor ?? "",

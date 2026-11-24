@@ -45,11 +45,13 @@ export const ONE = ["מידה אחת"];
 export type Product = {
   id: string;
   name: string;
+  publishedAt?: string;
   cat: string;
   sub: string;
   price: number;
   was?: number;
   deal?: [number, number];
+  promoLabel?: string;
   colors: string[];
   sizes: string[];
   sku?: string;
@@ -62,6 +64,8 @@ export type Product = {
   cats?: string[];
   subs?: string[];
   choices?: VariantChoice[];
+  bundleSourceId?: string;
+  quantityOfferHidden?: boolean;
 };
 
 function sh(id: string, name: string, price: number, color: string, std: string[], extra: Partial<Product> = {}): Product {
@@ -132,12 +136,12 @@ export const SERVICES = [
   { t: "כמויות", d: "שילוב פריטים, צבעים ומידות בהזמנה אחת.", bg: "#F4F4F2", fg: "#111" },
 ];
 
-export type DemoOrder = { no: string; date: string; st: number; eta?: string; lines: OrderLine[] };
+export type DemoOrder = { no: string; date: string; lines: OrderLine[] };
 
 export const ORDERS: DemoOrder[] = [
-  { no: "10482", date: "21.10.2026", st: 2, eta: "הגעה משוערת: 28.10.2026", lines: [["p1", "אפור עכבר", "L", 12], ["p7", "שחור", "XL", 2]] },
-  { no: "10377", date: "02.09.2026", st: 3, lines: [["p8", "שחור", "M", 4], ["p3", "ירוק בקבוק", "L", 6]] },
-  { no: "10211", date: "14.06.2026", st: 3, lines: [["p1", "כחול כהה", "XL", 6]] },
+  { no: "10482", date: "21.10.2026", lines: [["p1", "אפור עכבר", "L", 6], ["p7", "שחור", "XL", 1], ["p1", "כחול כהה", "XL", 6], ["p7", "אפור עכבר", "L", 1]] },
+  { no: "10377", date: "02.09.2026", lines: [["p8", "שחור", "M", 4], ["p3", "ירוק בקבוק", "L", 6]] },
+  { no: "10211", date: "14.06.2026", lines: [["p1", "כחול כהה", "XL", 6]] },
 ];
 
 export const INFO: Record<string, { title: string; lead: string; blocks: { h: string; p: string }[] }> = {
