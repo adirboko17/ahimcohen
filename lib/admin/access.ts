@@ -1,27 +1,21 @@
 import "server-only";
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { promisify } from "node:util";
 import { cookies, headers } from "next/headers";
-import { adminDirectory } from "./storage";
+import { shopDomain } from "@/lib/shopify/config";
+import { adminDatabase, adminRequest } from "./database";
 
 type Credentials = { email: string; salt: string; hash: string; secret: string };
 const derive = promisify(scrypt);
 const cookieName = "ahim_admin";
 const duration = 8 * 60 * 60;
-let failures = 0;
-let unlockAt = 0;
+const accountPath = "/rest/v1/ahim_admin_accounts";
 
 async function credentials(): Promise<Credentials | null> {
-  try {
-    const value = JSON.parse(await readFile(join(adminDirectory, "credentials.json"), "utf8")) as Credentials;
-    return typeof value.email === "string" && /^[\da-f]{32}$/.test(value.salt)
-      && /^[\da-f]{128}$/.test(value.hash) && /^[\da-f]{64}$/.test(value.secret) ? value : null;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw error;
-  }
+  if (!adminDatabase()) return null;
+  const response = await adminRequest(accountPath, {}, { shop_domain: "eq." + shopDomain(), select: "email,salt,hash,secret" });
+  const [account] = await response.json() as Credentials[];
+  return account ?? null;
 }
 
 function sign(value: string, secret: string) {
@@ -38,17 +32,17 @@ export async function isAdmin() {
 }
 
 export async function signInAdmin(email: string, password: string) {
-  if (Date.now() >= unlockAt) { failures = 0; unlockAt = Date.now() + 10 * 60 * 1000; }
-  if (failures >= 8) return "locked";
-  failures += 1;
   const account = await credentials();
   if (!account) return "missing";
+  const shop = shopDomain();
+  const attempt = await adminRequest("/rest/v1/rpc/ahim_admin_login_attempt", { method: "POST", body: JSON.stringify({ shop }) });
+  if (!(await attempt.json())) return "locked";
   if (email.length > 254 || password.length > 256) return "invalid";
   const candidate = await derive(password, Buffer.from(account.salt, "hex"), 64) as Buffer;
   if (!timingSafeEqual(candidate, Buffer.from(account.hash, "hex")) || email.trim().toLowerCase() !== account.email) {
     return "invalid";
   }
-  failures = 0;
+  await adminRequest(accountPath, { method: "PATCH", body: JSON.stringify({ attempts: 0 }) }, { shop_domain: "eq." + shop });
   const payload = `${Date.now() + duration * 1000}.${randomBytes(16).toString("hex")}`;
   const secure = (await headers()).get("x-forwarded-proto") === "https";
   (await cookies()).set(cookieName, `${payload}.${sign(payload, account.secret).toString("hex")}`, {

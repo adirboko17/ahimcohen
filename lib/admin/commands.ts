@@ -1,13 +1,11 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import sharp from "sharp";
+import { InvalidHeroImage, uploadedHero, uploadHero } from "@/lib/admin/hero-images";
 import type { Product } from "@/lib/catalog";
 import { bundleGroupSnapshot, bundleTierName, quantityOfferTier, type AdminBundle, type AdminHero, type AdminImage, type AdminOffer, type AdminSaveResult, type AdminStore, type HeroDevice, type HeroTarget } from "@/lib/admin/models";
 import { bundleRevision } from "@/lib/admin/bundle-mapping";
-import { changeAdminStore, heroDirectory, upsert } from "@/lib/admin/storage";
+import { AdminEditBusy, changeAdminStore, upsert } from "@/lib/admin/storage";
 import { quantityOffer } from "@/lib/quantity-offers";
 import { syncManagedBundle } from "@/lib/shopify/admin-bundles";
 import { shopDomain } from "@/lib/shopify/config";
@@ -143,7 +141,6 @@ async function saveBundleGroup(store: AdminStore, data: FormData) {
 }
 
 export async function saveAdmin(data: FormData): Promise<AdminSaveResult> {
-  const assets: string[] = [];
   try {
     const section = required(data, "section") as Section;
     if (!sections.includes(section)) throw new InvalidInput("הכלי אינו קיים.");
@@ -219,19 +216,19 @@ export async function saveAdmin(data: FormData): Promise<AdminSaveResult> {
       }
       if (operation !== "save") throw new InvalidInput("הפעולה אינה תקינה.");
       const recordId = id || randomUUID();
-      const warning = await saveSection(store, section, recordId, data, assets);
+      const warning = await saveSection(store, section, recordId, data);
       if (warning) result = { message: warning, ok: true, warning: true };
     });
     return result;
   } catch (error) {
-    await Promise.allSettled(assets.map((file) => rm(file, { force: true })));
-    return { ok: false, message: error instanceof InvalidInput ? error.message : "השמירה נכשלה. נסו שוב." };
+    const known = error instanceof InvalidInput || error instanceof InvalidHeroImage || error instanceof AdminEditBusy;
+    return { ok: false, message: known ? error.message : "השמירה נכשלה. נסו שוב." };
   }
 }
 
-async function saveSection(store: AdminStore, section: Section, id: string, data: FormData, assets: string[]) {
+async function saveSection(store: AdminStore, section: Section, id: string, data: FormData) {
   if (section === "heroes") {
-    await saveHero(store, id, data, assets);
+    await saveHero(store, id, data);
     return;
   }
 
@@ -329,9 +326,7 @@ async function saveSection(store: AdminStore, section: Section, id: string, data
   }
 }
 
-type PreparedHero = { bytes: Buffer; width: number; height: number };
-
-async function saveHero(store: AdminStore, id: string, data: FormData, assets: string[]) {
+async function saveHero(store: AdminStore, id: string, data: FormData) {
   const previous = store.heroes.find((item) => item.id === id);
   const hero: AdminHero = { id, alt: previous?.alt, published: data.has("published") };
   let catalog: ReturnType<typeof loadShopCatalog> | undefined;
@@ -351,43 +346,21 @@ async function saveHero(store: AdminStore, id: string, data: FormData, assets: s
   }
 
   const selections = await Promise.all((["desktop", "mobile"] as const).map(async (device) => {
-    const upload = await readHero(data.get(device));
-    const saved = data.has(`${device}Remove`) ? undefined : previous?.[device];
-    if (!upload && !saved) return null;
+    const field = data.get(device);
+    const filename = text(data, device + "Upload");
+    let image: AdminImage | undefined = data.has(`${device}Remove`) ? undefined : previous?.[device];
+    if (filename) image = await uploadedHero(filename);
+    else if (field instanceof File && field.size) image = await uploadHero(field);
+    if (!image) return null;
     const target = await readTarget(device);
-    return { device, upload, saved, target };
+    return { device, image, target };
   }));
   for (const selection of selections) {
     if (!selection) continue;
-    const { device, upload, saved, target } = selection;
-    const image = upload ? await saveHeroImage(upload, assets) : saved;
-    if (image) hero[device] = { src: image.src, width: image.width, height: image.height, target };
+    const { device, image, target } = selection;
+    hero[device] = { src: image.src, width: image.width, height: image.height, target };
   }
   if (!hero.desktop && !hero.mobile) throw new InvalidInput("בחרו תמונה אחת לפחות.");
   if (previous) upsert(store.heroes, hero);
   else store.heroes.push(hero);
-}
-
-async function readHero(entry: FormDataEntryValue | null): Promise<PreparedHero | null> {
-  if (!(entry instanceof File) || !entry.size) return null;
-  if (entry.size > 4 * 1024 * 1024) throw new InvalidInput("גודל כל תמונה מוגבל ל־4MB.");
-  try {
-    const image = sharp(Buffer.from(await entry.arrayBuffer()), { limitInputPixels: 32_000_000 });
-    const metadata = await image.metadata();
-    if (!metadata.format || !["jpeg", "png", "webp", "avif", "heif"].includes(metadata.format)) throw new Error("Invalid image");
-    const { data: bytes, info } = await image.rotate().resize({ width: 2400, height: 2600, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 87 }).toBuffer({ resolveWithObject: true });
-    return { bytes, width: info.width, height: info.height };
-  } catch {
-    throw new InvalidInput("הקובץ אינו תמונת JPG, PNG, WebP או AVIF תקינה.");
-  }
-}
-
-async function saveHeroImage(image: PreparedHero, assets: string[]): Promise<AdminImage> {
-  await mkdir(heroDirectory, { recursive: true });
-  const filename = `${randomUUID()}.webp`;
-  const file = join(heroDirectory, filename);
-  assets.push(file);
-  await writeFile(file, image.bytes, { flag: "wx", mode: 0o600 });
-  return { src: `/media/hero/${filename}`, width: image.width, height: image.height };
 }

@@ -1,42 +1,46 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { cache } from "react";
+import { shopDomain } from "@/lib/shopify/config";
+import { adminDatabase, adminRequest } from "./database";
 import { DEFAULT_HERO, type AdminStore } from "./models";
 
-export const adminDirectory = join(process.cwd(), ".generated", "admin");
-export const heroDirectory = join(adminDirectory, "hero");
-const dataFile = join(adminDirectory, "store.json");
+const settingsPath = "/rest/v1/ahim_admin_settings";
 const initial = (): AdminStore => ({
   bundles: [], offers: [], hiddenQuantityOffers: [], labels: [], reviews: [], links: [], sales: [], heroes: [DEFAULT_HERO], activeHero: DEFAULT_HERO.id,
 });
 
-export async function readAdminStore(): Promise<AdminStore> {
+export const readAdminStore = cache(async (): Promise<AdminStore> => {
+  if (!adminDatabase()) return initial();
+  const response = await adminRequest(settingsPath, {}, { shop_domain: "eq." + shopDomain(), select: "settings" });
+  const [row] = await response.json() as { settings: Partial<AdminStore> }[];
+  return { ...initial(), ...row?.settings };
+});
+
+export class AdminEditBusy extends Error {}
+
+export async function changeAdminStore(change: (store: AdminStore) => void | Promise<void>) {
+  const shop = shopDomain();
+  const token = randomUUID();
+  const claim = await adminRequest("/rest/v1/rpc/ahim_begin_admin_edit", {
+    method: "POST", body: JSON.stringify({ shop, token }),
+  });
+  const [settings] = await claim.json() as Partial<AdminStore>[];
+  if (!settings) throw new AdminEditBusy("מתבצעת שמירה נוספת. נסו שוב בעוד רגע.");
+  const filter = { shop_domain: "eq." + shop, writer: "eq." + token, select: "shop_domain" };
+  const release = { writer: null, lease_until: null };
   try {
-    return { ...initial(), ...JSON.parse(await readFile(dataFile, "utf8")) };
+    const store = { ...initial(), ...settings };
+    await change(store);
+    const saved = await adminRequest(settingsPath, {
+      method: "PATCH", headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ settings: store, ...release }),
+    }, filter);
+    if (!(await saved.json()).length) throw new Error("Admin edit expired");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return initial();
+    await adminRequest(settingsPath, { method: "PATCH", body: JSON.stringify(release) }, filter).catch(() => {});
     throw error;
   }
-}
-
-let pending = Promise.resolve();
-
-export function changeAdminStore(change: (store: AdminStore) => void | Promise<void>) {
-  const result = pending.then(async () => {
-    const store = await readAdminStore();
-    await change(store);
-    await mkdir(adminDirectory, { recursive: true });
-    const temporary = join(adminDirectory, `${randomUUID()}.tmp`);
-    try {
-      await writeFile(temporary, JSON.stringify(store, null, 2), { encoding: "utf8", flag: "wx", mode: 0o600 });
-      await rename(temporary, dataFile);
-    } finally {
-      await rm(temporary, { force: true });
-    }
-  });
-  pending = result.catch(() => {});
-  return result;
 }
 
 export function upsert<T extends { id: string }>(items: T[], value: T) {

@@ -39,6 +39,19 @@ export function AdminLogin({ error }: { error?: string }) {
 }
 
 export async function sendAdminCommand(data: FormData): Promise<AdminSaveResult> {
+  // A desktop/mobile pair can exceed the per-request limit of a Vercel Function.
+  if (data.get("section") === "heroes") {
+    for (const device of ["desktop", "mobile"]) {
+      const file = data.get(device);
+      if (!(file instanceof File) || !file.size) continue;
+      if (file.size > 4 * 1024 * 1024) return { ok: false, message: "גודל כל תמונה מוגבל ל־4MB." };
+      const response = await fetch("/admin/hero-image", { method: "POST", headers: { "Content-Type": file.type || "image/webp" }, body: file });
+      const result = await response.json();
+      if (!response.ok) return { ok: false, message: result.message };
+      data.delete(device);
+      data.set(device + "Upload", result.filename);
+    }
+  }
   const response = await fetch("/admin/commands", { method: "POST", body: data });
   return await response.json() as AdminSaveResult;
 }

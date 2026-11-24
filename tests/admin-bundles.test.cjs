@@ -28,11 +28,13 @@ function harness(syncManagedBundle, bundles = []) {
   const deps = {
     "server-only": {},
     "@/lib/admin/commerce": {},
+    "@/lib/admin/hero-images": { InvalidHeroImage: class extends Error {} },
     "@/lib/admin/models": models.exports,
     "@/lib/admin/bundle-mapping": mapping.exports,
     "@/lib/quantity-offers": quantityOffers.exports,
     "@/lib/shopify/admin-bundles": { syncManagedBundle },
     "@/lib/admin/storage": {
+      AdminEditBusy: class extends Error {},
       changeAdminStore: async (change) => {
         const copy = structuredClone(store);
         await change(copy);

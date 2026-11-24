@@ -41,7 +41,7 @@ const toolGroups = [
 
 const loginErrors: Record<string, string> = {
   locked: "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.",
-  missing: "חשבון הניהול טרם הוגדר במחשב הזה.",
+  missing: "חשבון הניהול של החנות טרם הוגדר.",
   invalid: "כתובת האימייל או הסיסמה שגויות.",
 };
 
