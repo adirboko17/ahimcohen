@@ -1,5 +1,5 @@
 import "server-only";
-import { catalogPageSize, descendants, pricedProduct, type CatalogBatch, type CatalogItem, type Site } from "./catalog-model";
+import { catalogPageSize, catalogPrice, descendants, pricedProduct, type CatalogBatch, type CatalogItem, type Site } from "./catalog-model";
 import { previews, type Preview } from "./storage";
 import { catalogPublicationStates } from "./publication";
 import { importStatuses } from "./import-queue";
@@ -28,7 +28,7 @@ export async function readCatalogBatch(site: Site, cat: string, page: number, im
   ]);
   const items: CatalogItem[] = visible.map((row) => {
     const p = row.snapshot,
-      source = p.variants.map((v) => v.price),
+      source = p.variants.map((v) => catalogPrice(v.price, v.regular)),
       final = prices(row, site).map((v) => v.price),
       job = jobs.find((j) => j.source_id === row.source_id);
     const channel = channels.find(c => c.id === row.shopify_product_id);

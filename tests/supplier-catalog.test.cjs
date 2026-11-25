@@ -19,7 +19,7 @@ test("the supplier monitor countdown displays hours, minutes and seconds", () =>
   assert.equal(formatMonitorCountdown(3599), "00:59:59");
   assert.equal(formatMonitorCountdown(0), "00:00:00");
 });
-test("site percentage and manual pricing preserve the raw and per-variant prices", () => {
+test("site percentage and manual pricing use the original price, not the supplier sale", () => {
   const p = {
     variants: [
       { price: 100, regular: 120 },
@@ -27,10 +27,10 @@ test("site percentage and manual pricing preserve the raw and per-variant prices
     ],
   };
   assert.deepEqual(pricedProduct(p, 10, null).variants, [
-    { price: 110, regular: 132 },
-    { price: 98.95, regular: 108.9 },
+    { price: 132, regular: 132 },
+    { price: 108.9, regular: 108.9 },
   ]);
-  assert.equal(pricedProduct(p, -10, null).variants[0].price, 90);
+  assert.equal(pricedProduct(p, -10, null).variants[0].price, 108);
   assert.deepEqual(pricedProduct(p, 10, 105).variants, [
     { price: 105, regular: 105 },
     { price: 105, regular: 105 },
@@ -50,8 +50,9 @@ test("category selection expands descendants and inherits the nearest approved m
   assert.deepEqual(descendants(["2"], categories), ["2", "3"]);
   assert.deepEqual(mappedCollections(["3", "4"], site), ["boots", "sale"]);
 });
+const siteBrands = moduleFor("../brands");
 const { readWooProduct, catalogPage, wooThumbnail, wooReviewImages } = moduleFor("woocommerce", {
-  "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"),
+  "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "@/lib/brands": siteBrands,
 });
 test("pull estimates use measured first-page work and reserve 100% for completion", () => {
   const { pullProgress } = moduleFor("catalog-model");
@@ -128,7 +129,7 @@ test("review photos accept any public image host and skip addresses that are not
   },domain,ids);
   assert.deepEqual(woo,{"42":cdn});
   const {shopifyReviewImages} = moduleFor("shopify-source",{
-    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),
+    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),"@/lib/brands":siteBrands,
   });
   const shopify = await shopifyReviewImages(async (_,body) => {
     assert.deepEqual(body.variables.ids,ids.map(id=>"gid://shopify/Product/"+id));
@@ -142,7 +143,7 @@ test("review photos accept any public image host and skip addresses that are not
 });
 test("Storefront indexing merges selected collections with durable cursor pagination", async () => {
   const {indexShopifyPage}=moduleFor("shopify-source",{
-    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),
+    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),"@/lib/brands":siteBrands,
   });
   const site={selection:["1","3"], categories:[{id:"1"},{id:"2"},{id:"3"}],index_group:0,index_page:1,source_index:{}};
   const requests=[];
@@ -162,7 +163,7 @@ test("Storefront indexing merges selected collections with durable cursor pagina
 });
 test("Storefront product pages preserve availability, prices, images, and reject incomplete variants", async () => {
   const {readShopifyProduct}=moduleFor("shopify-source",{
-    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),
+    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),"@/lib/brands":siteBrands,
   });
   const page=(nodes,more=false)=>({nodes,pageInfo:{hasNextPage:more,endCursor:more?"cursor":null}});
   const money=amount=>({amount,currencyCode:"ILS"});
@@ -177,7 +178,7 @@ test("Storefront product pages preserve availability, prices, images, and reject
   }}}});
   const scan=()=>readShopifyProduct(read,"example.com","42","ILS",[{id:"1",name:"Boots"}]);
   const result=await scan();
-  assert.deepEqual(result.variants.map(v=>[v.id,v.available,v.price,v.regular]),[["123",false,110,125],["124",true,110,125]]);
+  assert.deepEqual(result.variants.map(v=>[v.id,v.available,v.price,v.regular]),[["123",false,125,125],["124",true,125,125]]);
   assert.deepEqual(result.images,["https://res.cloudinary.com/demo/image/upload/boot.jpg","https://cdn.shopify.com/l.jpg"]);
   delete v.availableForSale;
   await assert.rejects(scan);
@@ -254,6 +255,60 @@ test("reads every declared combination, including sold-out sizes and secondary v
   );
   assert.equal(result.images.length, 4);
   assert.ok(result.images.includes("https://res.cloudinary.com/demo/image/upload/side.jpg"));
+  assert.deepEqual(result.variants.map((v) => [v.price, v.regular]), [[120, 120], [120, 120]]);
+});
+test("a variation that is in stock but not for sale is ignored, and a sold-out size stays", async () => {
+  const hidden = { ...row(33, true), is_purchasable: false, images: [{ src: "http://10.1.2.3/secret.jpg" }] };
+  const soldOut = { ...row(34, false), is_purchasable: false };
+  const product = {
+    ...parent,
+    variations: [
+      { id: 31, attributes: [{ name: "Size", value: "s" }] },
+      { id: 33, attributes: [{ name: "Size", value: "s" }] },
+      { id: 34, attributes: [{ name: "Size", value: "m" }] },
+    ],
+  };
+  const result = await readWooProduct(
+    async () => ({ data: [row(31, true), hidden, soldOut], headers: {} }),
+    domain,
+    product,
+  );
+  assert.deepEqual(
+    result.variants.map((v) => [v.id, v.options["מידה"], v.available]),
+    [
+      ["31", "Small", true],
+      ["34", "Medium", false],
+    ],
+  );
+  assert.ok(!result.images.some((image) => image.includes("10.1.2.3")));
+});
+test("a supplier brand attribute maps onto the existing site brand", async () => {
+  const product = {
+    ...parent,
+    attributes: [...parent.attributes, { name: "מותג", taxonomy: "pa_brand", terms: [{ name: "Carhartt Footwear", slug: "carhartt-footwear" }] }],
+  };
+  const result = await readWooProduct(
+    async () => ({ data: [row(32, false), row(31, true)], headers: {} }),
+    domain,
+    product,
+  );
+  assert.equal(result.brand, "Carhartt");
+});
+test("a repeated color and size names the duplicated combination", async () => {
+  const duplicate = {
+    ...parent,
+    variations: [
+      { id: 31, attributes: [{ name: "Size", value: "s" }] },
+      { id: 32, attributes: [{ name: "Size", value: "s" }] },
+    ],
+  };
+  await assert.rejects(
+    readWooProduct(async () => ({ data: [row(31, true), row(32, true)], headers: {} }), domain, duplicate),
+    (error) => {
+      assert.match(error.message, /הספק רשם יותר מפעם אחת את אותו שילוב: מידה Small/);
+      return true;
+    },
+  );
 });
 test("a partial variation response cannot replace known availability", async () => {
   await assert.rejects(readWooProduct(async () => ({ data: [row(32, false)], headers: {} }), domain, parent));

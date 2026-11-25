@@ -35,6 +35,16 @@ test("combination colors show every named color, and fabric patterns remain patt
   assert.match(swatchColor("משבצות"), /repeating-conic-gradient/);
 });
 
+test("an unlisted shade uses the nearest listed color and keeps its own name", () => {
+  assert.equal(swatchColor("חום כהה"), swatchColor("חום"));
+  assert.equal(swatchColor("dark brown"), swatchColor("brown"));
+  assert.equal(swatchColor("כחול עמוק"), swatchColor("כחול"));
+  assert.equal(swatchColor("deep blue"), swatchColor("blue"));
+  assert.equal(swatchColor("כחול כהה"), "#1F2A44");
+  assert.equal(colorLabel("חום כהה"), "חום כהה");
+  assert.deepEqual(uniqueColors(["חום", "חום כהה"]), ["חום", "חום כהה"]);
+});
+
 test("unrecognized or malformed labels never produce an arbitrary color", () => {
   for (const value of ["", "unknown finish", "%E0%A4%A", "כחול / לא ידוע", "constructor", "__proto__"]) {
     assert.equal(resolveSwatch(value), null);

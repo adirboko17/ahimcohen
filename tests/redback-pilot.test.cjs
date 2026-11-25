@@ -8,7 +8,11 @@ const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, "../lib/sup
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const exportsForTest = {};
-new Function("require", "exports", code)((id) => (id === "server-only" ? {} : require(id)), exportsForTest);
+new Function("require", "exports", code)((id) => {
+  if (id === "server-only") return {};
+  if (id === "./catalog-model") return { catalogPrice: (current, regular) => (regular > current ? regular : current) };
+  return require(id);
+}, exportsForTest);
 const { parseRedback } = exportsForTest;
 const image = "https://redback.co.il/wp-content/uploads/test.jpg";
 const sizes = ["small", "medium"];
@@ -40,6 +44,7 @@ test("Redback keeps separately identified variants with a shared SKU, and dedupl
     ],
   );
   assert.deepEqual(product.description, ["פרטי המוצר"]);
+  assert.deepEqual(product.variants.map((v) => [v.price, v.regular]), [[199, 199], [199, 199]]);
 });
 test("incomplete availability, duplicate combinations and foreign media fail the scan", () => {
   for (const variants of [

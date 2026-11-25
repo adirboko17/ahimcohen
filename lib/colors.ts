@@ -105,15 +105,39 @@ export function matchesColorFilter(productColors: string[], selectedColors: stri
   return productColors.some((color) => selected.has(colorIdentity(color)));
 }
 
-export function resolveSwatch(name: string): string | null {
-  const key = colorKey(packColors(name) ?? name);
-  if (Object.hasOwn(HEX, key)) return HEX[key];
-  const parts = key.split(/\s*[/+&]\s*/);
-  if (parts.length > 1 && parts.every(part => Object.hasOwn(HEX, part) && HEX[part].startsWith("#"))) {
-    const stops = parts.map((part, index) => `${HEX[part]} ${index * 100 / parts.length}% ${(index + 1) * 100 / parts.length}%`);
-    return `linear-gradient(135deg, ${stops.join(", ")})`;
+function listedSwatch(key: string): string | null {
+  return Object.hasOwn(HEX, key) ? HEX[key] : null;
+}
+
+// "חום כהה" can use חום. A name already listed, such as "כחול כהה", keeps its own color.
+function nearestSwatch(key: string): string | null {
+  const words = key.split(" ").filter(Boolean);
+  for (let size = words.length - 1; size >= 1; size--) {
+    const found = new Set<string>();
+    for (let start = 0; start <= words.length - size; start++) {
+      const swatch = listedSwatch(words.slice(start, start + size).join(" "));
+      if (swatch) found.add(swatch);
+    }
+    if (found.size === 1) return [...found][0];
+    if (found.size > 1) return null;
   }
   return null;
+}
+
+export function resolveSwatch(name: string): string | null {
+  const key = colorKey(packColors(name) ?? name);
+  const listed = listedSwatch(key);
+  if (listed) return listed;
+  const parts = key.split(/\s*[/+&]\s*/);
+  if (parts.length > 1) {
+    const swatches = parts.map(part => listedSwatch(part) ?? nearestSwatch(part));
+    if (swatches.every(swatch => swatch?.startsWith("#"))) {
+      const stops = swatches.map((swatch, index) => `${swatch} ${index * 100 / parts.length}% ${(index + 1) * 100 / parts.length}%`);
+      return `linear-gradient(135deg, ${stops.join(", ")})`;
+    }
+    return null;
+  }
+  return nearestSwatch(key);
 }
 
 // An unmapped label gets a neutral pattern, never an invented color.

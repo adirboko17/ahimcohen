@@ -1,7 +1,8 @@
 import "server-only";
 import { load } from "cheerio";
 import { sourceReader } from "./public-source";
-import { catalogPageSize, publicMediaUrl, type SourceCategory } from "./catalog-model";
+import { canonicalBrandName } from "@/lib/brands";
+import { catalogPageSize, catalogPrice, publicMediaUrl, type SourceCategory } from "./catalog-model";
 import type { SupplierProduct, SupplierVariant } from "./redback";
 type Reader = Awaited<ReturnType<typeof sourceReader>>;
 type Term = { id: number; name: string; slug: string };
@@ -34,6 +35,14 @@ const plain = (html: string) =>
 function id(value: number) {
   if (!Number.isSafeInteger(value) || value < 1) throw new Error("מזהה מקור לא תקין.");
   return String(value);
+}
+function sourceBrand(p: WooProduct) {
+  const listed = plain(p.brands?.[0]?.name || "");
+  const attribute = p.attributes.find((a) =>
+    [a.name, a.taxonomy || ""].some((key) => ["מותג", "brand"].includes(normalize(key))),
+  );
+  const named = attribute?.terms.length === 1 ? plain(attribute.terms[0].name) : "";
+  return canonicalBrandName(listed || named) || "";
 }
 function normalize(value: string) {
   return decodeURIComponent(value)
@@ -134,19 +143,24 @@ export async function readWooProduct(read: Reader, domain: string, p: WooProduct
     )
       throw new Error("חסרים נתוני מחיר או זמינות לווריאציה.");
     const unit = 10 ** prices.currency_minor_unit;
+    const original = catalogPrice(Number(prices.price) / unit, Number(prices.regular_price) / unit);
     return {
       id: id(row.id),
       sku: row.sku || p.sku || "",
       options,
       available: row.is_in_stock && row.is_purchasable && row.is_on_backorder !== true,
-      price: Number(prices.price) / unit,
-      regular: Number(prices.regular_price) / unit,
+      price: original,
+      regular: original,
       image: row.images[0] ? mediaUrl(row.images[0].src, domain) : gallery[0],
     };
   }
+  // A record that is in stock but not for sale is hidden on the supplier site. Sold-out sizes stay.
+  const listed = (row: WooProduct) => !(row.is_purchasable === false && row.is_in_stock === true);
   let variants: SupplierVariant[];
-  if (p.type === "simple") variants = [variant(p, { דגם: "רגיל" })];
-  else {
+  if (p.type === "simple") {
+    if (!listed(p)) throw new Error("המוצר לא מוצע למכירה.");
+    variants = [variant(p, { דגם: "רגיל" })];
+  } else {
     const rows = new Map<number, WooProduct>();
     for (let page = 1; ; page++) {
       const { data, headers } = await read(api + `?type=variation&parent=${p.id}&per_page=100&page=${page}`);
@@ -159,9 +173,11 @@ export async function readWooProduct(read: Reader, domain: string, p: WooProduct
     }
     if (!p.variations.length || rows.size !== p.variations.length)
       throw new Error("רשימת הווריאציות של הספק חלקית.");
-    variants = p.variations.map((ref) => {
+    variants = p.variations.flatMap((ref) => {
       const row = rows.get(ref.id);
-      if (!row || !ref.attributes.length) throw new Error("חסר פירוט לווריאציה.");
+      if (!row) throw new Error("חסר פירוט לווריאציה.");
+      if (!listed(row)) return [];
+      if (!ref.attributes.length) throw new Error("חסר פירוט לווריאציה.");
       for (const image of row.images) variationGallery.add(mediaUrl(image.src, domain));
       const options: Record<string, string> = {};
       let selectable = true;
@@ -183,16 +199,32 @@ export async function readWooProduct(read: Reader, domain: string, p: WooProduct
         );
       }
       const result = variant(row, options);
-      return { ...result, available: result.available && selectable };
+      return [{ ...result, available: result.available && selectable }];
     });
   }
+  if (!variants.length) throw new Error("אין מידות שמוצעות למכירה או שאזלו מהמלאי.");
   const axes = Object.keys(variants[0].options).sort();
-  if (
-    axes.length > 3 ||
-    variants.some((v) => Object.keys(v.options).length !== axes.length || axes.some((a) => !v.options[a])) ||
-    new Set(variants.map((v) => JSON.stringify(axes.map((a) => v.options[a])))).size !== variants.length
-  )
-    throw new Error("אפשרויות המוצר אינן יוצרות שילובים ייחודיים.");
+  const ordered = [...axes].sort((a, b) => {
+    const rank = (name: string) => (/צבע|color|colour/i.test(name) ? 0 : /מידה|size/i.test(name) ? 1 : 2);
+    return rank(a) - rank(b) || a.localeCompare(b, "he");
+  });
+  const combination = (options: Record<string, string>) => ordered.map((axis) => `${axis} ${options[axis]}`).join(", ");
+  if (axes.length > 3) throw new Error(`למוצר יש יותר משלוש אפשרויות בחירה: ${ordered.join(", ")}.`);
+  if (variants.some((v) => Object.keys(v.options).length !== axes.length || axes.some((a) => !v.options[a])))
+    throw new Error(`לחלק מהרשומות חסר ערך עבור ${ordered.join(" או ")}.`);
+  const counts = new Map<string, number>();
+  for (const v of variants) {
+    const key = combination(v.options);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const repeated = [...counts].filter(([, count]) => count > 1);
+  if (repeated.length) {
+    const shown = repeated
+      .slice(0, 4)
+      .map(([name, count]) => (count === 2 ? name : `${name} (${count} פעמים)`));
+    const more = repeated.length > 4 ? ` ועוד ${repeated.length - 4}` : "";
+    throw new Error(`הספק רשם יותר מפעם אחת את אותו שילוב: ${shown.join(" · ")}${more}.`);
+  }
   const doc = load(p.description || p.short_description || "", null, false);
   doc("br").replaceWith(" ");
   doc("script,style").remove();
@@ -206,7 +238,7 @@ export async function readWooProduct(read: Reader, domain: string, p: WooProduct
     url: url.href,
     title: plain(p.name),
     brand:
-      plain(p.brands?.[0]?.name || "") ||
+      sourceBrand(p) ||
       (domain === "redback.co.il" && ([39468, 9151].includes(p.id) || /^redback\b/i.test(p.name))
         ? "Redback"
         : ""),

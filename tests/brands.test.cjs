@@ -51,6 +51,9 @@ test('filter names are canonical and supplier domains do not impersonate a manuf
   assert.equal(canonicalBrandName('  Steel   Blue  '), 'Steel Blue');
   assert.equal(canonicalBrandName(''), undefined);
   assert.equal(canonicalBrandName('Independent manufacturer'), 'Independent manufacturer');
+  assert.equal(canonicalBrandName('Carhartt Footwear'), 'Carhartt');
+  assert.equal(canonicalBrandName('Steel Blue Safety'), 'Steel Blue');
+  assert.equal(productBrand({ handle: 'new-boot', vendor: 'Carhartt Footwear' }), 'Carhartt');
 });
 test('featured brand destinations contain audited products and original local logos', () => {
   assert.equal(new Set(BRANDS.map(b => b.id)).size, BRANDS.length);

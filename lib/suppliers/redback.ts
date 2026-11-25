@@ -1,5 +1,6 @@
 import "server-only";
 import { load } from "cheerio";
+import { catalogPrice } from "./catalog-model";
 
 export const redbackPilot = {
   "39468": { path: "/חולצת-פליז-mackenzie/", model: "MACKENZIE", collections: ["חולצות", "REDBACK חולצות"] },
@@ -101,8 +102,8 @@ export function parseRedback(html: string, id: PilotId): SupplierProduct {
       options,
       sku: String(row.sku || ""),
       available: row.is_in_stock,
-      price: row.display_price,
-      regular: row.display_regular_price,
+      price: catalogPrice(row.display_price, row.display_regular_price),
+      regular: catalogPrice(row.display_price, row.display_regular_price),
       image: imageUrl(row.image.full_src),
     };
   });

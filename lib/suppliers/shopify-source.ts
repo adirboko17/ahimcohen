@@ -1,5 +1,6 @@
 import "server-only";
-import { publicMediaUrl, type SourceCategory, type ShopifyIndex, type Site } from "./catalog-model";
+import { canonicalBrandName } from "@/lib/brands";
+import { catalogPrice, publicMediaUrl, type SourceCategory, type ShopifyIndex, type Site } from "./catalog-model";
 import type { SupplierProduct, SupplierVariant } from "./redback";
 import { sourceReader } from "./public-source";
 
@@ -133,14 +134,15 @@ export async function readShopifyProduct(read:Reader, domain:string, id:string, 
           !p.options.every((o:{name:string;values:string[]})=>v.selectedOptions.some(s=>s.name===o.name && o.values.includes(s.value))))
           throw new Error("לא ניתן לאמת את הזמינות או האפשרויות של וריאציה.");
         const src = v.image ? imageUrl(v.image.url, domain) : "";
+        const original = catalogPrice(price(v.price), price(v.compareAtPrice || v.price));
         variants.push({ id:numericId(v.id,"ProductVariant"),sku:v.sku || "",
           options:Object.fromEntries(v.selectedOptions.map(s=>[s.name,s.value])), available:v.availableForSale && !v.currentlyNotInStock,
-          price:price(v.price),regular:price(v.compareAtPrice || v.price),image:src });
+          price:original,regular:original,image:src });
       }
       getVariants = !!vc;
     }
     result = {id, domain, platform:"shopify", url:"https://"+domain+"/products/"+encodeURIComponent(decodeURIComponent(p.handle)),
-      title:p.title, brand:p.vendor || "", currency, attributes:p.options.map((o:{name:string;values:string[]})=>({name:o.name,values:o.values})),
+      title:p.title, brand:canonicalBrandName(p.vendor || "") || "", currency, attributes:p.options.map((o:{name:string;values:string[]})=>({name:o.name,values:o.values})),
       description:[p.description].filter(Boolean),categoryIds:categories.map(c=>c.id),category:categories.map(c=>c.name).join(" · "),images:[],variants};
   } while (getImages || getVariants);
   if (!images.size || !variants.length || new Set(variants.map(v=>v.id)).size !== variants.length ||

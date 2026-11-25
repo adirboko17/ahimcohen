@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { Preview } from "@/lib/suppliers/storage";
-import { productBrand } from "@/lib/suppliers/catalog-model";
+import { catalogPrice, productBrand } from "@/lib/suppliers/catalog-model";
 
 type Props = {
   id: string;
@@ -37,6 +37,8 @@ export function SupplierPreview({
   scanError,
 }: Props) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmPublish = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState("");
   const [refreshing, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ message: string; ok: boolean; url?: string }>();
@@ -99,13 +101,8 @@ export function SupplierPreview({
         <>
           <div className="supplier-facts">
             <b>
-              מחיר המקור {price.price} {p.currency || "ILS"}
+              מחיר המקור {catalogPrice(price.price, price.regular)} {p.currency || "ILS"}
             </b>
-            {price.regular > price.price && (
-              <span>
-                מחיר רגיל {price.regular} {p.currency || "ILS"}
-              </span>
-            )}
             <span>
               {p.variants.filter((v) => v.available).length} מתוך {p.variants.length} וריאציות זמינות אצל הספק
             </span>
@@ -154,7 +151,7 @@ export function SupplierPreview({
                       <td>{Object.values(v.options).join(" · ")}</td>
                       <td>{v.sku}</td>
                       <td>
-                        {v.price} {p.currency || "ILS"}
+                        {catalogPrice(v.price, v.regular)} {p.currency || "ILS"}
                       </td>
                       <td>{finalPrices[v.id] !== undefined ? finalPrices[v.id] + " ₪" : "נדרש מחיר"}</td>
                       <td>{v.available ? "זמין" : "אזל"}</td>
@@ -165,6 +162,7 @@ export function SupplierPreview({
             </div>
           </details>
           <form
+            ref={formRef}
             onSubmit={(event) => {
               event.preventDefault();
               void run("import", new FormData(event.currentTarget));
@@ -224,10 +222,22 @@ export function SupplierPreview({
                   {busy === "publish" ? "מפרסם ובודק זמינות…" : "פרסם באתר"}
                 </button>
               )}
+              {!link && !siteUrl && (
+                <button
+                  type="button"
+                  className="btn admin-primary"
+                  disabled={pending || !collections.length || !!scanError}
+                  onClick={() => {
+                    if (formRef.current?.reportValidity()) confirmPublish.current?.showModal();
+                  }}
+                >
+                  {busy === "publish-import" ? "מפרסם באתר…" : "פרסם באתר"}
+                </button>
+              )}
               {!siteUrl && (
                 <button
                   disabled={pending || !collections.length || !!scanError}
-                  className={canPublish ? "btn btn-line" : "btn admin-primary"}
+                  className={!link || canPublish ? "btn btn-line" : "btn admin-primary"}
                 >
                   {busy === "import" ? "בודק בשופיפיי…" : link ? "בדיקת הטיוטה" : "ייבוא כטיוטה"}
                 </button>
@@ -238,6 +248,20 @@ export function SupplierPreview({
                 </a>
               )}
             </div>
+            {!link && !siteUrl && (
+              <dialog className="supplier-dialog supplier-publish-dialog" ref={confirmPublish} aria-labelledby="supplier-card-publish-title">
+                <header><h2 id="supplier-card-publish-title">פרסום באתר</h2></header>
+                <p>המוצר יעלה למכירה במחיר שהוגדר, אחרי אימות התמונות, האוספים והזמינות לפי צבע ומידה.</p>
+                <div className="supplier-batch-buttons">
+                  <button type="button" className="btn btn-line" onClick={() => confirmPublish.current?.close()}>ביטול</button>
+                  <button type="button" className="btn admin-primary" onClick={() => {
+                    const form = formRef.current;
+                    confirmPublish.current?.close();
+                    if (form) void run("publish-import", new FormData(form));
+                  }}>אישור פרסום באתר</button>
+                </div>
+              </dialog>
+            )}
             {(canPublish || siteUrl) && (
               <small>
                 הזמינות מתעדכנת בפרסום ובלחיצה על ״סרוק עכשיו״. כשהספק מדווח שיש מלאי, אפשר להזמין גם מעבר לכמות

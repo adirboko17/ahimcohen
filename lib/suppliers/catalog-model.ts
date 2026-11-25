@@ -125,6 +125,9 @@ export function suggestedMapping(category: string, collections: { id: string; ti
       .sort((a, b) => b.title.length - a.title.length)[0];
   return found ? [found.id] : [];
 }
+export function catalogPrice(current: number, regular: number) {
+  return regular > current ? regular : current;
+}
 export function pricedProduct(p: SupplierProduct, percent: number, manual: number | null): SupplierProduct {
   if (!Number.isFinite(percent) || percent < -100 || (manual !== null && (!Number.isFinite(manual) || manual < 0)))
     throw new Error("המחיר או האחוז אינם תקינים.");
@@ -133,11 +136,10 @@ export function pricedProduct(p: SupplierProduct, percent: number, manual: numbe
   const adjust = (n: number) => Math.round(n * (100 + percent)) / 100;
   return {
     ...p,
-    variants: p.variants.map((v) => ({
-      ...v,
-      price: manual ?? adjust(v.price),
-      regular: manual ?? adjust(v.regular),
-    })),
+    variants: p.variants.map((v) => {
+      const original = adjust(catalogPrice(v.price, v.regular));
+      return { ...v, price: manual ?? original, regular: manual ?? original };
+    }),
   };
 }
 export function supplierUrl(domain?: string, view?: string, extra: Record<string, string> = {}) {

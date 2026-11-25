@@ -170,7 +170,7 @@ export async function POST(request: Request) {
         : "הסריקה הושלמה.";
       return Response.json({ message });
     }
-    if (action !== "import") throw new Error("פעולה לא מזוהה.");
+    if (action !== "import" && action !== "publish-import") throw new Error("פעולה לא מזוהה.");
     const overrideBrand = form.has("brand") ? String(form.get("brand")).trim() : row.snapshot.brand;
     if (overrideBrand && overrideBrand.length > 150) throw new Error("שם המותג ארוך מדי.");
     const result = await importDraft(
@@ -179,6 +179,17 @@ export async function POST(request: Request) {
       (row.shopify_product_id && row.draft_snapshot) ||
         pricedProduct({ ...row.snapshot, brand: overrideBrand }, site.percent, row.manual_price),
     );
+    if (action === "publish-import") {
+      const linked = await getPreview(domain, id);
+      if (!linked?.shopify_product_id) throw new Error("הטיוטה נוצרה, אבל אי אפשר לפרסם אותה עדיין.");
+      const { live } = await refreshLinkedProduct(linked, true);
+      if (!live) throw new Error("הפרסום באתר טרם אומת.");
+      revalidateTag("shop-catalog");
+      return Response.json({
+        message: "המוצר פורסם באתר וזמינות הווריאציות אומתה.",
+        url: result.url,
+      });
+    }
     return Response.json({
       message: `הטיוטה אומתה בשופיפיי · ${result.variants} וריאציות · ${result.images} תמונות`,
       url: result.url,

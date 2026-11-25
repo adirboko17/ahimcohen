@@ -63,7 +63,24 @@ export function canonicalBrandName(name?: string): string | undefined {
   const key = clean.toLowerCase();
   // This supplier sells many manufacturers; an unidentified import is not a WORKER product.
   if (/^(?:https?:\/\/)?(?:www\.)?worker\.co\.il\/?$/.test(key)) return undefined;
-  return brandAliases[key] ?? brandsByName.get(key)?.name ?? clean;
+  return brandAliases[key] ?? brandsByName.get(key)?.name ?? brandMentioned(key) ?? clean;
+}
+
+function brandMentioned(key: string) {
+  const words = key.split(/[^a-z0-9\u0590-\u05ff]+/i).filter(Boolean);
+  const found: { name: string; size: number }[] = [];
+  for (const brand of BRANDS) {
+    const parts = brand.name.toLowerCase().split(/\s+/);
+    for (let start = 0; start <= words.length - parts.length; start++) {
+      if (parts.every((part, index) => words[start + index] === part)) {
+        found.push({ name: brand.name, size: parts.length });
+        break;
+      }
+    }
+  }
+  const longest = Math.max(0, ...found.map((item) => item.size));
+  const best = found.filter((item) => item.size === longest);
+  return best.length === 1 ? best[0].name : undefined;
 }
 
 export const uniqueBrandNames = (names: string[]) => [...new Set(names.map(canonicalBrandName).filter((name): name is string => !!name))];
