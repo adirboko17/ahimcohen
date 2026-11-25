@@ -1,5 +1,5 @@
 import "server-only";
-import type { SourceCategory, ShopifyIndex, Site } from "./catalog-model";
+import { publicMediaUrl, type SourceCategory, type ShopifyIndex, type Site } from "./catalog-model";
 import type { SupplierProduct, SupplierVariant } from "./redback";
 import { sourceReader } from "./public-source";
 
@@ -82,10 +82,7 @@ const productFields = `id title handle vendor description requiresSellingPlan op
   }
   images(first:100,after:$images) @include(if:$getImages) { nodes{url} ${pageInfo} }`;
 function imageUrl(value: string, domain: string) {
-  const u = new URL(value);
-  if (u.protocol !== "https:" || u.port || u.username || u.password ||
-    (u.hostname !== domain && u.hostname !== "cdn.shopify.com")) throw new Error("כתובת תמונת המוצר אינה נתמכת.");
-  return u.href;
+  return publicMediaUrl(value, "https://" + domain);
 }
 
 function reviewImage(value: string | undefined, domain: string) {

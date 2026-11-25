@@ -1,5 +1,27 @@
 import type { SupplierProduct } from "./redback";
 
+const publicHost = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]+$/i;
+
+// Product photos may live on the shop itself or on any public CDN the shop uses.
+export function publicMediaUrl(value: string, base?: string) {
+  let url: URL;
+  try {
+    url = new URL(value, base);
+  } catch {
+    throw new Error("כתובת התמונה אינה תקינה.");
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.port ||
+    !publicHost.test(url.hostname) ||
+    /\.(localhost|local|internal)$/i.test(url.hostname)
+  )
+    throw new Error("כתובת התמונה אינה ציבורית.");
+  return url.href;
+}
+
 export type SourceCategory = { id: string; parent: string; name: string; count: number; handle?: string };
 export type ShopifyIndex = Record<string, { handle: string; categories: string[]; image?: string }>;
 export const monitorIntervals = [0, 24] as const;

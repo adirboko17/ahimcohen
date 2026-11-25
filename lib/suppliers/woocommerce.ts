@@ -1,7 +1,7 @@
 import "server-only";
 import { load } from "cheerio";
 import { sourceReader } from "./public-source";
-import { catalogPageSize, type SourceCategory } from "./catalog-model";
+import { catalogPageSize, publicMediaUrl, type SourceCategory } from "./catalog-model";
 import type { SupplierProduct, SupplierVariant } from "./redback";
 type Reader = Awaited<ReturnType<typeof sourceReader>>;
 type Term = { id: number; name: string; slug: string };
@@ -44,16 +44,7 @@ function normalize(value: string) {
     .trim();
 }
 function mediaUrl(value: string, domain: string) {
-  const u = new URL(value, "https://" + domain);
-  if (
-    u.protocol !== "https:" ||
-    u.username ||
-    u.password ||
-    u.port ||
-    !(u.hostname === domain || u.hostname.endsWith("." + domain) || /^i[0-3]\.wp\.com$/.test(u.hostname))
-  )
-    throw new Error("תמונה מקושרת לשרת מדיה שטרם אושר לספק.");
-  return u.href;
+  return publicMediaUrl(value, "https://" + domain);
 }
 export function wooThumbnail(product: Pick<WooProduct, "images">, domain: string) {
   for (const image of product.images ?? []) {

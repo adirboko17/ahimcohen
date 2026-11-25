@@ -115,28 +115,35 @@ test("a pull reports product progress inside page one and stops claiming work af
 });
 const domain = "example.com",
   sourceImage = "https://example.com/img.jpg";
-test("old review entries get their own supplier photos even when variants cannot be imported", async () => {
-  const ids = ["42","43"];
+test("review photos accept any public image host and skip addresses that are not public", async () => {
+  const ids = ["42","43","44"];
+  const cdn = "https://res.cloudinary.com/demo/image/upload/boot.jpg";
   const woo = await wooReviewImages(async path => {
-    assert.equal(new URL(path,sourceImage).searchParams.get("include"),"42,43");
+    assert.equal(new URL(path,sourceImage).searchParams.get("include"),"42,43,44");
     return {data:[
       {id:43,images:[]}, {id:99,images:[{src:sourceImage}]},
-      {id:42,type:"unsupported",images:[{thumbnail:"https://other.example/img.jpg",src:sourceImage}]},
+      {id:42,type:"unsupported",images:[{thumbnail:"http://cdn.example/img.jpg",src:cdn}]},
+      {id:44,images:[{src:"https://10.1.2.3/secret.jpg"}]},
     ]};
   },domain,ids);
-  assert.deepEqual(woo,{"42":sourceImage});
-  const {shopifyReviewImages} = moduleFor("shopify-source",{"server-only":{},"./public-source":{}});
+  assert.deepEqual(woo,{"42":cdn});
+  const {shopifyReviewImages} = moduleFor("shopify-source",{
+    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),
+  });
   const shopify = await shopifyReviewImages(async (_,body) => {
     assert.deepEqual(body.variables.ids,ids.map(id=>"gid://shopify/Product/"+id));
     return {data:{data:{nodes:[null,
       {id:"gid://shopify/Product/42",featuredImage:{url:sourceImage}},
       {id:"gid://shopify/Product/43",featuredImage:{url:"https://other.example/img.jpg"}},
+      {id:"gid://shopify/Product/44",featuredImage:{url:"https://user:pass@cdn.shopify.com/x.jpg"}},
     ]}}};
   },domain,ids);
-  assert.deepEqual(shopify,{"42":sourceImage});
+  assert.deepEqual(shopify,{"42":sourceImage,"43":"https://other.example/img.jpg"});
 });
 test("Storefront indexing merges selected collections with durable cursor pagination", async () => {
-  const {indexShopifyPage}=moduleFor("shopify-source",{"server-only":{},"./public-source":{}});
+  const {indexShopifyPage}=moduleFor("shopify-source",{
+    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),
+  });
   const site={selection:["1","3"], categories:[{id:"1"},{id:"2"},{id:"3"}],index_group:0,index_page:1,source_index:{}};
   const requests=[];
   const read=async (_,body)=>{
@@ -154,7 +161,9 @@ test("Storefront indexing merges selected collections with durable cursor pagina
     ["gid://shopify/Collection/1",null],["gid://shopify/Collection/1","cursor"],["gid://shopify/Collection/3",null]]);
 });
 test("Storefront product pages preserve availability, prices, images, and reject incomplete variants", async () => {
-  const {readShopifyProduct}=moduleFor("shopify-source",{"server-only":{},"./public-source":{}});
+  const {readShopifyProduct}=moduleFor("shopify-source",{
+    "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),
+  });
   const page=(nodes,more=false)=>({nodes,pageInfo:{hasNextPage:more,endCursor:more?"cursor":null}});
   const money=amount=>({amount,currencyCode:"ILS"});
   const v={id:"gid://shopify/ProductVariant/123",price:money("110"),compareAtPrice:money("125"),
@@ -163,13 +172,13 @@ test("Storefront product pages preserve availability, prices, images, and reject
     image:{url:"https://cdn.shopify.com/l.jpg"}};
   const read=async(_,body)=>({data:{data:{product:{
     id:"gid://shopify/Product/42",handle:"boot",title:"Boot",options:[{name:"Size",values:["M","L"]}],
-    images:page([{url:"https://cdn.shopify.com/boot.jpg"}]),
+    images:page([{url:"https://res.cloudinary.com/demo/image/upload/boot.jpg"}]),
     variants:body.variables.variants?page([other]):page([v],true)
   }}}});
   const scan=()=>readShopifyProduct(read,"example.com","42","ILS",[{id:"1",name:"Boots"}]);
   const result=await scan();
   assert.deepEqual(result.variants.map(v=>[v.id,v.available,v.price,v.regular]),[["123",false,110,125],["124",true,110,125]]);
-  assert.deepEqual(result.images,["https://cdn.shopify.com/boot.jpg","https://cdn.shopify.com/l.jpg"]);
+  assert.deepEqual(result.images,["https://res.cloudinary.com/demo/image/upload/boot.jpg","https://cdn.shopify.com/l.jpg"]);
   delete v.availableForSale;
   await assert.rejects(scan);
 });
@@ -228,7 +237,7 @@ const row = (id, stock) => ({
   is_in_stock: stock,
   is_purchasable: true,
   prices: { price: "10000", regular_price: "12000", currency_minor_unit: 2, currency_code: "ILS" },
-  images: [{ src: "https://example.com/" + id + ".jpg" }, { src: "https://example.com/side.jpg" }],
+  images: [{ src: "https://example.com/" + id + ".jpg" }, { src: "https://res.cloudinary.com/demo/image/upload/side.jpg" }],
 });
 test("reads every declared combination, including sold-out sizes and secondary variation images", async () => {
   const result = await readWooProduct(
@@ -244,7 +253,7 @@ test("reads every declared combination, including sold-out sizes and secondary v
     ],
   );
   assert.equal(result.images.length, 4);
-  assert.ok(result.images.includes("https://example.com/side.jpg"));
+  assert.ok(result.images.includes("https://res.cloudinary.com/demo/image/upload/side.jpg"));
 });
 test("a partial variation response cannot replace known availability", async () => {
   await assert.rejects(readWooProduct(async () => ({ data: [row(32, false)], headers: {} }), domain, parent));
