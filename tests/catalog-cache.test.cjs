@@ -36,7 +36,6 @@ function deferred() {
 function harness() {
   const entries = new Map();
   const state = { loads: 0, price: 100, domain: "one.myshopify.com", gate: null, fail: false, variants: [], productCount: 1, extraBrandProducts: [], bootstrap: null };
-  const verifiedBrandHandles = [];
   const pageInfo = { hasNextPage: false, endCursor: null };
   const storage = {
     generateSimpleCacheKey: async (key) => key,
@@ -73,7 +72,7 @@ function harness() {
       storefrontApiVersion: () => "2026-10",
       metafieldIdentifiers: () => [],
     },
-    "./product-brand": { productBrand: product => product.vendor, verifiedBrandHandles },
+    "./product-brand": { productBrand: product => product.vendor },
     "./collections": {
       fetchCollectionsPage: async () => {
         state.loads++;
@@ -86,18 +85,38 @@ function harness() {
       },
     },
     "./products": {
-      fetchProductsByHandles: async handles => state.extraBrandProducts.filter(product => handles.includes(product.handle)),
-      fetchCollectionProductsPage: async ({ handle }) => ({
-        products: {
-          items: state.collectionProducts?.[handle] ?? Array.from({ length: state.productCount }, (_, index) => ({
-            handle: handle === "supplier-sale" ? "road-shoe" : index === 0 ? "shirt" : `shirt-${index}`,
+      fetchProductsPage: async ({ first, after, includeCollections }) => {
+        assert.equal(includeCollections, true);
+        const catalog = new Map();
+        for (const handle of ["Shirts", "Uniforms", ...(state.collections ?? []).map(item => item.handle)]) {
+          const members = state.collectionProducts?.[handle] ?? Array.from({ length: state.productCount }, (_, index) => ({
+            handle: handle === "supplier-sale" ? "road-shoe" : index === 0 ? "shirt" : "shirt-" + index,
             title: "Work shirt", vendor: "Brand", description: "Cotton",
             images: [], variants: state.variants, priceRange: { min: { amount: String(state.price) } },
-          })),
-          pageInfo,
-        },
-      }),
-      fetchProductsPage: async () => { throw new Error("Unexpected fallback"); },
+          }));
+          for (const product of members) {
+            if (!catalog.has(product.handle)) catalog.set(product.handle, {
+              ...product, id: product.handle, collections: { items: [], pageInfo },
+            });
+            catalog.get(product.handle).collections.items.push(handle);
+          }
+        }
+        for (const product of state.extraBrandProducts) catalog.set(product.handle, product);
+        for (const [handle, memberships] of Object.entries(state.collectionOverrides ?? {})) {
+          catalog.get(handle).collections = memberships;
+        }
+        const start = Number(after ?? 0);
+        const end = start + first;
+        return {
+          items: [...catalog.values()].slice(start, end),
+          pageInfo: end < catalog.size ? { hasNextPage: true, endCursor: String(end) } : pageInfo,
+        };
+      },
+      fetchProductCollectionsPage: async (id, after) => {
+        const page = state.collectionContinuation?.[id]?.[after];
+        assert.ok(page, "Unexpected product collection page");
+        return page;
+      },
     },
   };
   const resolveDependency = (name) => {
@@ -123,7 +142,7 @@ function harness() {
     };
   }
   return {
-    state, request, verifiedBrandHandles,
+    state, request,
     seed: price => {
       state.bootstrap = {
         scope: JSON.stringify([state.domain, "2026-10", []]),
@@ -192,7 +211,7 @@ test("work shoes and the existing outdoor collection share the shoes category", 
 });
 
 test("Redback remains a brand and legacy collections are resolved by individual product type", async () => {
-  const { state, request, verifiedBrandHandles } = harness();
+  const { state, request } = harness();
   const item = (handle, title) => ({
     handle, title, vendor: "Redback", productType: "", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } },
   });
@@ -214,7 +233,6 @@ test("Redback remains a brand and legacy collections are resolved by individual 
     "plain-shirts": [item("existing-pro", "חולצה לשימוש מקצועי")],
   };
   state.extraBrandProducts = [item("hoodie", "GIBSON COTTON HOODIE"), item("uscjzs", "USCJZS עם כיפת מגן")];
-  verifiedBrandHandles.push("hoodie", "uscjzs");
   const pending = request();
   const { categories, products } = await pending.value;
   const expected = {
@@ -253,12 +271,28 @@ test("simultaneous cold requests share one Shopify load and warm requests reuse 
 
 test("brand pages include live published products without a collection and skip deleted handles", async () => {
   const h = harness();
-  h.verifiedBrandHandles.push("brand-only", "deleted-product", "shirt");
   h.state.extraBrandProducts = [{ handle: "brand-only", title: "Brand shoe", vendor: "Redback", description: "", images: [], variants: [], priceRange: { min: { amount: "200" } } }];
   const catalog = await h.request().value;
   assert.equal(catalog.products.filter(product => product.id === "shirt").length, 1);
   assert.equal(catalog.products.find(product => product.id === "brand-only").brand, "Redback");
   assert.ok(!catalog.products.some(product => product.id === "deleted-product"));
+});
+
+test("published products after page eight keep category memberships from later collection pages", async () => {
+  const h = harness();
+  h.state.productCount = 420;
+  const handle = "shirt-419";
+  h.state.collectionOverrides = {
+    [handle]: { items: ["Shirts"], pageInfo: { hasNextPage: true, endCursor: "memberships-1" } },
+  };
+  h.state.collectionContinuation = {
+    [handle]: { "memberships-1": { items: ["Uniforms"], pageInfo: { hasNextPage: false, endCursor: null } } },
+  };
+  const request = h.request();
+  const catalog = await request.value;
+  await request.settle();
+  assert.equal(catalog.products.length, 420);
+  assert.deepEqual(catalog.products.find(product => product.id === handle).categorySubs, { work: ["Shirts", "Uniforms"] });
 });
 
 test("Shopify option aliases retain the chosen size, color, variant ID and availability", async () => {

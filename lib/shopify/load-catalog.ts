@@ -34,7 +34,7 @@ const readCachedCatalog = unstable_cache(
     inFlight.set(scope, request);
     return request;
   },
-  ["shop-catalog-v15-supplier-prices"],
+  ["shop-catalog-v16-product-memberships"],
   { revalidate: 60, tags: ["shop-catalog"] },
 );
 

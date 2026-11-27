@@ -43,17 +43,20 @@ function identifierVar(metafields: boolean) {
   return metafields ? ", $identifiers: [HasMetafieldsIdentifier!]!" : "";
 }
 
-export function productsByHandlesQuery(count: number, inventory: boolean, metafields: boolean) {
-  const variables = Array.from({ length: count }, (_, index) => `$handle${index}: String!`).join(", ");
-  const fields = Array.from({ length: count }, (_, index) => `product${index}: product(handle: $handle${index}) { ${productFields(inventory, metafields)} }`).join("\n");
-  return `query BrandProducts(${variables}${identifierVar(metafields)}) { ${fields} }`;
-}
+const PRODUCT_COLLECTION_PAGE = `pageInfo { hasNextPage endCursor } nodes { handle }`;
 
-export function productsQuery(inventory: boolean, metafields: boolean) {
+export const PRODUCT_COLLECTIONS_QUERY = `query ProductCollections($id: ID!, $after: String) {
+  product(id: $id) {
+    collections(first: 50, after: $after) { ${PRODUCT_COLLECTION_PAGE} }
+  }
+}`;
+
+export function productsQuery(inventory: boolean, metafields: boolean, includeCollections = false) {
+  const collections = includeCollections ? `collections(first: 35) { ${PRODUCT_COLLECTION_PAGE} }` : "";
   return `query Products($first: Int!, $after: String, $query: String${identifierVar(metafields)}) {
     products(first: $first, after: $after, query: $query) {
       pageInfo { hasNextPage endCursor }
-      nodes { ${productFields(inventory, metafields)} }
+      nodes { ${productFields(inventory, metafields)} ${collections} }
     }
   }`;
 }

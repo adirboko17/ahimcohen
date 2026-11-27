@@ -1,7 +1,7 @@
 import "server-only";
 import { storefront, withStorefrontFallback } from "./client";
 import { metafieldIdentifiers, ShopifyError } from "./config";
-import { collectionProductsQuery, productsByHandlesQuery, productsQuery, VARIANTS_BY_SKU_QUERY } from "./operations";
+import { collectionProductsQuery, productsQuery, PRODUCT_COLLECTIONS_QUERY, VARIANTS_BY_SKU_QUERY } from "./operations";
 import type {
   ShopifyImage,
   ShopifyMetafield,
@@ -27,6 +27,10 @@ type RawVariant = {
   image?: RawImage;
   metafields?: RawMetafield[];
 };
+type RawCollections = {
+  pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+  nodes: { handle: string }[];
+};
 type RawProduct = {
   id: string;
   handle: string;
@@ -41,6 +45,7 @@ type RawProduct = {
   priceRange: { minVariantPrice: RawMoney; maxVariantPrice: RawMoney };
   metafields?: RawMetafield[];
   variants?: { nodes?: RawVariant[] };
+  collections?: RawCollections;
 };
 type ProductConnection = {
   products: {
@@ -49,27 +54,12 @@ type ProductConnection = {
   };
 };
 
-export async function fetchProductsByHandles(handles: string[]): Promise<ShopifyProduct[]> {
-  if (!handles.length) return [];
-  if (handles.length > 10) throw new ShopifyError("Too many product handles.", 400);
-  const identifiers = metafieldIdentifiers();
-  const variables = Object.fromEntries(handles.map((handle, index) => [`handle${index}`, handle]));
-  const data = await withStorefrontFallback(
-    flags => storefront<Record<string, RawProduct | null>>(
-      productsByHandlesQuery(handles.length, flags.inventory, flags.metafields),
-      { ...variables, ...(flags.metafields ? { identifiers } : {}) },
-    ),
-    identifiers.length > 0,
-  );
-  // Deleted or unpublished products return null and must not be resurrected from the audit.
-  return Object.values(data).filter((product): product is RawProduct => product !== null).map(mapProduct);
-}
-
 export async function fetchProductsPage(input: {
   first?: number;
   after?: string | null;
   query?: string | null;
   buyerIp?: string;
+  includeCollections?: boolean;
 }): Promise<ShopifyPage<ShopifyProduct>> {
   const first = clampFirst(input.first, 20);
   const identifiers = metafieldIdentifiers();
@@ -82,7 +72,7 @@ export async function fetchProductsPage(input: {
   const data = await withStorefrontFallback(
     (flags) =>
       storefront<ProductConnection>(
-        productsQuery(flags.inventory, flags.metafields),
+        productsQuery(flags.inventory, flags.metafields, input.includeCollections),
         flags.metafields ? variables : { first, after: variables.after, query: variables.query },
         input.buyerIp,
       ),
@@ -95,6 +85,14 @@ export async function fetchProductsPage(input: {
       endCursor: data.products.pageInfo.endCursor ?? null,
     },
   };
+}
+
+export async function fetchProductCollectionsPage(id: string, after: string | null): Promise<ShopifyPage<string>> {
+  const { product } = await storefront<{ product: { collections: RawCollections } | null }>(
+    PRODUCT_COLLECTIONS_QUERY, { id, after },
+  );
+  if (!product) throw new ShopifyError("Product disappeared while loading its collections.");
+  return mapCollections(product.collections);
 }
 
 export async function fetchCollectionProductsPage(input: {
@@ -192,6 +190,17 @@ function mapProduct(product: RawProduct): ShopifyProduct {
     priceRange: { min, max },
     metafields: metafields(product.metafields),
     variants: (product.variants?.nodes ?? []).map(mapVariant),
+    ...(product.collections ? { collections: mapCollections(product.collections) } : {}),
+  };
+}
+
+function mapCollections(collections: RawCollections): ShopifyPage<string> {
+  return {
+    items: collections.nodes.map(({ handle }) => handle),
+    pageInfo: {
+      hasNextPage: collections.pageInfo.hasNextPage,
+      endCursor: collections.pageInfo.endCursor ?? null,
+    },
   };
 }
 

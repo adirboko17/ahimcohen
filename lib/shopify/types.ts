@@ -50,6 +50,7 @@ export type ShopifyProduct = {
   priceRange: { min: ShopifyMoney; max: ShopifyMoney };
   metafields: ShopifyMetafield[];
   variants: ShopifyVariant[];
+  collections?: ShopifyPage<string>;
 };
 
 export type ShopifyCollection = {

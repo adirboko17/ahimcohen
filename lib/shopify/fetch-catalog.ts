@@ -4,13 +4,12 @@ import { readAdminStore } from "@/lib/admin/storage";
 import { legacyWorkFootwearCategoryName, outdoorFootwear, storefrontCategories, storefrontCategoryPlacements, type CategoryPlacement } from "@/lib/category-placement";
 import { packColors } from "@/lib/colors";
 import { fetchCollectionsPage } from "./collections";
-import { fetchCollectionProductsPage, fetchProductsByHandles, fetchProductsPage } from "./products";
-import type { ShopifyCollection, ShopifyProduct } from "./types";
+import { fetchProductCollectionsPage, fetchProductsPage } from "./products";
+import type { ShopifyCollection, ShopifyPage, ShopifyProduct } from "./types";
 import type { ShopCatalog } from "./load-catalog";
-import { productBrand, verifiedBrandHandles } from "./product-brand";
+import { productBrand } from "./product-brand";
 
 const PAGE = 50;
-const MAX_PAGES = 8;
 
 const SUB_ALIASES: Record<string, string[]> = {
   "מקטורונים | טוניקות": ["מקטרונים וחלוקים"],
@@ -28,7 +27,13 @@ const redbackPlaces: Record<RedbackType, Placement> = {
 const redbackTypes = Object.keys(redbackPlaces) as RedbackType[];
 
 export async function fetchShopCatalog(): Promise<ShopCatalog> {
-  const [collections, store] = await Promise.all([allCollections(), readAdminStore()]);
+  const [collections, store, items] = await Promise.all([
+    collectPages(after => fetchCollectionsPage({ first: PAGE, after })),
+    readAdminStore(),
+    collectPages(after => fetchProductsPage({ first: PAGE, after, includeCollections: true })),
+  ]);
+  const collectionOrder = new Map(collections.map(({ handle }, index) => [handle, index]));
+  const redbackCollections = new Map(collections.map(({ handle, title }) => [handle, redbackCollectionType(title)]));
   const custom = store.categoryPlacements ?? [];
   const placements = menuPlacements(collections, custom);
   const merged = new Map<string, Product>();
@@ -42,37 +47,26 @@ export async function fetchShopCatalog(): Promise<ShopCatalog> {
     redbackItems.set(item.handle, evidence);
   }
 
-  await pool(collections, 3, async (collection) => {
-    const pages = await allCollectionProducts(collection.handle);
-    const collectionType = redbackCollectionType(collection.title);
-    for (const item of pages) {
-      const existing = merged.get(item.handle);
-      const product = existing ?? toProduct(item, "shop");
-      for (const placement of placements.get(collection.handle) ?? []) place(product, placement);
-      if (!existing) merged.set(item.handle, product);
-      trackRedback(item, product, collectionType);
-    }
+  const remainingMemberships = new Map<string, string[]>();
+  await pool(items.filter(item => item.collections?.pageInfo.hasNextPage), 3, async item => {
+    const memberships = item.collections!;
+    const cursor = memberships.pageInfo.endCursor;
+    if (!cursor) throw new Error("Shopify returned no cursor for the remaining product collections.");
+    remainingMemberships.set(item.id, await collectPages(after => fetchProductCollectionsPage(item.id, after), cursor));
   });
 
-  if (merged.size === 0) {
-    for (const item of await allProducts()) {
-      const product = toProduct(item, "shop");
-      merged.set(item.handle, product);
-      trackRedback(item, product);
+  for (const item of items) {
+    const product = toProduct(item, "shop");
+    const handles = [...(item.collections?.items ?? []), ...(remainingMemberships.get(item.id) ?? [])]
+      .sort((left, right) => (collectionOrder.get(left) ?? Infinity) - (collectionOrder.get(right) ?? Infinity));
+    trackRedback(item, product);
+    for (const handle of handles) {
+      for (const placement of placements.get(handle) ?? []) place(product, placement);
+      const redbackType = redbackCollections.get(handle);
+      if (redbackType !== undefined) trackRedback(item, product, redbackType);
     }
+    merged.set(item.handle, product);
   }
-
-  // Some published branded products have no collection. Fetch only the missing
-  // audited handles live so their brand links and product pages remain complete.
-  const missing = verifiedBrandHandles.filter(handle => !merged.has(handle));
-  const batches = Array.from({ length: Math.ceil(missing.length / 10) }, (_, index) => missing.slice(index * 10, index * 10 + 10));
-  await pool(batches, 3, async handles => {
-    for (const item of await fetchProductsByHandles(handles)) {
-      const product = toProduct(item, "shop");
-      merged.set(item.handle, product);
-      trackRedback(item, product);
-    }
-  });
 
   for (const [handle, { name, types }] of redbackItems) {
     const product = merged.get(handle)!;
@@ -196,40 +190,17 @@ function place(product: Product, placement: Placement) {
   product.sub = product.subs[0] ?? placement.sub;
 }
 
-async function allCollections() {
-  const items = [];
-  let after: string | null = null;
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const result = await fetchCollectionsPage({ first: PAGE, after });
-    items.push(...result.items);
-    if (!result.pageInfo.hasNextPage || !result.pageInfo.endCursor) break;
-    after = result.pageInfo.endCursor;
+async function collectPages<T>(load: (after: string | null) => Promise<ShopifyPage<T>>, after: string | null = null) {
+  const items: T[] = [];
+  const cursors = new Set([after]);
+  while (true) {
+    const { items: page, pageInfo } = await load(after);
+    items.push(...page);
+    if (!pageInfo.hasNextPage) return items;
+    after = pageInfo.endCursor;
+    if (!after || cursors.has(after)) throw new Error("Shopify catalog pagination did not advance.");
+    cursors.add(after);
   }
-  return items;
-}
-
-async function allCollectionProducts(handle: string) {
-  const items: ShopifyProduct[] = [];
-  let after: string | null = null;
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const result = await fetchCollectionProductsPage({ handle, first: PAGE, after });
-    items.push(...result.products.items);
-    if (!result.products.pageInfo.hasNextPage || !result.products.pageInfo.endCursor) break;
-    after = result.products.pageInfo.endCursor;
-  }
-  return items;
-}
-
-async function allProducts() {
-  const items: ShopifyProduct[] = [];
-  let after: string | null = null;
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const result = await fetchProductsPage({ first: PAGE, after });
-    items.push(...result.items);
-    if (!result.pageInfo.hasNextPage || !result.pageInfo.endCursor) break;
-    after = result.pageInfo.endCursor;
-  }
-  return items;
 }
 
 function toProduct(product: ShopifyProduct, collectionHandle: string): Product {

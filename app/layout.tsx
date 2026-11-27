@@ -30,6 +30,8 @@ const karantina = Karantina({
   display: "swap",
 });
 
+export const maxDuration = 60;
+
 export const metadata: Metadata = {
   title: {
     default: "האחים כהן | בגדי עבודה ונעלי בטיחות",
