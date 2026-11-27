@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, Suspense, type ReactNode } from "react";
 import { CATS, type Category, type Product } from "@/lib/catalog";
 import { storefrontCategories } from "@/lib/category-placement";
 import { AdminBackLink } from "@/components/AdminBackLink";
@@ -15,6 +15,7 @@ import { isAdmin } from "@/lib/admin/access";
 import { ReviewRatingInput, ReviewStars } from "@/components/ReviewStars";
 import { bundleGroupSnapshot, heroImageTarget, heroIsPublished, reviewAwaitsApproval, type AdminBundle, type AdminHero, type AdminLabel, type AdminRedirect, type AdminReview, type AdminSale, type AdminStore, type HeroDevice } from "@/lib/admin/models";
 import { readAdminStore } from "@/lib/admin/storage";
+import { readCategoryProductCounts } from "@/lib/admin/category-product-counts";
 import { readReviews } from "@/lib/admin/reviews";
 import { fmt } from "@/lib/pricing";
 import { loadShopCatalog } from "@/lib/shopify/load-catalog";
@@ -145,7 +146,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </header>
           {tab && !editing && !create && !editId && saved === "1" && <p className="admin-feedback admin-list-notice" data-ok="true" role="status">השינויים נשמרו.</p>}
           {supplierView ? <Suppliers params={params} /> : categoryView
-            ? <StorefrontCategoryCreator categories={storefrontCategories(CATS, store.categoryPlacements)} showTree />
+            ? <Suspense fallback={<p role="status">טוען את ספירת המוצרים בקטגוריות…</p>}>
+              <StoreCategoryTree placements={store.categoryPlacements} />
+            </Suspense>
             : !tab ? <StoreOverview store={store} products={catalog.products} />
             : tab === "sets" ? <AdminProductSets settings={store.sets.map(({ offer, ...setting }) => ({ ...setting, price: offer?.price }))} initialId={requestedProduct} />
             : tab === "heroes" ? <HeroManager store={store} categories={catalog.categories} editId={editId} create={create} />
@@ -180,6 +183,15 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </div>
     </main>
   );
+}
+
+async function StoreCategoryTree({ placements }: { placements: AdminStore["categoryPlacements"] }) {
+  const categories = storefrontCategories(CATS, placements);
+  const counts = await readCategoryProductCounts().catch(error => {
+    console.error("Unable to load admin category product counts.", error);
+    return undefined;
+  });
+  return <StorefrontCategoryCreator categories={categories} counts={counts} showTree />;
 }
 
 function StoreOverview({ store, products }: { store: AdminStore; products: Product[] }) {

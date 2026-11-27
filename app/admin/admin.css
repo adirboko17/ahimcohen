@@ -630,7 +630,7 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .storefront-category-card[data-updated=true] {border-color:#a38b2d}
 .storefront-category-card header {display:flex;align-items:center;gap:10px;padding:15px 15px 12px;min-width:0}
 .storefront-category-card header div {min-width:0}
-.storefront-category-card h3 {margin:0;font-size:18px;line-height:1.25;overflow-wrap:anywhere}
+.storefront-category-card h3 {display:flex;align-items:center;gap:7px;margin:0;font-size:18px;line-height:1.25;overflow-wrap:anywhere}
 .storefront-category-card header small {display:block;margin-block-start:3px;color:var(--muted);font-size:13px}
 .storefront-category-card-icon {
   display:grid;place-items:center;flex:none;width:40px;height:40px;
@@ -641,8 +641,12 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
   display:flex;flex-wrap:wrap;align-content:start;gap:6px;margin:0;padding:0 15px 15px;list-style:none;
 }
 .storefront-category-card li {
-  min-width:0;padding:4px 8px;border:1px solid #ecece5;border-radius:6px;
+  display:inline-flex;align-items:center;gap:5px;min-width:0;padding:4px 8px;border:1px solid #ecece5;border-radius:6px;
   background:#f7f7f3;color:#404138;font-size:13px;line-height:1.35;overflow-wrap:anywhere;
+}
+.storefront-category-product-count {
+  display:inline-grid;place-items:center;flex:none;min-inline-size:1.55em;padding:1px 4px;border-radius:6px;
+  color:#574618;background:#eee6cc;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
 }
 .storefront-category-card-add {
   display:flex;align-items:center;gap:7px;text-align:start;width:100%;min-height:44px;

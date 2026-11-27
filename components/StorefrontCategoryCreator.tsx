@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import type { CategoryProductCounts } from "@/lib/admin/category-product-counts";
 import type { StorefrontCategoryChoice } from "@/lib/category-placement";
 import { IconCheck, IconGrid, IconPlus } from "./icons";
 
@@ -8,16 +10,26 @@ type Category = { id: string; name: string; subs: string[] };
 type Product = { id: string; revision: string };
 type Result = { category: StorefrontCategoryChoice; assigned: string[]; failed: string[]; current?: Record<string, string[]> };
 const productCount = (count: number) => count === 1 ? "מוצר אחד" : `${count} מוצרים`;
+const formatCount = new Intl.NumberFormat("he-IL");
+
+function CategoryCount({ count }: { count: number | undefined }) {
+  return <bdi className="storefront-category-product-count" title={count === undefined ? "ספירת המוצרים אינה זמינה" : productCount(count)}>
+    {count === undefined ? "–" : formatCount.format(count)}
+  </bdi>;
+}
+
 const subcategoryCount = (count: number) => count === 1 ? "תת־קטגוריה אחת" : `${count} תתי־קטגוריות`;
 
-export function StorefrontCategoryCreator({ categories, domain, products = [], onCreated, showTree = false, suggestedSubcategory }: {
+export function StorefrontCategoryCreator({ categories, counts, domain, products = [], onCreated, showTree = false, suggestedSubcategory }: {
   categories: Category[];
+  counts?: CategoryProductCounts;
   domain?: string;
   products?: Product[];
   onCreated?: (result: Result) => void;
   showTree?: boolean;
   suggestedSubcategory?: { label: string; parentId?: string; collectionId?: string };
 }) {
+  const router = useRouter();
   const [added, setAdded] = useState<StorefrontCategoryChoice[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; issue: boolean }>();
@@ -73,6 +85,7 @@ export function StorefrontCategoryCreator({ categories, domain, products = [], o
         if (showTree) {
           setUpdated(category.parentId);
           dialog.current?.close();
+          router.refresh();
         }
         form.reset();
         setParent(suggestedSubcategory?.parentId ?? "");
@@ -111,16 +124,21 @@ export function StorefrontCategoryCreator({ categories, domain, products = [], o
       </button>
     </div>
     {notice && !notice.issue && <p className="storefront-category-success" role="status"><IconCheck />{notice.message}</p>}
+    {!counts && <p className="admin-feedback" role="status">ספירת המוצרים אינה זמינה כרגע.</p>}
     <div className="storefront-category-tree">
       {options.map(category => <article key={category.id} className="storefront-category-card" data-updated={updated === category.id}>
         <header>
           <span className="storefront-category-card-icon"><IconGrid /></span>
           <div>
-            <h3><bdi>{category.name}</bdi></h3>
+            <h3><bdi>{category.name}</bdi>
+              <CategoryCount count={counts && (counts[category.id]?.total ?? 0)} />
+            </h3>
             <small>{category.subs.length ? subcategoryCount(category.subs.length) : "טרם נוספו תתי־קטגוריות"}</small>
           </div>
         </header>
-        {category.subs.length > 0 && <ul>{category.subs.map(sub => <li key={sub}><bdi>{sub}</bdi></li>)}</ul>}
+        {category.subs.length > 0 && <ul>{category.subs.map(sub => <li key={sub}><bdi>{sub}</bdi>
+          <CategoryCount count={counts && (counts[category.id]?.subs[sub] ?? 0)} />
+        </li>)}</ul>}
         <button type="button" className="storefront-category-card-add" onClick={() => openEditor(category.id)}
           aria-label={`הוספת תת־קטגוריה תחת ${category.name}`}><IconPlus size={16} /> הוספת תת־קטגוריה</button>
       </article>)}
