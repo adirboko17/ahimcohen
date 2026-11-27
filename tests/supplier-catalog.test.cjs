@@ -182,6 +182,37 @@ test("category replacement verifies the new Shopify membership first and preserv
   assert.deepEqual([...memberships], ["marketing", "smart", "new"]);
   assert.deepEqual(events.slice(-4), [["save", ["new", "marketing"]], ["remove", "old"], ["reviewed", "new"], ["invalidate", "shop-catalog"]]);
 });
+test("legacy supplier sales are repaired only when the linked Shopify prices still match the approved import", async () => {
+  const originalModel = moduleFor("catalog-model");
+  const snapshot = { variants: [{ id: "source-variant", price: 252.6, regular: 299 }] };
+  const row = { draft_snapshot: snapshot, manual_price: null, supplier: "www.worker.co.il", source_id: "123", shopify_product_id: "our-product" };
+  const product = { id: "our-product", source: { value: "123" }, tags: ["supplier:www.worker.co.il"],
+    variants: { nodes: [{ id: "our-variant", source: { value: "source-variant" }, price: "252.60", compareAtPrice: "299.00" }] } };
+  const calls = [];
+  const { repairImportedSalePrices } = moduleFor("shopify", {
+    "server-only": {}, "./public-source": {}, "./catalog-model": originalModel, "@/lib/shopify/config": {},
+    "./storage": { saveCorrectedDraftPrices: async (_, token, corrected) => calls.push(["save", token, corrected]) },
+    "@/lib/shopify/admin-bundles": { adminGraphQL: async (_, variables) => {
+      calls.push(["update", variables]);
+      return { productVariantsBulkUpdate: { productVariants: variables.variants, userErrors: [] } };
+    } },
+  });
+  const updated = await repairImportedSalePrices(row, product, "lock");
+  assert.deepEqual(calls, [
+    ["update", { id: "our-product", variants: [{ id: "our-variant", price: "299.00", compareAtPrice: null }] }],
+    ["save", "lock", { variants: [{ id: "source-variant", price: 299, regular: 299 }] }],
+  ]);
+  assert.equal(updated.product.variants.nodes[0].price, "299.00");
+  assert.equal(snapshot.variants[0].price, 252.6);
+  calls.length = 0;
+  assert.equal((await repairImportedSalePrices({ ...row, manual_price: 259 }, product, "lock")).snapshot, snapshot);
+  const edited = { ...product, variants: { nodes: [{ ...product.variants.nodes[0], price: "269.00" }] } };
+  await assert.rejects(repairImportedSalePrices(row, edited, "lock"), /המחיר ב־Shopify השתנה/);
+  assert.deepEqual(calls, []);
+  await repairImportedSalePrices(row, updated.product, "lock");
+  assert.deepEqual(calls.map(call => call[0]), ["save"]);
+});
+
 test("site percentage and manual pricing use the original price, not the supplier sale", () => {
   const p = {
     variants: [
@@ -711,8 +742,10 @@ test("monitor discoveries keep previous approvals and dismissals across retries"
     };
     const storage=moduleFor("storage",{"server-only":{},"@/lib/shopify/config":{shopDomain:()=>"shop.example"},
       "./catalog-model":moduleFor("catalog-model")});
-    await storage.savePreview({id:"1",domain:"source.example"},true);
-    await storage.savePreview({id:"1",domain:"source.example"},true);
+    const snapshot = {id:"1",domain:"source.example",variants:[{price:80,regular:199}]};
+    await storage.savePreview(snapshot,true);
+    await storage.savePreview(snapshot,true);
+    assert.deepEqual(ops[0].snapshot.variants,[{price:199,regular:199}]);
     assert.equal(ops[0].review_state,"pending");
     assert.equal(ops[1].review_state,"pending");
     assert.ok(!Object.hasOwn(ops[2],"review_state"));

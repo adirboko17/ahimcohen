@@ -129,7 +129,7 @@ export function SupplierPreview({ id, row, brand, collections, selected, propose
         {p.category && <p className="supplier-product-source-category"><strong>קטגוריות הספק</strong> {p.category}</p>}
         <dl className="supplier-product-metrics">
           <div><dt>מחיר בחנות</dt><dd><bdi>{storePrice || "נדרש מחיר"}</bdi></dd></div>
-          <div><dt>מחיר הספק</dt><dd><bdi>{sourcePrice || "—"}</bdi></dd></div>
+          <div><dt>מחיר רגיל אצל הספק</dt><dd><bdi>{sourcePrice || "—"}</bdi></dd></div>
           <div><dt>וריאציות זמינות אצל הספק</dt><dd>{available} מתוך {p.variants.length}</dd></div>
         </dl>
         <small>סריקה אחרונה · {localTime.format(new Date(row.scanned_at))}</small>

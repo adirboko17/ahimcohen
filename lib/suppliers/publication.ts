@@ -8,7 +8,7 @@ import { rescanShopify } from "./shopify-source";
 import { productDomain, supplierKey, type StockChange } from "./catalog-model";
 import { importStatuses } from "./import-queue";
 import { finishStockUpdate, pendingStockUpdate, stageStockUpdate } from "./monitor-report";
-import { readDraft, verifyDraft, type SupplierShopifyProduct } from "./shopify";
+import { readDraft, repairImportedSalePrices, verifyDraft, type SupplierShopifyProduct } from "./shopify";
 import { savePreview, withLinkedProductLock, type Preview } from "./storage";
 
 type SupplierLink = Pick<SupplierShopifyProduct, "source" | "tags">;
@@ -163,7 +163,7 @@ async function recoverStockUpdate(domain: string, id: string, product: SupplierS
 }
 
 export async function refreshLinkedProduct(row: Preview, publish: boolean, onStockApplied?: () => void) {
-  return withLinkedProductLock(row, async () => {
+  return withLinkedProductLock(row, async token => {
     const id = row.shopify_product_id!;
     const [fresh, [channelProduct], product] = await Promise.all([
       row.snapshot.platform === "shopify" ? rescanShopify(row.snapshot) :
@@ -185,7 +185,8 @@ export async function refreshLinkedProduct(row: Preview, publish: boolean, onSto
         throw new Error("לטיוטה משויכים ערוצים נוספים. יש להסיר את שיוכם כדי לפרסם רק באתר.");
       }
       if (!row.collection_ids.length) throw new Error("לטיוטה אין אוספים מאושרים.");
-      verifyDraft(product, row.draft_snapshot || row.snapshot, row.collection_ids, false);
+      const repaired = await repairImportedSalePrices(row, product, token);
+      verifyDraft(repaired.product, repaired.snapshot ?? row.snapshot, row.collection_ids, false);
     }
     const domain = productDomain(row.snapshot);
     if (onStockApplied && live) await recoverStockUpdate(domain, row.source_id, product, onStockApplied);

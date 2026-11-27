@@ -4,9 +4,9 @@ import { createHash } from "node:crypto";
 import { adminGraphQL } from "@/lib/shopify/admin-bundles";
 import { shopDomain } from "@/lib/shopify/config";
 import { type SupplierProduct } from "./redback";
-import { reserveDraft, saveDraftId, saveVerification, type Preview } from "./storage";
+import { reserveDraft, saveCorrectedDraftPrices, saveDraftId, saveVerification, type Preview } from "./storage";
 
-import { productBrand, productDomain, supplierKey } from "./catalog-model";
+import { originalPriceSnapshot, productBrand, productDomain, supplierKey } from "./catalog-model";
 import { publicBytes } from "./public-source";
 
 type Collection = { id: string; title: string; handle: string; onSite?: boolean; ruleSet: null | { appliedDisjunctively: boolean } };
@@ -185,7 +185,7 @@ async function createDraft(p: SupplierProduct, collections: string[], reviewedCa
     variants: p.variants.map((v) => ({
       sku: v.sku,
       price: v.price.toFixed(2),
-      compareAtPrice: v.regular > v.price ? v.regular.toFixed(2) : null,
+      compareAtPrice: null,
       optionValues: optionNames.map((name) => ({ optionName: name, name: v.options[name] })),
       file: files.get(v.image),
       inventoryPolicy: "DENY",
@@ -270,6 +270,7 @@ export async function importDraft(row: Preview, collectionIds: string[], preview
   }
   if (known && !draft) throw new Error("הטיוטה המקושרת אינה קיימת עוד. יש לבדוק אותה בשופיפיי.");
   if (!draft) {
+    p = originalPriceSnapshot(p);
     const token = await reserveDraft(row, p, collectionIds);
     const id = await createDraft(p, collectionIds, !row.import_token ? row.collection_ids.find(id => collectionIds.includes(id)) : undefined);
     await saveDraftId(row, id, token, collectionIds, p);
@@ -300,6 +301,47 @@ export async function importDraft(row: Preview, collectionIds: string[], preview
     images: draft.media.nodes.length,
     variants: draft.variants.nodes.length,
   };
+}
+
+export async function repairImportedSalePrices(row: Preview, product: SupplierShopifyProduct, token: string) {
+  const approved = row.draft_snapshot;
+  const legacy = row.manual_price === null ? approved?.variants.filter(variant => variant.regular > variant.price) : undefined;
+  if (!approved || !legacy?.length) return { product, snapshot: approved };
+  if (product.id !== row.shopify_product_id || product.source?.value !== row.source_id ||
+    !product.tags.includes("supplier:" + row.supplier)) throw new Error("לא ניתן לאמת את הקישור בין המוצר לספק.");
+
+  const bySource = new Map(product.variants.nodes.map(variant => [variant.source?.value, variant]));
+  if (bySource.size !== product.variants.nodes.length) throw new Error("התאמת הווריאציות למוצר הספק אינה חד־משמעית.");
+  const updates = legacy.flatMap(expected => {
+    const variant = bySource.get(expected.id);
+    const price = expected.regular.toFixed(2);
+    if (!variant) throw new Error("חסרה וריאציה מקושרת ב־Shopify.");
+    if (variant.compareAtPrice === null && Number(variant.price) === Number(price)) return [];
+    // Only update prices that still match the prices approved by the old import.
+    if (Number(variant.price) !== expected.price || Number(variant.compareAtPrice) !== expected.regular)
+      throw new Error("המחיר ב־Shopify השתנה מאז הייבוא. יש לבדוק אותו ידנית.");
+    return [{ id: variant.id, price, compareAtPrice: null }];
+  });
+  if (updates.length) {
+    type Price = { id: string; price: string; compareAtPrice: string | null };
+    const { productVariantsBulkUpdate } = await adminGraphQL<{
+      productVariantsBulkUpdate: { productVariants: Price[] | null; userErrors: { message: string }[] };
+    }>("mutation RestoreRegularSupplierPrices($id:ID!,$variants:[ProductVariantsBulkInput!]!) {" +
+      "productVariantsBulkUpdate(productId:$id,variants:$variants,allowPartialUpdates:false) {" +
+      "productVariants{id price compareAtPrice} userErrors{message}}}",
+      { id: product.id, variants: updates });
+    checkErrors(productVariantsBulkUpdate.userErrors);
+    const verified = new Map(productVariantsBulkUpdate.productVariants?.map(variant => [variant.id, variant]));
+    if (!updates.every(update => {
+      const variant = verified.get(update.id);
+      return !!variant && variant.compareAtPrice === null && Number(variant.price) === Number(update.price);
+    })) throw new Error("Shopify טרם אישרה את תיקון כל המחירים.");
+    product = { ...product, variants: { ...product.variants, nodes: product.variants.nodes.map(variant =>
+      ({ ...variant, ...verified.get(variant.id) })) } };
+  }
+  const snapshot = originalPriceSnapshot(approved);
+  await saveCorrectedDraftPrices(row, token, snapshot);
+  return { product, snapshot };
 }
 
 export function verifyDraft(

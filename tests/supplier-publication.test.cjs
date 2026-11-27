@@ -84,7 +84,8 @@ function fixture() {
         pendingStock = undefined;
       },
     },
-    "./shopify":{readDraft:async()=>product,verifyDraft:()=>events.push("contents")},
+    "./shopify":{readDraft:async()=>product, repairImportedSalePrices:async (row, product)=>({product,snapshot:row.draft_snapshot}),
+      verifyDraft:()=>events.push("contents")},
     "./storage":{withLinkedProductLock:async(_,fn)=>fn(),savePreview:async()=>events.push("save")},
   };
   const api = {};

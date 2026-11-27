@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { shopDomain } from "@/lib/shopify/config";
 import type { SupplierProduct } from "./redback";
-import { productDomain, supplierKey } from "./catalog-model";
+import { originalPriceSnapshot, productDomain, supplierKey } from "./catalog-model";
 
 export type Preview = {
   source_id: string;
@@ -122,7 +122,8 @@ export async function resolveScanIssue(domain: string, id: string, run: string |
   });
   if (await response.json() !== true) throw new Error("רשימת הבדיקה התעדכנה. רעננו ונסו שוב.");
 }
-export async function savePreview(snapshot: SupplierProduct, notifyIfNew = false) {
+export async function savePreview(product: SupplierProduct, notifyIfNew = false) {
+  const snapshot = originalPriceSnapshot(product);
   const revision = createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
   const values = {
       shop_domain: shopDomain(),
@@ -211,8 +212,16 @@ export async function saveVerification(row: Preview, draftId: string, collection
   if (!rows.length) throw new Error("נתוני הסריקה השתנו בזמן האימות. בדקו את הטיוטה שוב.");
 }
 
+export async function saveCorrectedDraftPrices(row: Preview, token: string, snapshot: SupplierProduct) {
+  const saved = await request("PATCH", {
+    ...scope(row.supplier), source_id: "eq." + row.source_id, shopify_product_id: "eq." + row.shopify_product_id,
+    import_token: "eq." + token, revision: "eq." + row.revision, manual_price: "is.null", select: "source_id",
+  }, { draft_snapshot: snapshot });
+  if (saved.length !== 1) throw new Error("לא ניתן היה לשמור את המחיר המתוקן בקטלוג הספק. נסו שוב.");
+}
+
 // Serialize publication and stock refresh for this supplier product across server instances.
-export async function withLinkedProductLock<T>(row: Preview, run: () => Promise<T>) {
+export async function withLinkedProductLock<T>(row: Preview, run: (token: string) => Promise<T>) {
   if (!row.shopify_product_id) throw new Error("יש לייבא טיוטה לפני הפרסום.");
   const token = randomUUID();
   const filter = {
@@ -232,7 +241,7 @@ export async function withLinkedProductLock<T>(row: Preview, run: () => Promise<
   );
   if (!claimed.length) throw new Error("המוצר מתעדכן או שהסריקה השתנתה. רעננו ונסו שוב.");
   try {
-    return await run();
+    return await run(token);
   } finally {
     await request(
       "PATCH",

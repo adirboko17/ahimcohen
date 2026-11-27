@@ -132,6 +132,13 @@ export function mappedCollections(ids: string[], site: Pick<Site, "categories" |
 export function catalogPrice(current: number, regular: number) {
   return regular > current ? regular : current;
 }
+export function originalPriceSnapshot(product: SupplierProduct): SupplierProduct {
+  if (product.variants.every(variant => variant.price === variant.regular)) return product;
+  return { ...product, variants: product.variants.map(variant => {
+    const price = catalogPrice(variant.price, variant.regular);
+    return { ...variant, price, regular: price };
+  }) };
+}
 export function pricedProduct(p: SupplierProduct, percent: number, manual: number | null): SupplierProduct {
   if (!Number.isFinite(percent) || percent < -100 || (manual !== null && (!Number.isFinite(manual) || manual < 0)))
     throw new Error("המחיר או האחוז אינם תקינים.");
