@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Fragment, type ReactNode } from "react";
-import type { Category, Product } from "@/lib/catalog";
+import { CATS, type Category, type Product } from "@/lib/catalog";
+import { storefrontCategories } from "@/lib/category-placement";
 import { AdminBackLink } from "@/components/AdminBackLink";
 import { AdminApproveReviewButton, AdminBundleDialog, AdminBundleFields, AdminForm, AdminLabelEditor, AdminLogin, AdminProductField, AdminProductList, AdminProductSummary, AdminRemoveButton, CopyAdminLink } from "@/components/AdminControls";
 import { AdminHeroEditor } from "@/components/AdminHeroEditor";
 import { AdminProductSets } from "@/components/AdminProductSets";
 import { AdminHeroOrder } from "@/components/AdminHeroOrder";
+import { StorefrontCategoryCreator } from "@/components/StorefrontCategoryCreator";
 import { IconBag, IconCheck, IconFwd, IconGrid, IconHome, IconPackages, IconPencil, IconPlus, IconUpload } from "@/components/icons";
 import { isAdmin } from "@/lib/admin/access";
 import { ReviewRatingInput, ReviewStars } from "@/components/ReviewStars";
@@ -33,6 +35,7 @@ const tabs = {
 type Tab = keyof typeof tabs;
 
 const overview = { title: "סקירת החנות", description: "מצב הקטלוג, הבאנדלים והבאנרים שמוצגים בדף הבית.", Icon: IconHome };
+const categoryTool = { title: "קטגוריות החנות", description: "הוספת קטגוריות ראשיות ותתי־קטגוריות לקטלוג.", Icon: IconGrid };
 const toolGroups = [
   { label: "קטלוג ומכירות", tools: ["bundles", "sets", "sales", "labels"] },
   { label: "תוכן וקישורים", tools: ["reviews", "links", "heroes"] },
@@ -61,8 +64,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   if (query === "offers") redirect(adminUrl("sets"));
   const tab = typeof query === "string" && Object.hasOwn(tabs, query) ? query as Tab : undefined;
   const supplierView = query === "suppliers";
-  const [store, catalog] = await Promise.all([readAdminStore().then(async (data) => tab === "reviews" || (!tab && !supplierView)
-    ? { ...data, reviews: await readReviews(data.reviews) } : data), supplierView ? {products: [], categories: []} : loadShopCatalog()]);
+  const categoryView = query === "categories";
+  const overviewView = !tab && !supplierView && !categoryView;
+  const [store, catalog] = await Promise.all([readAdminStore().then(async (data) => tab === "reviews" || overviewView
+    ? { ...data, reviews: await readReviews(data.reviews) } : data), supplierView || categoryView ? {products: [], categories: []} : loadShopCatalog()]);
   const products = new Map(catalog.products.map((item) => [item.id, item]));
   const reviewProductId = tab === "reviews" && typeof requestedProduct === "string" ? requestedProduct : undefined;
   const productReviews = reviewProductId ? store.reviews.filter((item) => item.productId === reviewProductId) : [];
@@ -84,7 +89,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const editId = !create && typeof requestedEditor === "string" && editableItems.some((item) => item.id === requestedEditor)
     ? requestedEditor : undefined;
   const editing = !!tab && tab !== "heroes" && tab !== "sets" && (create || !!editId);
-  const info = supplierView ? { title: "ניהול ספקים וייבוא מוצרים", description: "סריקת קטלוגים, התאמת קטגוריות ותמחור מוצרים", Icon: IconPackages } : tab ? tabs[tab] : overview;
+  const info = supplierView ? { title: "ניהול ספקים וייבוא מוצרים", description: "סריקת קטלוגים, התאמת קטגוריות ותמחור מוצרים", Icon: IconPackages }
+    : categoryView ? categoryTool : tab ? tabs[tab] : overview;
   const Icon = info.Icon;
   const title = tab === "heroes" ? "באנרים בדף הבית" : manageHref ? "עריכת באנדלים למוצר" : reviewHref ? "ביקורות למוצר"
     : tab && editing ? (create ? tabs[tab].create : tabs[tab].edit) : info.title;
@@ -102,12 +108,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </header>
       <div className="admin-layout">
         <nav aria-label="כלי ניהול" className="admin-nav">
-          <Link className="admin-nav-overview" href="/admin" prefetch={false} aria-current={!tab && !supplierView ? "page" : undefined}>
+          <Link className="admin-nav-overview" href="/admin" prefetch={false} aria-current={overviewView ? "page" : undefined}>
             <span className="admin-nav-icon" aria-hidden="true"><IconHome /></span>{overview.title}
           </Link>
           {toolGroups.map((group) => <div className="admin-nav-group" key={group.label}>
             <span className="admin-nav-label">{group.label}</span>
             {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=suppliers" prefetch={false} aria-current={supplierView ? "page" : undefined}><span className="admin-nav-icon"><IconPackages /></span>ספקים וייבוא מוצרים</Link>}
+            {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=categories" prefetch={false} aria-current={categoryView ? "page" : undefined}><span className="admin-nav-icon" aria-hidden="true"><IconGrid /></span>{categoryTool.title}</Link>}
             {group.tools.map((key) => {
               const ToolIcon = tabs[key].Icon;
               return <Link key={key} href={adminUrl(key)} prefetch={false} aria-current={tab === key ? "page" : undefined}>
@@ -117,7 +124,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </div>)}
         </nav>
         <section className="admin-main" aria-labelledby="admin-title">
-          <header className="admin-section-heading">
+          <header className={categoryView ? "admin-section-heading storefront-category-heading" : "admin-section-heading"}>
             {backHref && <AdminBackLink href={backHref} label={reviewHref ? "חזרה לכל המוצרים" : undefined} />}
             <div className="admin-section-intro">
               <span className="admin-section-icon" aria-hidden="true"><Icon /></span>
@@ -137,7 +144,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </div>
           </header>
           {tab && !editing && !create && !editId && saved === "1" && <p className="admin-feedback admin-list-notice" data-ok="true" role="status">השינויים נשמרו.</p>}
-          {supplierView ? <Suppliers params={params} /> : !tab ? <StoreOverview store={store} products={catalog.products} />
+          {supplierView ? <Suppliers params={params} /> : categoryView
+            ? <StorefrontCategoryCreator categories={storefrontCategories(CATS, store.categoryPlacements)} showTree />
+            : !tab ? <StoreOverview store={store} products={catalog.products} />
             : tab === "sets" ? <AdminProductSets settings={store.sets.map(({ offer, ...setting }) => ({ ...setting, price: offer?.price }))} initialId={requestedProduct} />
             : tab === "heroes" ? <HeroManager store={store} categories={catalog.categories} editId={editId} create={create} />
             : manageHref && group ? <>

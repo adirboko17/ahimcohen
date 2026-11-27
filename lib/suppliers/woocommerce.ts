@@ -37,6 +37,7 @@ function id(value: number) {
   return String(value);
 }
 function sourceBrand(p: WooProduct) {
+  if ((p.brands?.length ?? 0) > 1) return "";
   const listed = plain(p.brands?.[0]?.name || "");
   const attribute = p.attributes.find((a) =>
     [a.name, a.taxonomy || ""].some((key) => ["מותג", "brand"].includes(normalize(key))),
@@ -239,9 +240,10 @@ export async function readWooProduct(read: Reader, domain: string, p: WooProduct
     title: plain(p.name),
     brand:
       sourceBrand(p) ||
-      (domain === "redback.co.il" && ([39468, 9151].includes(p.id) || /^redback\b/i.test(p.name))
+      (!p.brands?.length && domain === "redback.co.il" && ([39468, 9151].includes(p.id) || /^redback\b/i.test(p.name))
         ? "Redback"
         : ""),
+    ...(p.brands && p.brands.length > 1 ? { brandCandidates: p.brands.map(brand => plain(brand.name)).filter(Boolean) } : {}),
     currency,
     categoryIds: p.categories.map((c) => id(c.id)),
     attributes: p.attributes

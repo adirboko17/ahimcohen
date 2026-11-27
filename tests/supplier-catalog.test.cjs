@@ -12,12 +12,175 @@ function moduleFor(name, deps = {}) {
   new Function("require", "exports", js)((id) => deps[id] ?? require(id), out);
   return out;
 }
+const categoryPlacement = moduleFor("../category-placement");
+const categoryMatching = moduleFor("category-matching", { "@/lib/category-placement": categoryPlacement });
+const { outdoorFootwear } = categoryPlacement;
+const categoryAuditStub = { categoryOpportunityMinimum: 15, readSupplierCategoryAudit: async () => [] };
+const supplierBrand = moduleFor("brand", { "@/lib/brands": moduleFor("../brands") });
+const testBrandSettings = { readSupplierDefaultBrand: async domain => supplierBrand.supplierDefaultBrand(domain) };
 const { pricedProduct, descendants, mappedCollections, formatMonitorCountdown } = moduleFor("catalog-model");
 test("the supplier monitor countdown displays hours, minutes and seconds", () => {
   assert.equal(formatMonitorCountdown(24 * 3600), "24:00:00");
   assert.equal(formatMonitorCountdown(3661), "01:01:01");
   assert.equal(formatMonitorCountdown(3599), "00:59:59");
   assert.equal(formatMonitorCountdown(0), "00:00:00");
+});
+test("supplier brand detection separates declared brands, likely brands and missing values", () => {
+  const product = { id: "43467", domain: "redback.co.il", brand: "", category: "ביגוד · מכנסיים", categoryIds: ["46"],
+    title: "Angler Strech pants", description: [], attributes: [] };
+  const detect = supplierBrand.detectSupplierBrand;
+  assert.deepEqual(detect(product), { name: "Redback", evidence: "supplier-default" });
+  assert.deepEqual(detect({ ...product, brand: "Viking" }), { name: "Viking", evidence: "source" });
+  assert.deepEqual(detect({ ...product, title: "SHOWA Work Gloves", categoryIds: [] }), { name: "SHOWA", evidence: "title" });
+  assert.deepEqual(detect({ ...product, brand: "worker.co.il", domain: "worker.co.il" }), { name: "", evidence: "missing" });
+  assert.deepEqual(detect({ ...product, categoryIds: [], attributes: [{ name: "pa_manufacturer", values: ["Showa"] }] }), { name: "SHOWA", evidence: "source" });
+  assert.deepEqual(detect({ ...product, domain: "another.example", description: ["Compatible with Redback boots"] }), { name: "", evidence: "missing" });
+  assert.deepEqual(detect({ ...product, title: "LUCKY BAY T-SHIRT", category: "REDBACK OUTLET · ביגוד · חולצות" }),
+    { name: "Redback", evidence: "supplier-default" });
+  assert.deepEqual(detect({ ...product, title: "כפפות | SHOWA" }), { name: "SHOWA", evidence: "title" });
+  assert.deepEqual(detect({ ...product, brandCandidates: ["Redback", "SHOWA"] }), { name: "", evidence: "missing" });
+  assert.deepEqual(detect(product, ""), { name: "", evidence: "missing" });
+});
+
+test("a supplier can set or clear the brand fallback without changing other suppliers", async () => {
+  const store = { supplierDefaultBrands: { "other.example": "Other Brand" } };
+  const settings = moduleFor("brand-settings", {
+    "server-only": {}, "./brand": supplierBrand,
+    "@/lib/admin/storage": { readAdminStore: async () => store, changeAdminStore: async change => change(store) },
+  });
+  assert.equal(await settings.readSupplierDefaultBrand("www.redback.co.il"), "Redback");
+  assert.equal(await settings.saveSupplierDefaultBrand("www.redback.co.il", ""), "");
+  assert.equal(await settings.readSupplierDefaultBrand("redback.co.il"), "");
+  assert.equal(await settings.saveSupplierDefaultBrand("redback.co.il", " redback "), "Redback");
+  assert.equal(await settings.readSupplierDefaultBrand("other.example"), "Other Brand");
+  await assert.rejects(settings.saveSupplierDefaultBrand("redback.co.il", "https://redback.co.il"), /שם מותג תקין/);
+});
+
+test("a product category choice validates the storefront path, and a publish retry resumes from the linked product", async () => {
+  const model = moduleFor("catalog-model");
+  const site = { domain: "example.com", percent: 10, issues: [] };
+  const draftId = "gid://shopify/Product/81";
+  const snapshot = { title: "SHOWA gloves", id: "52", variants: [{ price: 100, regular: 100 }] };
+  const row = { scan_error: null, source_id: "52", revision: "a".repeat(64), snapshot, shopify_product_id: null,
+    manual_price: null, collection_ids: [], category_ids: [] };
+  const records = [];
+  const storage = {
+    getPreview: async (_, id) => id === "52" ? { ...row } : undefined,
+    saveProductCategory: async (preview, ids) => {
+      records.push(["save", preview.source_id, ids]);
+      row.collection_ids = ids;
+    },
+  };
+  const assignment = moduleFor("category-assignment", {
+    "server-only": {}, "next/cache": {}, "@/lib/category-placement": categoryPlacement,
+    "./catalog-model": model, "./storage": storage, "./shopify": {},
+  });
+  const { POST } = moduleFor("../../app/admin/suppliers/route", {
+    "@/lib/admin/access": { isAdmin: async () => true }, "@/lib/admin/request-origin": { adminRequestOrigin: () => true },
+    "@/lib/suppliers/storage": storage, "@/lib/suppliers/shopify-source": {},
+    "@/lib/suppliers/cloud-worker": {}, "@/lib/suppliers/sites": { getSite: async () => site },
+    "@/lib/suppliers/shopify": { importDraft: async (preview, collections, approved) => {
+      assert.equal(preview.shopify_product_id, null);
+      records.push(["import", collections, approved.brand, approved.variants[0].price]);
+      row.shopify_product_id = draftId;
+      return { id: draftId };
+    } },
+    "@/lib/suppliers/catalog-model": model, "@/lib/suppliers/catalog-batch": {},
+    "@/lib/suppliers/public-source": { normalizeDomain: domain => domain }, "@/lib/suppliers/woocommerce": {},
+    "@/lib/suppliers/import-queue": {}, "@/lib/suppliers/monitor-report": {}, "next/server": {},
+    "@/lib/suppliers/publication": { refreshLinkedProduct: async (linked, publish) => {
+      records.push(["verifyAndPublish", linked.shopify_product_id, publish]);
+      return { live: true };
+    } },
+    "next/cache": { revalidateTag: () => {} }, "@/lib/suppliers/category-approval": {
+      createStorefrontCategory: async form => ({ id: "camping", parentId: form.get("parent"), parent: "אביזרים", sub: form.get("label") }),
+    }, "@/lib/suppliers/brand": supplierBrand,
+    "@/lib/suppliers/brand-settings": testBrandSettings,
+    "@/lib/suppliers/located-catalog": {},
+    "@/lib/suppliers/category-assignment": assignment,
+    "@/lib/suppliers/storefront-collections": { supplierStorefrontCollections: async () => [
+      { id: "my-category", manual: true, published: true, paths: [{ parent: "אביזרים", sub: "" }] },
+      { id: "camping", manual: true, published: true, paths: [{ parent: "אביזרים", sub: "ציוד לקמפינג" }] },
+      { id: "unplaced", manual: true, published: true, paths: [] },
+    ] },
+  });
+  const categoryRequest = collection => {
+    const body = new FormData();
+    for (const [name, value] of Object.entries({
+      action: "product-category", domain: site.domain, id: "52", revision: row.revision, collection,
+    })) body.set(name, value);
+    return new Request("https://www.example.com/admin/suppliers", { method: "POST", body });
+  };
+  assert.equal((await POST(categoryRequest("unplaced"))).status, 422);
+  assert.equal((await POST(categoryRequest("my-category"))).status, 200);
+  const bulk = new FormData();
+  bulk.set("action", "create-category");
+  bulk.set("domain", site.domain);
+  bulk.set("label", "ציוד לקמפינג");
+  bulk.set("parent", "acc");
+  bulk.append("item", "52:" + row.revision);
+  bulk.append("item", "53:" + row.revision);
+  const bulkReply = await POST(new Request("https://www.example.com/admin/suppliers", { method: "POST", body: bulk }));
+  assert.deepEqual(await bulkReply.json(), {
+    category: { id: "camping", parentId: "acc", parent: "אביזרים", sub: "ציוד לקמפינג" }, assigned: ["52"], failed: ["53"],
+    current: { "52": ["אביזרים", "אביזרים / ציוד לקמפינג"] },
+  });
+  const request = () => {
+    const body = new FormData();
+    for (const [name, value] of Object.entries({ action: "publish", domain: site.domain, id: "52", revision: row.revision, brand: "Approved" })) body.set(name, value);
+    body.append("collection", "my-category");
+    body.append("collection", "my-category");
+    return new Request("https://www.example.com/admin/suppliers", { method: "POST", body });
+  };
+  assert.match((await (await POST(request())).json()).message, /המוצר פורסם באתר/);
+  assert.equal((await POST(request())).status, 200);
+  assert.deepEqual(records, [["save", "52", ["my-category"]], ["save", "52", ["camping", "my-category"]], ["import", ["my-category"], "Approved", 110],
+    ["verifyAndPublish", draftId, true], ["verifyAndPublish", draftId, true]]);
+});
+
+test("category replacement verifies the new Shopify membership first and preserves other collections", async () => {
+  const scope = (id, manual, paths = []) => ({ id, manual, published: true, paths });
+  const options = [scope("new", true, [{ parent: "אביזרים", sub: "כובעים" }]),
+    scope("old", true, [{ parent: "ביגוד", sub: "חולצות" }]), scope("marketing", true),
+    scope("smart", false, [{ parent: "מבצעים", sub: "" }])];
+  const revisions = new Map([["1", "r"], ["2", "r"]]);
+  const events = [];
+  const row = { source_id: "1", revision: "r", shopify_product_id: "linked", collection_ids: ["old", "marketing"] };
+  const memberships = new Set(["old", "marketing", "smart"]);
+  let addFailure = true;
+  const { assignSupplierCategories } = moduleFor("category-assignment", {
+    "server-only": {}, "next/cache": { revalidateTag: tag => events.push(["invalidate", tag]) },
+    "@/lib/category-placement": categoryPlacement, "./catalog-model": moduleFor("catalog-model"),
+    "./storage": {
+      getPreview: async (_, id) => id === "1" ? row : { source_id: id, revision: "stale" },
+      withLinkedProductLock: async (_, work) => work(),
+      saveLinkedProductCategories: async (_, tracked) => events.push(["save", tracked]),
+    },
+    "./shopify": {
+      supplierCollectionMemberships: async () => new Map([["linked", [...memberships]]]),
+      addSupplierCollectionMembership: async (_, id) => {
+        if (addFailure) throw new Error("add failed");
+        events.push(["add", id]); memberships.add(id);
+      },
+      removeSupplierCollectionMembership: async (_, id) => {
+        assert.ok(memberships.has("new")); events.push(["remove", id]); memberships.delete(id);
+      },
+      markSupplierCategoryReviewed: async (_, id) => events.push(["reviewed", id]),
+    },
+  });
+  const site = { domain: "example.com" };
+  const failed = await assignSupplierCategories(site, revisions, "new", "replace", options);
+  assert.equal(failed.failed.length, 2);
+  assert.equal(failed.failed[0].message, "add failed");
+  assert.deepEqual([...memberships], ["old", "marketing", "smart"]);
+  addFailure = false;
+  const added = await assignSupplierCategories(site, new Map([["1", "r"]]), "new", "add", options);
+  assert.deepEqual(added.assigned[0].current, ["אביזרים / כובעים", "ביגוד / חולצות", "מבצעים"]);
+  assert.ok(memberships.has("old"));
+  const replaced = await assignSupplierCategories(site, revisions, "new", "replace", options);
+  assert.deepEqual(replaced.assigned, [{ id: "1", current: ["אביזרים / כובעים", "מבצעים"] }]);
+  assert.deepEqual([...memberships], ["marketing", "smart", "new"]);
+  assert.deepEqual(events.slice(-4), [["save", ["new", "marketing"]], ["remove", "old"], ["reviewed", "new"], ["invalidate", "shop-catalog"]]);
 });
 test("site percentage and manual pricing use the original price, not the supplier sale", () => {
   const p = {
@@ -50,6 +213,236 @@ test("category selection expands descendants and inherits the nearest approved m
   assert.deepEqual(descendants(["2"], categories), ["2", "3"]);
   assert.deepEqual(mappedCollections(["3", "4"], site), ["boots", "sale"]);
 });
+test("category review distinguishes inherited mappings, proposed groups and verified Shopify changes", async () => {
+  const catalog = { CATS: [{ id: "shoes", name: "נעלי עבודה ובטיחות", subs: ["נעלי בטיחות", "מגפי עבודה ובטיחות"] },
+    { id: "acc", name: "אביזרים", subs: ["אביזרים למטבח"] }] };
+  const site = {
+    domain: "example.com", pull_started_at: "2026-11-26T10:00:00Z",
+    categories: [
+      { id: "1", name: "נעלי עבודה ובטיחות", parent: "0" },
+      { id: "2", name: "מגני קרסול", parent: "1" },
+      { id: "3", name: "נעלי בטיחות קיץ", parent: "0" },
+      { id: "4", name: "מגפי עבודה", parent: "0" },
+      { id: "5", name: "אביזרי שריכה", parent: "0" },
+      { id: "6", name: "נעלי ריצה כביש Up to 50%off", parent: "0" },
+      { id: "7", name: "sibling-c-101", parent: "0" },
+      { id: "8", name: "נעלי עבודה עם מגן", parent: "0" },
+      { id: "9", name: "סניקרס ונעלי טיולים", parent: "0" },
+    ],
+    mappings: { "1": ["shoes"], "4": ["boots"], "9": ["safety"] },
+  };
+  const collections = [["shoes", "נעלי עבודה ובטיחות", ""], ["safety", "נעלי בטיחות", "נעלי בטיחות"],
+    ["safety-copy", "נעל בטיחות", "נעלי בטיחות"], ["boots", "מגפי עבודה ובטיחות", "מגפי עבודה ובטיחות"],
+    ["laces", "אביזרי שריכה", null]].map(([id,title,sub]) => ({ id, title, manual: true, published: true,
+      paths: sub === null ? [] : [{ parentId: "shoes", parent: "נעלי עבודה ובטיחות", sub }] }));
+  collections.push({ id: "kitchen", title: "אביזרים למטבח", manual: true, published: true,
+    paths: [{ parentId: "acc", parent: "אביזרים", sub: "אביזרים למטבח" }] });
+  const row = (source_id, title, category, shopify_product_id = null) => ({
+    source_id, title, category_ids: [category], shopify_product_id, productType: null, brand: null, description: null,
+  });
+  const rows = [
+    row("1", "מגן קרסול אלסטי", "2"), row("2", "מגן קרסול מבד", "2"),
+    row("3", "נעל בטיחות מאווררת", "3"), row("4", "נעל בטיחות עם כיפה", "4", "linked-a"),
+    row("5", "מגף עבודה אטום", "4", "linked-b"), row("6", "אביזרי שריכה - שרוכים עגולים", "5"),
+    row("7", "נעלי ריצה כביש דגם קל", "6"), row("8", "טישירט בסיסי", "7"), row("9", "נעל בטיחות קלה", "8"),
+    { ...row("10", "ערכת קפה טקטית", "7"), image: "https://example.com/coffee.jpg", revision: "coffee-revision", collection_ids: [] },
+    { ...row("11", "ערכת קפה טקטית גדולה", "7"), collection_ids: ["kitchen"] },
+    row("12", "נעל בטיחות עם מגן", "4", "linked-reviewed"),
+    { ...row("13", "נעלי טיולים Vidden Hybrid לנשים", "9"), collection_ids: ["safety"] },
+  ];
+  const review = moduleFor("category-review", {
+    "server-only": {}, "@/lib/catalog": catalog, "./catalog-model": moduleFor("catalog-model"),
+    "@/lib/category-placement": categoryPlacement, "./category-matching": categoryMatching,
+    "./category-audit": categoryAuditStub,
+    "./storefront-collections": { supplierStorefrontCollections: async () => collections },
+    "./shopify": {
+      supplierCollectionMemberships: async (ids, reviewed) => {
+        assert.deepEqual(ids, ["linked-a", "linked-b", "linked-reviewed"]);
+        reviewed.set("linked-reviewed", "boots");
+        return new Map([["linked-a", ["boots"]], ["linked-b", ["boots"]], ["linked-reviewed", ["boots"]]]);
+      },
+    },
+    "./storage": {
+      shopFilter: () => ({ shop_domain: "eq.test" }),
+      supplierRequest: async (_, method, params) => {
+        assert.equal(method, "GET");
+        assert.equal(params.scanned_at, "gte." + site.pull_started_at);
+        assert.equal(params.review_state, "in.(known,pending)");
+        return rows;
+      },
+    },
+  });
+  const suggestions = [...(await review.readCategoryReview(site)).values()];
+  assert.deepEqual(suggestions.map(group => [group.kind, group.products.map(product => product.id)]), [
+    ["new", ["1", "2"]], ["existing", ["3", "9"]], ["change", ["4"]], ["place", ["6"]], ["new", ["7"]], ["review", ["8", "10"]], ["new", ["13"]],
+  ]);
+  assert.equal(suggestions[0].parent, "נעלי עבודה ובטיחות");
+  assert.equal(suggestions[2].title, "נעלי בטיחות");
+  assert.deepEqual(suggestions[2].products[0].current, ["נעלי עבודה ובטיחות / מגפי עבודה ובטיחות"]);
+  assert.equal(suggestions[2].products[0].recommendation.id, "safety");
+  assert.equal(suggestions[1].products[0].proposedCategory, "נעלי עבודה ובטיחות / נעלי בטיחות");
+  assert.equal(suggestions[4].products[0].proposedCategory, "נעלי עבודה ובטיחות / נעלי ריצה כביש");
+  assert.equal(suggestions[4].title, "נעלי ריצה כביש");
+  assert.equal(suggestions[4].parent, "נעלי עבודה ובטיחות");
+  assert.equal(suggestions[4].source.name, "נעלי ריצה כביש Up to 50%off");
+  assert.deepEqual(suggestions[1].sources.map(source => source.id), ["3", "8"]);
+  assert.deepEqual(suggestions[5].sources, []);
+  assert.equal(suggestions[5].products[0].recommendation, undefined);
+  assert.equal(suggestions[5].products[1].image, "https://example.com/coffee.jpg");
+  assert.equal(suggestions[5].products[1].revision, "coffee-revision");
+  assert.deepEqual(suggestions[5].products[1].recommendation, { id: "kitchen", parentId: "acc", parent: "אביזרים", sub: "אביזרים למטבח" });
+  assert.deepEqual(review.storefrontCategoryChoices(collections).map(choice => choice.id).sort(), ["boots", "kitchen", "safety", "shoes"]);
+  assert.deepEqual(review.suggestedProductCategoryIds(rows[2], ["3"], site, collections), ["safety"]);
+  assert.equal(suggestions[6].parent, outdoorFootwear.parent);
+  assert.equal(suggestions[6].title, outdoorFootwear.sub);
+  assert.deepEqual(review.suggestedProductCategoryIds(rows.at(-1), ["9"], site, collections), []);
+  assert.deepEqual(review.suggestedProductCategoryIds(rows.at(-1), ["9"], site, [...collections, {
+    id: "outdoor", title: outdoorFootwear.sub, manual: true, published: true,
+    paths: [{ parentId: outdoorFootwear.id, parent: outdoorFootwear.parent, sub: outdoorFootwear.sub }],
+  }]), ["outdoor"]);
+  assert.equal(categoryPlacement.categoryFilterLabel("מוצר כותנה 100%"), "מוצר כותנה 100%");
+  assert.equal(categoryMatching.supplierCategoryLabel("sibling-c-1417"), "");
+  assert.equal(categoryMatching.supplierCategoryLabel("כל מוצרי האתר - לא לגעת להנחות"), "");
+  assert.equal(categoryMatching.canonicalCategoryLabel("נעליים והנעלה"), "נעלי עבודה ובטיחות");
+});
+
+test("category audits count distinct products with matching evidence and exclude apparel and protected footwear", () => {
+  const audit = moduleFor("category-audit", {
+    "server-only": {}, "next/cache": { unstable_cache: fn => fn },
+    "@/lib/catalog": { CATS: [{ id: "acc", name: "אביזרים", subs: [] },
+      { id: "winter", name: "ביגוד חורף", subs: ["חולצות ארוכות"] }] },
+    "@/lib/shopify/config": {}, "./catalog-model": moduleFor("catalog-model"),
+    "./category-matching": categoryMatching, "./storage": {},
+  });
+  const products = Array.from({ length: 15 }, (_, i) => ({
+    source_id: String(i), title: "ערסל טיולים " + i, category: "אביזרים · ערסלים",
+  }));
+  assert.deepEqual(audit.categoryOpportunities([...products.slice(1), products[1]]), []);
+  const [opportunity] = audit.categoryOpportunities([...products, { source_id: "extra", title: "ערכה לתיקון", category: "ערסלים" }]);
+  assert.equal(opportunity.label, "ערסלים");
+  assert.equal(opportunity.ids.length, 15);
+  assert.deepEqual(audit.categoryOpportunities(products.map(product => ({
+    ...product, title: "טישירט שרוול ארוך " + product.source_id, category: "טישירט שרוול ארוך",
+  }))), []);
+  assert.equal(categoryMatching.isOutdoorFootwear({ title: "נעלי טיולים Vidden Hybrid לנשים" }), true);
+  assert.equal(categoryMatching.isOutdoorFootwear({ title: "מגפי טיולים Cascade עם אטימות למים" }), true);
+  assert.equal(categoryMatching.isOutdoorFootwear({ title: "מארז גרבי סניקרס" }), false);
+  assert.equal(categoryMatching.isOutdoorFootwear({ title: "סניקרס משולבות", attributes: [{ name: "תקן", values: ["S3"] }] }), false);
+  assert.equal(categoryMatching.isOutdoorFootwear({ title: "כפכפי HH לגברים" }), false);
+});
+
+test("bulk imports wait for the outdoor footwear path and preserve the work footwear route", async () => {
+  const model = moduleFor("catalog-model");
+  const rows = [
+    { source_id: "1", title: "נעלי טיולים Vidden Hybrid לנשים", category_ids: ["1"], collection_ids: [], revision: "r" },
+    { source_id: "2", title: "סניקרס בטיחות S3", category_ids: ["1"], collection_ids: [], revision: "r" },
+  ];
+  let options = [];
+  const submitted = [];
+  const api = moduleFor("import-queue", {
+    "server-only": {}, "@/lib/shopify/config": { shopDomain: () => "shop" }, "./catalog-model": model,
+    "./category-matching": categoryMatching, "./brand": supplierBrand, "./shopify": {},
+    "./storefront-collections": { supplierStorefrontCollections: async () => options },
+    "./storage": {
+      shopFilter: () => ({}), supplierRequest: async (table, method, _, values) => {
+        if (table === "ahim_supplier_previews") return rows;
+        if (method === "POST") { submitted.push(...values); return values; }
+        return [];
+      },
+    },
+  });
+  const site = { domain: "example.com", mappings: { "1": ["work"] }, categories: [{ id: "1", parent: "0" }] };
+  const waiting = await api.queueImports(site, ["1", "2"]);
+  assert.deepEqual(submitted.map(task => [task.source_id, task.collection_ids]), [["2", ["work"]]]);
+  assert.match(waiting.skipped[0], /סניקרס ונעלי טיולים/);
+  submitted.length = 0;
+  options = [{ id: "outdoor", manual: true, published: true,
+    paths: [{ parentId: outdoorFootwear.id, parent: outdoorFootwear.parent, sub: outdoorFootwear.sub }] }];
+  await api.queueImports(site, ["1", "2"]);
+  assert.deepEqual(submitted.map(task => [task.source_id, task.collection_ids]), [["1", ["outdoor"]], ["2", ["work"]]]);
+});
+test("explicit category approval registers and publishes a collection once across retries", async () => {
+  const parent = { id: "shoes", name: "נעלי עבודה ובטיחות", subs: [] };
+  const state = { categoryPlacements: [] };
+  const site = { domain: "example.com", state: "complete", pull_started_at: "2026-11-26T10:00:00Z", categories: [{ id: "19" }] };
+  const collection = { id: "gid://shopify/Collection/42", ruleSet: null, onSite: false };
+  const calls = [];
+  let created = false;
+  const { approveSupplierCategory } = moduleFor("category-approval", {
+    "server-only": {}, "@/lib/catalog": { CATS: [parent] }, "next/cache": { revalidateTag: tag => calls.push(tag) },
+    "@/lib/category-placement": categoryPlacement,
+    "@/lib/shopify/fetch-catalog": { menuPlacements: () => new Map() },
+    "@/lib/admin/storage": { changeAdminStore: async edit => edit(state) }, "./publication": { sitePublication: () => "storefront" },
+    "./shopify": { supplierCollections: async () => created ? [collection] : [] },
+    "./sites": { getSite: async () => site, addCategoryMapping: async (...args) => { calls.push(args.slice(1)); } },
+    "@/lib/shopify/admin-bundles": { adminGraphQL: async (query, variables) => {
+      if (query.includes("ApprovedCategory($handle")) return { collectionByIdentifier: created ? collection : null };
+      if (query.includes("CreateApprovedCategory")) {
+        assert.equal(variables.collection.title, "נעלי ריצה כביש");
+        assert.match(variables.collection.handle, /^ahim-category-[a-f0-9]+$/);
+        created = true;
+        calls.push("create");
+        return { collectionCreate: { collection, userErrors: [] } };
+      }
+      assert.match(query, /PublishApprovedCollection/);
+      calls.push("publish");
+      collection.onSite = true;
+      return { publishablePublish: { publishable: { onSite: true }, userErrors: [] } };
+    } },
+  });
+  const form = new FormData();
+  for (const [key, value] of Object.entries({ category: "19", label: "נעלי ריצה כביש", parent: "shoes", run: site.pull_started_at })) {
+    form.set(key, value);
+  }
+  await assert.rejects(approveSupplierCategory({ ...site, pull_started_at: "stale" }, form), /השתנו/);
+  assert.equal((await approveSupplierCategory(site, form)).mapped, true);
+  assert.equal((await approveSupplierCategory(site, form)).mapped, true);
+  assert.deepEqual(state.categoryPlacements, [{ collectionId: collection.id, parentId: "shoes", label: "נעלי ריצה כביש" }]);
+  assert.deepEqual(calls, ["create", "publish", "shop-catalog", ["19", collection.id, site.pull_started_at], "shop-catalog", ["19", collection.id, site.pull_started_at]]);
+});
+
+test("storefront categories can be created independently, reused and nested under a new root", async () => {
+  const state = { categoryPlacements: [] };
+  const collections = new Map();
+  const { createStorefrontCategory } = moduleFor("category-approval", {
+    "server-only": {}, "@/lib/catalog": { CATS: [{ id: "acc", name: "אביזרים", subs: [] }] },
+    "@/lib/category-placement": categoryPlacement,
+    "@/lib/admin/storage": { changeAdminStore: async edit => edit(state) },
+    "next/cache": { revalidateTag: () => {} }, "./publication": { sitePublication: () => "storefront" }, "./sites": {},
+    "./shopify": { supplierCollections: async () => [...collections.values()] },
+    "@/lib/shopify/fetch-catalog": { menuPlacements: (items, placements) => new Map(items.map(item => [
+      item.handle, placements.filter(path => path.collectionId === item.id).map(path => ({ parentId: path.parentId, sub: path.label })),
+    ])) },
+    "@/lib/shopify/admin-bundles": { adminGraphQL: async (query, variables) => {
+      if (query.includes("ApprovedCategory($handle")) return { collectionByIdentifier: collections.get(variables.handle) ?? null };
+      if (query.includes("CreateApprovedCategory")) {
+        const collection = { ...variables.collection, id: String(collections.size), onSite: false, ruleSet: null };
+        collections.set(collection.handle, collection);
+        return { collectionCreate: { collection, userErrors: [] } };
+      }
+      const collection = [...collections.values()].find(item => item.id === variables.id);
+      collection.onSite = true;
+      return { publishablePublish: { publishable: { onSite: true }, userErrors: [] } };
+    } },
+  });
+  const create = (label, parent = "") => {
+    const form = new FormData();
+    form.set("label", label);
+    form.set("parent", parent);
+    return createStorefrontCategory(form);
+  };
+  const camping = await create("ציוד לקמפינג", "acc");
+  assert.deepEqual(camping, { id: "0", parentId: "acc", parent: "אביזרים", sub: "ציוד לקמפינג" });
+  assert.deepEqual(await create(" ציוד  לקמפינג ", "acc"), camping);
+  const root = await create("טיולים");
+  const child = await create("טיולים", root.parentId);
+  assert.equal(root.sub, "");
+  assert.equal(child.parentId, root.parentId);
+  assert.notEqual(child.id, root.id);
+  assert.deepEqual(categoryPlacement.storefrontCategories([], state.categoryPlacements), [{ id: root.parentId, name: "טיולים", subs: ["טיולים"] }]);
+  assert.equal(collections.size, 3);
+  assert.ok([...collections.values()].every(collection => collection.onSite));
+});
 const siteBrands = moduleFor("../brands");
 const { readWooProduct, catalogPage, wooThumbnail, wooReviewImages } = moduleFor("woocommerce", {
   "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "@/lib/brands": siteBrands,
@@ -75,14 +468,19 @@ test("the source total follows the selected pages, with an unknown total until t
 test("a pull reports product progress inside page one and stops claiming work after removal", async () => {
   const model = moduleFor("catalog-model");
   const site = { domain: "example.com", state: "queued", removed_at: null, pull_all: true, cursor_page: 1,
-    pull_checked: 0, pulled: 0, issues: [], selection: [], categories: [], attempts: 0 };
+    pull_checked: 0, pulled: 0, issues: [], selection: [], categories: [], attempts: 0,
+    platform: "woo", phase: "catalog", pull_started_at: "2026-01-02T10:00:00Z", discovered_at: "2026-01-01T10:00:00Z" };
   const samples = [];
   const saved = [];
   const sites = moduleFor("sites", {
     "server-only": {}, "@/lib/shopify/config": {}, "./import-queue": { processNextImport: async () => {} },
     "./catalog-model": model, "./shopify-source": {}, "./public-source": { sourceReader: async () => ({}) },
     "./woocommerce": {
-      catalogPage: async () => ({ products: [{ id: 1 }, { id: 2 }, { id: 3 }], total: 3, pages: 1, more: false }),
+      discoverCategories: async () => [{ id: "1", name: "New category", parent: "0" }],
+      catalogPage: async () => {
+        assert.equal(site.categories[0].name, "New category");
+        return { products: [{ id: 1 }, { id: 2 }, { id: 3 }], total: 3, pages: 1, more: false };
+      },
       wooThumbnail,
       readWooProduct: async (_, domain, p) => p,
     },
@@ -161,6 +559,98 @@ test("Storefront indexing merges selected collections with durable cursor pagina
   assert.deepEqual(requests.map(r=>[r.id,r.after]),[
     ["gid://shopify/Collection/1",null],["gid://shopify/Collection/1","cursor"],["gid://shopify/Collection/3",null]]);
 });
+test("collection discovery and saving estimate their own remaining work", () => {
+  const { indexCollectionProgress, pullProgress } = moduleFor("catalog-model");
+  const started = "2026-11-27T15:00:00Z";
+  const sampled = "2026-11-27T15:10:00Z";
+  assert.deepEqual(indexCollectionProgress({ pull_all: true, index_group: 101, pull_started_at: started, pull_sampled_at: null },
+    300, Date.parse(sampled)), { checked: 100, total: 300, secondsLeft: 1200 });
+  assert.equal(indexCollectionProgress({ pull_all: true, index_group: 0, pull_started_at: started }, 300, Date.parse(sampled)), null);
+  assert.deepEqual(pullProgress({ state: "running", pull_checked: 10, pull_total: 100, pull_started_at: started, pull_sampled_at: sampled },
+    { checked: 2, sampledAt: Date.parse(sampled) - 16000 }), { percent: 10, secondsLeft: 180 });
+});
+
+test("located cards use only the active run and exclude products that already have a saved preview", async () => {
+  const source_index = {
+    "31": { title: "Worker jacket", handle: "worker-jacket", categories: ["8"], image: "https://example.com/item.jpg" },
+    "32": { handle: "machine%20wash-pants", categories: ["8"] },
+    "33": { title: "Shoes", handle: "shoes", categories: ["9"] },
+  };
+  const site = { domain: "example.com", state: "running", platform: "shopify", phase: "index", run_kind: "pull",
+    pull_started_at: "2026-11-27T15:00:00Z", categories: [{ id: "8", parent: "0" }, { id: "9", parent: "0" }] };
+  const now = { phase: "index", pull_checked: 0, source_index };
+  const { readLocatedCatalogBatch } = moduleFor("located-catalog", {
+    "server-only": {}, "./catalog-model": moduleFor("catalog-model"),
+    "./storage": { shopFilter: () => ({}), supplierRequest: async (table, method, filters) => {
+      assert.equal(table, "ahim_supplier_sites");
+      assert.equal(filters.pull_started_at, "eq." + site.pull_started_at);
+      return [now];
+    }, previews: async (_, filters) => {
+      assert.match(filters.source_id, /^in\.\(3[12](,32)?\)$/);
+      return filters.source_id.includes("31") ? [{ source_id: "31" }] : [];
+    } },
+  });
+  const expected = { items: [{ id: "32", title: "machine wash pants", image: undefined, categories: ["8"] }], more: false };
+  assert.deepEqual(await readLocatedCatalogBatch(site, "8", 1), expected);
+  now.phase = "catalog";
+  now.pull_checked = 1;
+  assert.deepEqual(await readLocatedCatalogBatch(site, "8", 1), expected);
+  assert.deepEqual(await readLocatedCatalogBatch({ ...site, state: "complete" }, "8", 1), { items: [], more: false });
+});
+test("full Shopify pulls page through products without walking through every collection", async () => {
+  const { indexShopifyPage } = moduleFor("shopify-source", { "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "@/lib/brands": siteBrands });
+  const site = { pull_all: true, index_group: 0, index_page: 1, categories: Array.from({ length: 560 }, (_, i) => ({ id: String(i) })) };
+  const requests = [];
+  const read = async (_, { query, variables }) => {
+    assert.match(query, /query All/);
+    requests.push(variables.after);
+    const more = requests.length === 1;
+    return { data: { data: { products: { nodes: [{ id: "gid://shopify/Product/" + requests.length, handle: "product" }],
+      pageInfo: { hasNextPage: more, endCursor: more ? "cursor" : null } } } } };
+  };
+  Object.assign(site, await indexShopifyPage(read, site));
+  assert.equal(site.phase, "index");
+  Object.assign(site, await indexShopifyPage(read, site));
+  assert.equal(site.phase, "catalog");
+  assert.deepEqual(requests, [null, "cursor"]);
+  assert.deepEqual(Object.keys(site.source_index), ["1", "2"]);
+});
+
+test("a full pull already past product indexing starts saving products in the same worker call", async () => {
+  const model = moduleFor("catalog-model");
+  const source = moduleFor("shopify-source", { "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "@/lib/brands": siteBrands });
+  const categories = [{ id: "1", name: "Shoes", parent: "0" }];
+  const site = { domain: "example.com", state: "queued", phase: "index", pull_all: true, platform: "shopify",
+    currency: "ILS", cursor_page: 1, index_group: 212, index_page: 1, pull_checked: 0, pulled: 0, issues: [],
+    selection: [], categories, attempts: 0, pull_started_at: "2026-11-27T15:00:00Z",
+    source_index: { "42": { handle: "shoe", categories: ["old"] } } };
+  const saved = [];
+  const counts = [];
+  const audits = [];
+  const worker = moduleFor("sites", {
+    "server-only": {}, "@/lib/shopify/config": {}, "./import-queue": { processNextImport: async () => {} },
+    "./category-audit": { readSupplierCategoryAudit: async () => audits.push(site.state) },
+    "./catalog-model": model, "./woocommerce": {}, "./public-source": { sourceReader: async () => async () => assert.fail("legacy full pull must skip extra collection requests") },
+    "./shopify-source": { ...source, readShopifyProduct: async (_, domain, id, currency, seeded, all) => {
+      assert.equal(domain, site.domain);
+      assert.deepEqual(seeded, []);
+      assert.deepEqual(all, categories);
+      return { id, categoryIds: ["1"] };
+    } },
+    "./storage": { shopFilter: () => ({}), supplierRequest: async (_, method, filters, values) => {
+      if (method === "PATCH") {
+        Object.assign(site, values);
+        if (values.pull_total !== undefined) counts.push(values.pull_total);
+      }
+      return [{ ...site }];
+    }, savePreview: async snapshot => saved.push(snapshot) },
+  });
+  await worker.processCatalogJobs();
+  assert.deepEqual(saved, [{ id: "42", categoryIds: ["1"] }]);
+  assert.deepEqual(counts, [1, 1, 1]);
+  assert.equal(site.state, "complete");
+  assert.deepEqual(audits, ["complete"]);
+});
 test("Storefront product pages preserve availability, prices, images, and reject incomplete variants", async () => {
   const {readShopifyProduct}=moduleFor("shopify-source",{
     "server-only":{},"./public-source":{},"./catalog-model":moduleFor("catalog-model"),"@/lib/brands":siteBrands,
@@ -182,6 +672,30 @@ test("Storefront product pages preserve availability, prices, images, and reject
   assert.deepEqual(result.images,["https://res.cloudinary.com/demo/image/upload/boot.jpg","https://cdn.shopify.com/l.jpg"]);
   delete v.availableForSale;
   await assert.rejects(scan);
+});
+test("a scoped Shopify pull reads additional collections on products already selected for the pull", async () => {
+  const { readShopifyProduct } = moduleFor("shopify-source", { "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "@/lib/brands": siteBrands });
+  const calls = [];
+  const collection = id => ({ id: "gid://shopify/Collection/" + id });
+  const page = (nodes, endCursor = null) => ({ nodes, pageInfo: { hasNextPage: !!endCursor, endCursor } });
+  const read = async (_, { variables }) => {
+    calls.push([variables.categories, variables.getImages, variables.getVariants]);
+    return { data: { data: { product: {
+      id: "gid://shopify/Product/42", handle: "boot", title: "Boot", productType: "Work boots",
+      options: [{ name: "Size", values: ["M"] }],
+      collections: variables.categories ? page([collection("2")]) : page([collection("1")], "next"),
+      images: page([{ url: "https://cdn.shopify.com/boot.jpg" }]),
+      variants: page([{
+        id: "gid://shopify/ProductVariant/123", price: { amount: "100", currencyCode: "ILS" },
+        availableForSale: true, currentlyNotInStock: false, selectedOptions: [{ name: "Size", value: "M" }],
+      }]),
+    } } } };
+  };
+  const selected = [{ id: "1", name: "Footwear" }];
+  const result = await readShopifyProduct(read, "example.com", "42", "ILS", selected, [...selected, { id: "2", name: "New collection" }]);
+  assert.deepEqual(calls, [[null, true, true], ["next", false, false]]);
+  assert.deepEqual(result.categoryIds, ["1", "2"]);
+  assert.equal(result.productType, "Work boots");
 });
 test("monitor discoveries keep previous approvals and dismissals across retries", async () => {
   const ops=[];
@@ -317,6 +831,8 @@ test("bulk import includes the entire category subtree across pages and keeps th
   const imports = [];
   const seen = [];
   const api = moduleFor("import-queue", {
+    "./brand": supplierBrand,
+    "./category-matching": categoryMatching,
     "server-only": {}, "@/lib/shopify/config": {shopDomain: () => "test.myshopify.com"},
     "./shopify": {}, "./catalog-model": moduleFor("catalog-model"),
     "./storage": {shopFilter: () => ({}), supplierRequest: async (table, method, params, body) => {
@@ -341,6 +857,8 @@ test("a scrolling selection can include more than 100 distinct products without 
   const ids = Array.from({length:125}, (_, i) => String(2*i+1));
   const groups = [], queued = [];
   const api = moduleFor("import-queue", {
+    "./brand": supplierBrand,
+    "./category-matching": categoryMatching,
     "server-only":{}, "@/lib/shopify/config":{shopDomain:()=>"test"}, "./shopify":{},
     "./catalog-model":moduleFor("catalog-model"),
     "./storage":{shopFilter:()=>({}), supplierRequest:async (table,method,params,body)=>{
@@ -365,7 +883,7 @@ test("catalog scrolling requests the next filtered batch and checks one extra ro
   const requests=[];
   const data=Array.from({length:24},(_,i)=>({source_id:String(i+1),manual_price:null,category_ids:["2"],
     snapshot:{id:String(i+1),variants:[{price:100,regular:100}],images:["img"]}}));
-  const api=moduleFor("catalog-batch",{"server-only":{},"./catalog-model":model,
+  const api=moduleFor("catalog-batch",{"server-only":{},"./catalog-model":model,"./brand":supplierBrand,
     "./publication":{catalogPublicationStates:async()=>[]},"./import-queue":{importStatuses:async()=>[]},
     "./storage":{previews:async(domain,params)=>{
       assert.equal(domain,site.domain);requests.push(params);
@@ -395,6 +913,7 @@ test("imported catalog filters before pagination and reports Shopify draft and s
     };
   });
   const api = moduleFor("catalog-batch", {
+    "./brand": supplierBrand,
     "server-only": {},
     "./catalog-model": model,
     "./storage": { previews: async (domain, params) => {
@@ -432,6 +951,8 @@ test("monitor imports an individual discovery or the full pending list across pa
     snapshot: { variants: [{ price: 100, regular: 100 }] },
   };
   const api = moduleFor("import-queue", {
+    "./brand": supplierBrand, "./brand-settings": testBrandSettings,
+    "./category-matching": categoryMatching,
     "server-only": {}, "@/lib/shopify/config": { shopDomain: () => "shop.example" },
     "./catalog-model": moduleFor("catalog-model"),
     "./shopify": { importDraft: async row => { assert.equal(row, preview); preview.review_state = "known"; } },
@@ -465,13 +986,15 @@ test("monitor imports an individual discovery or the full pending list across pa
   assert.deepEqual(tasks.map(task => task.source_id), ids);
   assert.ok(tasks.every(task => task.intent === "draft"));
 });
-test("publishing a selection imports once and resumes from its linked draft after a publication failure", async () => {
+test("publishing a selection uses the latest saved category and resumes from the linked draft after a failure", async () => {
   const task = {domain:"example.com",source_id:"1",revision:"r",manual_price:null,percent:10,
     collection_ids:["collection"],intent:"publish",attempts:0,state:"queued"};
   const row = {source_id:"1",revision:"r",manual_price:null,review_state:"known",scan_error:null,
-    shopify_product_id:null,snapshot:{variants:[{price:100,regular:100}]}};
+    shopify_product_id:null,collection_ids:["new-category"],snapshot:{variants:[{price:100,regular:100}]}};
   const calls=[];
   const api=moduleFor("import-queue",{
+    "./brand": supplierBrand, "./brand-settings": { readSupplierDefaultBrand: async () => "Redback" },
+    "./category-matching": categoryMatching,
     "server-only":{}, "@/lib/shopify/config":{}, "./catalog-model":moduleFor("catalog-model"),
     "./storage":{shopFilter:()=>({}),getPreview:async()=>({...row}),
       supplierRequest:async(_,method,filters,values)=>{
@@ -479,7 +1002,7 @@ test("publishing a selection imports once and resumes from its linked draft afte
         return [{...task}];
       }},
     "./shopify":{importDraft:async(_,collections,p)=>{
-      assert.deepEqual(collections,["collection"]);assert.equal(p.variants[0].price,110);
+      assert.deepEqual(collections,["new-category"]);assert.equal(p.variants[0].price,110);assert.equal(p.brand,"Redback");
       row.shopify_product_id="existing-draft";calls.push("import");return {id:"existing-draft"};
     }},
     "./publication":{refreshLinkedProduct:async(p,publish)=>{
@@ -492,11 +1015,13 @@ test("publishing a selection imports once and resumes from its linked draft afte
   await api.processNextImport();
   assert.deepEqual(calls,["import","publish","publish"]);assert.equal(task.state,"done");
 });
-test("bulk publication includes existing drafts, skips live products and isolates missing mappings", async () => {
-  const products=["1","2","3","4"].map((id,i)=>({source_id:id,revision:"r",manual_price:null,
-    category_ids:i===3?[]:["1"],collection_ids:["approved"],shopify_product_id:i<2?"gid"+id:null}));
+test("bulk publication uses per-product category choices, includes existing drafts and skips live and unassigned products", async () => {
+  const products=["1","2","3","4","5"].map((id,i)=>({source_id:id,revision:"r",manual_price:null,
+    category_ids:i===3?[]:["1"],collection_ids:i<2?["approved"]:i===2?["product-choice"]:[],shopify_product_id:i<2?"gid"+id:null}));
   let submitted=[];
   const api=moduleFor("import-queue",{
+    "./brand": supplierBrand,
+    "./category-matching": categoryMatching,
     "server-only":{},"@/lib/shopify/config":{shopDomain:()=>"shop.test"},"./catalog-model":moduleFor("catalog-model"),"./shopify":{},
     "./publication":{catalogPublicationStates:async()=>[{id:"gid1",status:"DRAFT",onSite:false},{id:"gid2",status:"ACTIVE",onSite:true}]},
     "./storage":{shopFilter:()=>({}),supplierRequest:async(table,method,params,body)=>{
@@ -506,6 +1031,7 @@ test("bulk publication includes existing drafts, skips live products and isolate
     }},
   });
   const result=await api.queueImports({domain:"vendor.test",categories:[{id:"1",parent:"0"}],mappings:{1:["collection"]},percent:0},[],"","publish");
-  assert.deepEqual(submitted.map(t=>[t.source_id,t.intent,t.collection_ids]),[["1","publish",["approved"]],["3","publish",["collection"]]]);
-  assert.equal(result.queued,2);assert.equal(result.skipped.length,2);
+  assert.deepEqual(submitted.map(t=>[t.source_id,t.intent,t.collection_ids]),
+    [["1","publish",["approved"]],["3","publish",["product-choice"]],["5","publish",["collection"]]]);
+  assert.equal(result.queued,3);assert.equal(result.skipped.length,2);
 });

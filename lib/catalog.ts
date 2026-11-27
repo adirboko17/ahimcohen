@@ -1,4 +1,5 @@
 import type { OrderLine } from "./types";
+import { outdoorFootwear } from "./category-placement";
 
 export const FREE_SHIPPING = 299;
 
@@ -28,14 +29,14 @@ export type VariantChoice = {
 
 export const CATS: Category[] = [
   { id: "shoes", name: "נעלי עבודה ובטיחות", subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן", "מגפי עבודה ובטיחות", "נעלי מלונאות ומטבחים", "אביזרי הנעלה ורפידות"] },
+  { id: outdoorFootwear.id, name: outdoorFootwear.parent, subs: [outdoorFootwear.sub] },
   { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "חליפות גשם", "חרמוניות", "סווטשירטים וקפוצ'ונים", "ביגוד תרמי", "חולצות ארוכות"] },
   { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", "מקטורונים | טוניקות", "אפודים זוהרים", "סרבלים"] },
   { id: "safety", name: "מוצרי בטיחות", subs: ["הגנת ראש", "כפפות עבודה", "הגנת ראייה ופנים", "הגנת נשימה", "הגנת שמיעה", "ציוד לעבודה בגובה", "הגנת גוף", "ציוד בטיחות נלווה", "משטפות עינים ומקלחות חירום", "ציוד להגנת הסביבה", "בטיחות בדרכים", "נראות גבוהה"] },
   { id: "rep", name: "ביגוד ייצוגי", subs: ["חולצות ייצוגיות", "מכנסיים ייצוגיים", "ג'קטים", "חצאיות", "אקססוריז"] },
   { id: "kitchen", name: "מטבח ומזון", subs: ["ג'קט שף", "כובעי שף", "מכנסי שף | מכנסי טבחים", "סינרים"] },
   { id: "disp", name: "חד פעמי", subs: ["ביגוד מקצועי חד פעמי", "אביזרים חד פעמי"] },
-  { id: "acc", name: "אביזרים", subs: ["מוצרי ניקיון", "תיקים", "אביזרים למטבח", "הלבשה תחתונה", "כובעים", "מגבות", "סרטי הדבקה וסימון", "אביזרים נלווים"] },
-  { id: "redback", name: "REDBACK", subs: ["גרביים", "חגורות", "חולצות", "מכנסיים", "מעילים"] },
+  { id: "acc", name: "אביזרים", subs: ["מוצרי ניקיון", "תיקים", "אביזרים למטבח", "הלבשה תחתונה", "גרביים", "חגורות", "כובעים", "מגבות", "סרטי הדבקה וסימון", "אביזרים נלווים"] },
 ];
 
 export const SZ = ["S", "M", "L", "XL", "2XL", "3XL", "4XL"];
@@ -63,11 +64,16 @@ export type Product = {
   std?: string[];
   cats?: string[];
   subs?: string[];
+  categorySubs?: Record<string, string[]>;
   choices?: VariantChoice[];
   bundleSourceId?: string;
   setContents?: { productIds: string[]; variants: { id: string; components: string[] }[] };
   quantityOfferHidden?: boolean;
 };
+
+export function productSubcategories(product: Product, categoryId: string) {
+  return product.categorySubs ? product.categorySubs[categoryId] ?? [] : [product.sub, ...(product.subs ?? [])];
+}
 
 function sh(id: string, name: string, price: number, color: string, std: string[], extra: Partial<Product> = {}): Product {
   return { id, name, cat: "shoes", sub: "נעלי בטיחות", price, colors: [color], sizes: SH, std, ...extra };
@@ -218,5 +224,5 @@ export function pickVariant(product: Product, color: string, size: string) {
 }
 
 export function productsInCategory(catId: string) {
-  return PRODUCTS.filter((p) => p.cat === catId || (catId === "redback" && p.brand === "Redback"));
+  return PRODUCTS.filter((p) => p.cat === catId);
 }

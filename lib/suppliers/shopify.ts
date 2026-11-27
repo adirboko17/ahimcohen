@@ -9,9 +9,9 @@ import { reserveDraft, saveDraftId, saveVerification, type Preview } from "./sto
 import { productBrand, productDomain, supplierKey } from "./catalog-model";
 import { publicBytes } from "./public-source";
 
-type Collection = { id: string; title: string; ruleSet: null | { appliedDisjunctively: boolean } };
+type Collection = { id: string; title: string; handle: string; onSite?: boolean; ruleSet: null | { appliedDisjunctively: boolean } };
 type Connection<T> = { nodes: T[]; pageInfo?: { hasNextPage: boolean; endCursor: string } };
-export async function manualCollections() {
+export async function supplierCollections(publication?: string) {
   const all: Collection[] = [];
   let after: string | null = null;
   do {
@@ -19,15 +19,85 @@ export async function manualCollections() {
       shop: { currencyCode: string };
       collections: Connection<Collection> & { pageInfo: { endCursor: string; hasNextPage: boolean } };
     } = await adminGraphQL(
-      `query SupplierCollections($after:String){ shop { currencyCode } collections(first:250,after:$after){
-        nodes {id title ruleSet {appliedDisjunctively}} pageInfo{endCursor hasNextPage}}}`,
-      { after },
+      `query SupplierCollections($after:String${publication ? ",$publication:ID!" : ""}){
+        shop {currencyCode} collections(first:250,after:$after){
+        nodes {id title handle ruleSet {appliedDisjunctively} ${publication ? "onSite:publishedOnPublication(publicationId:$publication)" : ""}}
+        pageInfo{endCursor hasNextPage}}}`,
+      publication ? { after, publication } : { after },
     );
     if (data.shop.currencyCode !== "ILS") throw new Error("מטבע החנות שונה ממטבע הספק.");
-    all.push(...data.collections.nodes.filter((c) => !c.ruleSet));
+    all.push(...data.collections.nodes);
     after = data.collections.pageInfo.hasNextPage ? data.collections.pageInfo.endCursor : null;
   } while (after);
   return all;
+}
+
+export async function manualCollections() {
+  return (await supplierCollections()).filter(c => !c.ruleSet);
+}
+
+type Memberships = { id: string; collections: Required<Connection<{ id: string }>>; reviewedCategory?: { value: string } | null };
+
+export async function supplierCollectionMemberships(productIds: string[], reviews?: Map<string, string>) {
+  const ids = [...new Set(productIds)];
+  const result = new Map<string, string[]>();
+  for (let start = 0; start < ids.length; start += 20) {
+    const { nodes } = await adminGraphQL<{ nodes: (Memberships | null)[] }>(
+      `query SupplierProductCollections($ids:[ID!]!){nodes(ids:$ids){... on Product{
+        id collections(first:40){nodes{id} pageInfo{hasNextPage endCursor}}
+        ${reviews ? 'reviewedCategory:metafield(namespace:"ahim_supplier",key:"reviewed_category"){value}' : ""}}}}`,
+      { ids: ids.slice(start, start + 20) },
+    );
+    for (const node of nodes) {
+      if (!node) continue;
+      let page = node.collections;
+      const collections = page.nodes.map(c => c.id);
+      while (page.pageInfo.hasNextPage) {
+        const after = page.pageInfo.endCursor;
+        const { product } = await adminGraphQL<{ product: Memberships | null }>(
+          `query SupplierProductCollectionsPage($id:ID!,$after:String){product(id:$id){
+            id collections(first:100,after:$after){nodes{id} pageInfo{hasNextPage endCursor}}}}`,
+          { id: node.id, after },
+        );
+        if (!product || !after || product.collections.pageInfo.endCursor === after) {
+          throw new Error("רשימת האוספים של מוצר מקושר לא נקראה במלואה.");
+        }
+        page = product.collections;
+        collections.push(...page.nodes.map(c => c.id));
+      }
+      result.set(node.id, collections);
+      if (node.reviewedCategory) reviews?.set(node.id, node.reviewedCategory.value);
+    }
+  }
+  return result;
+}
+
+export async function addSupplierCollectionMembership(productId: string, collectionId: string) {
+  const { collectionAddProducts } = await adminGraphQL<{ collectionAddProducts: { userErrors: { message: string }[] } }>(
+    `mutation AddSupplierProductToCategory($id:ID!,$productIds:[ID!]!){
+      collectionAddProducts(id:$id,productIds:$productIds){userErrors{message}}}`,
+    { id: collectionId, productIds: [productId] },
+  );
+  checkErrors(collectionAddProducts.userErrors);
+}
+
+export async function removeSupplierCollectionMembership(productId: string, collectionId: string) {
+  const { collectionRemoveProducts } = await adminGraphQL<{ collectionRemoveProducts: { job: { id: string } | null; userErrors: { message: string }[] } }>(
+    `mutation RemoveSupplierProductFromCategory($id:ID!,$productIds:[ID!]!){
+      collectionRemoveProducts(id:$id,productIds:$productIds){job{id} userErrors{message}}}`,
+    { id: collectionId, productIds: [productId] },
+  );
+  checkErrors(collectionRemoveProducts.userErrors);
+  if (!collectionRemoveProducts.job) throw new Error("Shopify טרם אישרה את הסרת השיוך הקודם.");
+}
+
+export async function markSupplierCategoryReviewed(productId: string, collectionId: string) {
+  const { metafieldsSet } = await adminGraphQL<{ metafieldsSet: { userErrors: { message: string }[] } }>(
+    `mutation MarkSupplierCategoryReviewed($metafields:[MetafieldsSetInput!]!){
+      metafieldsSet(metafields:$metafields){userErrors{message}}}`,
+    { metafields: [{ ...meta("reviewed_category", collectionId), ownerId: productId }] },
+  );
+  checkErrors(metafieldsSet.userErrors);
 }
 
 type FileInput = { originalSource: string; filename: string; alt: string; contentType: "IMAGE" };
@@ -91,7 +161,7 @@ function supplierHandle(p: SupplierProduct) {
     domain === "redback.co.il" ? "redback" : createHash("sha256").update(domain).digest("hex").slice(0, 16);
   return `ahim-${key}-${p.id}`;
 }
-async function createDraft(p: SupplierProduct, collections: string[]) {
+async function createDraft(p: SupplierProduct, collections: string[], reviewedCategory?: string) {
   if (p.variants.length > 250 || p.images.length > 250)
     throw new Error("מוצר זה דורש ייבוא מדורג של יותר מ־250 וריאציות או תמונות.");
   const files = new Map<string, FileInput>();
@@ -106,7 +176,8 @@ async function createDraft(p: SupplierProduct, collections: string[]) {
     collections,
     files: [...files.values()],
     descriptionHtml: p.description.map((line) => `<p>${escapeText(line)}</p>`).join(""),
-    metafields: [meta("product_id", p.id), meta("supplier", productDomain(p)), meta("source_url", p.url)],
+    metafields: [meta("product_id", p.id), meta("supplier", productDomain(p)), meta("source_url", p.url),
+      ...(reviewedCategory ? [meta("reviewed_category", reviewedCategory)] : [])],
     productOptions: optionNames.map((name) => ({
       name,
       values: [...new Set(p.variants.map((v) => v.options[name]))].map((name) => ({ name })),
@@ -200,7 +271,7 @@ export async function importDraft(row: Preview, collectionIds: string[], preview
   if (known && !draft) throw new Error("הטיוטה המקושרת אינה קיימת עוד. יש לבדוק אותה בשופיפיי.");
   if (!draft) {
     const token = await reserveDraft(row, p, collectionIds);
-    const id = await createDraft(p, collectionIds);
+    const id = await createDraft(p, collectionIds, !row.import_token ? row.collection_ids.find(id => collectionIds.includes(id)) : undefined);
     await saveDraftId(row, id, token, collectionIds, p);
     draft = await readDraft({ id });
   } else if (

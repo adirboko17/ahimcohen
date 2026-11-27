@@ -118,6 +118,9 @@ export function SupplierMonitorReports({ domain, newCount, stockCount }: {
             <div className="supplier-report-product-copy">
               <strong><bdi>{item.title}</bdi></strong>
               {item.category && <small>{item.category}</small>}
+              {item.brand && (item.brand.evidence === "missing" || item.brand.evidence === "category") && <small className="catalog-brand-alert">
+                {item.brand.name ? "בדיקת מותג · " + item.brand.name : "חסר מותג"}
+              </small>}
               {item.task === "failed" && <small>{item.error || "הייבוא נכשל."}</small>}
             </div>
             <div className="supplier-report-toolbar">

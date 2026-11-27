@@ -22,6 +22,10 @@ const colors = {};
 new Function("exports", transpileModule(readFileSync(resolve(__dirname, "../lib/colors.ts"), "utf8"), {
   compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 },
 }).outputText)(colors);
+const categoryPlacement = {};
+new Function("exports", transpileModule(readFileSync(resolve(__dirname, "../lib/category-placement.ts"), "utf8"), {
+  compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 },
+}).outputText)(categoryPlacement);
 
 function deferred() {
   let resolve, reject;
@@ -45,6 +49,7 @@ function harness() {
   const dependencies = {
     "server-only": {},
     "@/lib/colors": colors,
+    "@/lib/category-placement": categoryPlacement,
     "node:zlib": require("node:zlib"),
     "node:util": require("node:util"),
     // Treat each call as an independent render to stress cross-request deduplication.
@@ -52,7 +57,17 @@ function harness() {
     "next/cache": { unstable_cache },
     "next/server": { after: fn => workAsyncStorage.getStore().afterTasks.push(fn) },
     "./catalog-bootstrap": { readCatalogBootstrap: async scope => state.bootstrap?.scope === scope ? state.bootstrap.encoded : null },
-    "@/lib/catalog": { CATS: [{ id: "work", name: "Work", subs: ["Shirts", "Uniforms"] }] },
+    "@/lib/catalog": {
+      CATS: [
+        { id: "work", name: "Work", subs: ["Shirts", "Uniforms"] },
+        { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים"] },
+        { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "ביגוד תרמי", "סווטשירטים וקפוצ'ונים"] },
+        { id: "acc", name: "אביזרים", subs: ["גרביים", "חגורות", "כובעים"] },
+        { id: "shoes", name: "נעלי עבודה ובטיחות", subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן"] },
+      ],
+      productSubcategories: (product, categoryId) => product.categorySubs?.[categoryId] ?? [],
+    },
+    "@/lib/admin/storage": { readAdminStore: async () => ({ categoryPlacements: state.placements }) },
     "./config": {
       shopDomain: () => state.domain,
       storefrontApiVersion: () => "2026-10",
@@ -65,17 +80,18 @@ function harness() {
         if (state.gate) await state.gate.promise;
         if (state.fail) throw new Error("Shopify unavailable");
         return {
-          items: ["Shirts", "Uniforms"].map((title) => ({ handle: title, title })),
+          items: [...["Shirts", "Uniforms"].map((title) => ({ handle: title, title })), ...(state.collections ?? [])],
           pageInfo,
         };
       },
     },
     "./products": {
       fetchProductsByHandles: async handles => state.extraBrandProducts.filter(product => handles.includes(product.handle)),
-      fetchCollectionProductsPage: async () => ({
+      fetchCollectionProductsPage: async ({ handle }) => ({
         products: {
-          items: Array.from({ length: state.productCount }, (_, index) => ({
-            handle: index === 0 ? "shirt" : `shirt-${index}`, title: "Work shirt", vendor: "Brand", description: "Cotton",
+          items: state.collectionProducts?.[handle] ?? Array.from({ length: state.productCount }, (_, index) => ({
+            handle: handle === "supplier-sale" ? "road-shoe" : index === 0 ? "shirt" : `shirt-${index}`,
+            title: "Work shirt", vendor: "Brand", description: "Cotton",
             images: [], variants: state.variants, priceRange: { min: { amount: String(state.price) } },
           })),
           pageInfo,
@@ -118,6 +134,80 @@ function harness() {
     expire: () => { for (const entry of entries.values()) entry.isStale = true; },
   };
 }
+
+test("an approved collection ID adds its clean label to the parent filter and only to members of that collection", async () => {
+  const { state, request } = harness();
+  state.collections = [{ id: "gid://shopify/Collection/42", handle: "supplier-sale", title: "נעלי ריצה כביש Up to 50%off" }];
+  state.placements = [{ collectionId: "gid://shopify/Collection/42", parentId: "work", label: "נעלי ריצה כביש" }];
+  const pending = request();
+  const { categories, products } = await pending.value;
+  assert.deepEqual(categories[0].subs, ["Shirts", "Uniforms", "נעלי ריצה כביש"]);
+  assert.deepEqual(products.find(product => product.id === "road-shoe").categorySubs.work, ["נעלי ריצה כביש"]);
+  assert.deepEqual(products.find(product => product.id === "shirt").categorySubs.work.sort(), ["Shirts", "Uniforms"]);
+  await pending.settle();
+});
+
+test("a category created in admin and its subcategory classify published products on the storefront", async () => {
+  const { state, request } = harness();
+  const id = "category-camping";
+  state.collections = [
+    { id: "category", handle: "ahim-category-aaaaaaaaaaaaaaaaaaaaaaaa", title: "Camping" },
+    { id: "subcategory", handle: "supplier-sale", title: "Hammocks" },
+  ];
+  state.placements = [
+    { collectionId: "category", parentId: id, label: "", parentName: "Camping" },
+    { collectionId: "subcategory", parentId: id, label: "Hammocks" },
+  ];
+  const pending = request();
+  const { categories, products } = await pending.value;
+  assert.deepEqual(categories.find(category => category.id === id)?.subs, ["Hammocks"]);
+  assert.deepEqual(products.find(product => product.id === "road-shoe")?.categorySubs[id], ["Hammocks"]);
+  assert.ok(products.find(product => product.id === "shirt")?.cats.includes(id));
+  await pending.settle();
+});
+
+test("Redback remains a brand and legacy collections are resolved by individual product type", async () => {
+  const { state, request, verifiedBrandHandles } = harness();
+  const item = (handle, title) => ({
+    handle, title, vendor: "Redback", productType: "", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } },
+  });
+  const coat = item("softshell", "VICTORIA SOFTSHELL");
+  const shirt = item("cotton", "TAIPAN WASHED COTTON");
+  const thermal = item("thermal", "INSULATED THERMAL – SHIRT");
+  const pants = item("perth", "PERTH – nylon");
+  const sock = item("sock", "THERMO LIGHT / גרב תרמית");
+  const cap = item("cap", "כובע מצחייה דגם Sport");
+  const belt = item("belt", "חגורת עור");
+  state.collections = [
+    { handle: "old-brand", title: "Redback" }, { handle: "old-shirts", title: "REDBACK חולצות" },
+    { handle: "old-pants", title: "REDBACK מכנסיים מכנסיים" }, { handle: "old-socks", title: "REDBACK גרביים" },
+    { handle: "old-belts", title: "REDBACK חגורות" }, { handle: "plain-shirts", title: "חולצות" },
+  ];
+  state.collectionProducts = {
+    "old-brand": [coat, shirt, thermal, pants, sock, cap, belt], "old-shirts": [coat, shirt, thermal],
+    "old-pants": [pants], "old-socks": [sock], "old-belts": [belt],
+    "plain-shirts": [item("existing-pro", "חולצה לשימוש מקצועי")],
+  };
+  state.extraBrandProducts = [item("hoodie", "GIBSON COTTON HOODIE"), item("uscjzs", "USCJZS עם כיפת מגן")];
+  verifiedBrandHandles.push("hoodie", "uscjzs");
+  const pending = request();
+  const { categories, products } = await pending.value;
+  const expected = {
+    softshell: ["winter", "מעילים"], cotton: ["pro", "חולצות"], thermal: ["winter", "ביגוד תרמי"],
+    perth: ["pro", "מכנסיים"], sock: ["acc", "גרביים"], cap: ["acc", "כובעים"],
+    belt: ["acc", "חגורות"], hoodie: ["winter", "סווטשירטים וקפוצ'ונים"], "existing-pro": ["pro", "חולצות"],
+    uscjzs: ["shoes", "נעלי בטיחות"],
+  };
+  assert.ok(!categories.some(category => category.id === "redback"));
+  for (const [handle, [category, sub]] of Object.entries(expected)) {
+    const product = products.find(product => product.id === handle);
+    assert.equal(product.brand, "Redback");
+    assert.deepEqual(product.cats, [category]);
+    assert.deepEqual(product.categorySubs, { [category]: [sub] });
+    assert.ok(categories.find(item => item.id === category).subs.includes(sub));
+  }
+  await pending.settle();
+});
 
 test("simultaneous cold requests share one Shopify load and warm requests reuse it", async () => {
   const h = harness();

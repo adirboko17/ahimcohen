@@ -3,6 +3,7 @@ import { catalogPageSize, catalogPrice, descendants, pricedProduct, type Catalog
 import { previews, type Preview } from "./storage";
 import { catalogPublicationStates } from "./publication";
 import { importStatuses } from "./import-queue";
+import { detectSupplierBrand, supplierBrandName, supplierDefaultBrand } from "./brand";
 
 export function prices(row: Preview, site: Site) {
   if (row.draft_snapshot && row.shopify_product_id) return row.draft_snapshot.variants;
@@ -10,7 +11,8 @@ export function prices(row: Preview, site: Site) {
   return pricedProduct(row.snapshot, site.percent, row.manual_price).variants;
 }
 
-export async function readCatalogBatch(site: Site, cat: string, page: number, importedOnly = false): Promise<CatalogBatch> {
+export async function readCatalogBatch(site: Site, cat: string, page: number, importedOnly = false,
+  defaultBrand = supplierDefaultBrand(site.domain)): Promise<CatalogBatch> {
   const domain = site.domain;
   const cats = cat ? descendants([cat], site.categories) : [];
   if (cat && !cats.length) throw new Error("קטגוריה לא מוכרת.");
@@ -32,9 +34,11 @@ export async function readCatalogBatch(site: Site, cat: string, page: number, im
       final = prices(row, site).map((v) => v.price),
       job = jobs.find((j) => j.source_id === row.source_id);
     const channel = channels.find(c => c.id === row.shopify_product_id);
+    const storedBrand = row.shopify_product_id ? supplierBrandName(channel?.vendor ?? row.draft_snapshot?.brand) : "";
     return {
       id: p.id,
       title: p.title,
+      brand: row.shopify_product_id ? { name: storedBrand, evidence: storedBrand ? "source" : "missing" } : detectSupplierBrand(p, defaultBrand),
       image: p.images[0],
       categories: row.category_ids,
       variants: p.variants.length,

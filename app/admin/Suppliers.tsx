@@ -6,19 +6,27 @@ import { SupplierPreview } from "@/components/SupplierPreview";
 import { SupplierMonitorReports } from "@/components/SupplierMonitorReports";
 import { AddSupplier, CatalogList, CategorySetup, PullProgress, RefreshWhileBusy, RemoveSupplier } from "@/components/SupplierCatalog";
 import { shopDomain } from "@/lib/shopify/config";
-import { manualCollections } from "@/lib/suppliers/shopify";
 import { getPreview, pendingCount, previews } from "@/lib/suppliers/storage";
 import { MonitorSettings, IgnoreSuggestion } from "@/components/SupplierCatalog";
 import { publicationStates } from "@/lib/suppliers/publication";
 import { load } from "cheerio";
 import { getSite, listSites } from "@/lib/suppliers/sites";
 import {
-  mappedCollections,
+  indexCollectionTotal,
   supplierUrl,
 } from "@/lib/suppliers/catalog-model";
 import { prices, readCatalogBatch } from "@/lib/suppliers/catalog-batch";
 import { hasActiveImports } from "@/lib/suppliers/import-queue";
 import { stockUpdateCounts } from "@/lib/suppliers/monitor-report";
+import { SupplierCategoryReview } from "./SupplierCategoryReview";
+import { detectSupplierBrand, supplierBrandName } from "@/lib/suppliers/brand";
+import { readSupplierDefaultBrand } from "@/lib/suppliers/brand-settings";
+import { readLocatedCatalogBatch } from "@/lib/suppliers/located-catalog";
+import { supplierCollectionMemberships } from "@/lib/suppliers/shopify";
+import { supplierStorefrontCollections } from "@/lib/suppliers/storefront-collections";
+import { suggestedProductCategoryIds } from "@/lib/suppliers/category-review";
+import { outdoorFootwear } from "@/lib/category-placement";
+import { isOutdoorFootwear, outdoorFootwearCollection } from "@/lib/suppliers/category-matching";
 
 type Params = { site?: string; view?: string; cat?: string; page?: string; item?: string; status?: string };
 export async function Suppliers({ params = {} }: { params?: Params } = {}) {
@@ -61,6 +69,8 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
             phase: site.phase, state: site.state, pull_checked: site.pull_checked, pull_total: site.pull_total,
             pull_started_at: site.pull_started_at, pull_sampled_at: site.pull_sampled_at,
             attempts: site.attempts, cursor_page: site.cursor_page, page_count: site.page_count,
+            pull_all: site.pull_all, index_group: site.index_group,
+            platform: site.platform, indexCollections: indexCollectionTotal(site),
           } : undefined;
           const automatic = site.run_kind === "monitor";
           return {
@@ -94,6 +104,9 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
                 <Link className="btn btn-line" href={supplierUrl(site.domain, "setup")}>
                   בחירת קטגוריות
                 </Link>
+                {site.pull_started_at && <Link className="btn btn-line" href={supplierUrl(site.domain, "category-review")} prefetch={false}>
+                  בדיקת קטגוריות
+                </Link>}
                 <RemoveSupplier domain={site.domain} pulling={busy} />
               </footer>
             </article>,
@@ -102,9 +115,10 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
       </>
     );
   }
-  const site = await getSite(domain);
+  const [site, defaultBrand] = await Promise.all([getSite(domain), readSupplierDefaultBrand(domain)]);
   const heading = <h2><bdi>{site.domain}</bdi></h2>;
   const importedOnly = status === "imported";
+  if (view === "category-review") return <SupplierCategoryReview site={site} groupKey={cat} pageParam={pageParam} />;
   if (view === "review") {
     const page = Math.max(1, Math.floor(Number(pageParam) || 1));
     const rows = await previews(domain,{review_state:"eq.pending",shopify_product_id:"is.null",order:"source_id",limit:"13",offset:String((page-1)*12)});
@@ -113,7 +127,7 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
       {rows.slice(0,12).map(r=><article key={r.source_id} className="supplier-catalog-row">
         <div className="supplier-thumb"><img src={r.snapshot.images[0]} alt="" /></div>
         <div><strong>{r.snapshot.title}</strong><small>{r.snapshot.category}</small></div>
-        <Link className="btn admin-primary" href={supplierUrl(domain,"product",{item:r.source_id})}>תצוגה מקדימה וייבוא כטיוטה</Link>
+        <Link className="btn admin-primary" href={supplierUrl(domain,"product",{item:r.source_id})}>בדיקת מוצר ופרסום</Link>
         <IgnoreSuggestion domain={domain} id={r.source_id} />
       </article>)}
       <nav className="supplier-toolbar">{page>1 && <Link href={supplierUrl(domain,"review",{page:String(page-1)})}>הקודם</Link>}
@@ -121,23 +135,29 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
     </section>;
   }
   if (view === "setup") {
-    const collections = await manualCollections();
+    const collections = (await supplierStorefrontCollections()).filter(collection => collection.manual);
     return (
       <>
         <div className="admin-section-heading">{home}{heading}</div>
         <CategorySetup
-          key={site.domain + site.discovered_at}
+          key={site.domain + site.discovered_at + cat}
           site={site}
-          collections={collections.map(({ id, title }) => ({ id, title }))}
+          collections={collections}
+          initialSearch={site.categories.find(category => category.id === cat)?.name}
         />
       </>
     );
   }
   if (view === "product" && item && /^\d+$/.test(item)) {
-    const [row, collections] = await Promise.all([getPreview(domain, item), manualCollections()]);
+    const [row, collections] = await Promise.all([getPreview(domain, item), supplierStorefrontCollections()]);
     if (!row) throw new Error("המוצר לא נמצא בקטלוג הספק.");
     const gid = row.shopify_product_id;
-    const [state] = gid ? await publicationStates([gid]) : [];
+    const [[state], memberships] = gid ? await Promise.all([publicationStates([gid]), supplierCollectionMemberships([gid])]) : [[], undefined];
+    const storedBrand = supplierBrandName(state?.vendor ?? row.draft_snapshot?.brand);
+    const selected = gid ? memberships?.get(gid) ?? row.collection_ids :
+      row.collection_ids.length ? row.collection_ids : suggestedProductCategoryIds(row.snapshot, row.category_ids, site, collections);
+    const outdoor = isOutdoorFootwear(row.snapshot);
+    const needsOutdoorReview = outdoor && !selected.includes(outdoorFootwearCollection(collections) ?? "");
     return (
       <>
         <div className="admin-section-heading">
@@ -153,20 +173,18 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
         <SupplierPreview
           key={domain + item}
           id={item}
-          model={row.snapshot.title}
           domain={domain}
           row={{
             snapshot: row.snapshot,
             revision: row.revision,
             scanned_at: row.scanned_at,
-            verified_at: row.verified_at,
           }}
-          selected={gid ? row.collection_ids : mappedCollections(row.category_ids, site)}
-          collections={collections.map(({ id, title }) => ({ id, title }))}
-          draftUrl={gid ? `https://${shopDomain()}/admin/products/${gid.split("/").pop()}` : undefined}
-          canPublish={
-            !!state && ["ACTIVE", "DRAFT"].includes(state.status) && !(state.status === "ACTIVE" && state.onSite)
-          }
+          brand={gid ? { name: storedBrand, evidence: storedBrand ? "source" : "missing" } : detectSupplierBrand(row.snapshot, defaultBrand)}
+          selected={selected}
+          proposedCategory={needsOutdoorReview ? outdoorFootwear : undefined}
+          collections={gid ? collections : collections.filter(collection => collection.manual)}
+          shopifyUrl={gid ? `https://${shopDomain()}/admin/products/${gid.split("/").pop()}` : undefined}
+          canPublish={!gid || !!state && ["ACTIVE", "DRAFT"].includes(state.status) && !(state.status === "ACTIVE" && state.onSite)}
           siteUrl={
             state?.status === "ACTIVE" && state.onSite ? "/p/" + encodeURIComponent(state.handle) : undefined
           }
@@ -178,19 +196,22 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
   }
   const requestedPage = Number(pageParam);
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const [initial, importing] = await Promise.all([
-    readCatalogBatch(site, cat, 1, importedOnly),
+  const [initial, importing, located] = await Promise.all([
+    readCatalogBatch(site, cat, 1, importedOnly, defaultBrand),
     importedOnly ? hasActiveImports(site.domain) : false,
+    importedOnly ? null : readLocatedCatalogBatch(site, cat, 1).catch(() => null),
   ]);
   return (
       <CatalogList
         key={domain + ":" + cat + ":" + page + ":" + importedOnly}
         site={{...site, issues:Array.from(new Map(site.issues.map(i=>[i.id,{...i,title:load(i.title,null,false).text()}])).values())}}
         initial={initial}
+        located={located}
         cat={cat}
         page={page}
         importedOnly={importedOnly}
         importing={importing}
+        defaultBrand={defaultBrand}
       />
   );
 }

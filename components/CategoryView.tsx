@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { swatchColor, colorLabel, type Product } from "@/lib/catalog";
+import { swatchColor, colorLabel, productSubcategories, type Product } from "@/lib/catalog";
 import { canonicalBrandName, uniqueBrandNames, type Brand } from "@/lib/brands";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductSelection, categoryVariantFilters } from "@/lib/category-filters";
@@ -43,7 +43,9 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
     name: brand.name,
     subs: [...new Set(categoryProducts.flatMap(product => [product.sub, ...(product.subs ?? [])]).filter(Boolean))],
   } : category(catId), [brand, categoryProducts, category, catId]);
-  const base = useMemo(() => categoryProducts.filter((p) => !sub || p.sub === sub || (p.subs ?? []).includes(sub)), [categoryProducts, sub]);
+  const base = useMemo(() => categoryProducts.filter(p => !sub || (catId
+    ? productSubcategories(p, catId).includes(sub)
+    : p.sub === sub || (p.subs ?? []).includes(sub))), [categoryProducts, catId, sub]);
   const f = useMemo(() => ({
     ...savedFilters,
     colors: uniqueColors(savedFilters.colors).filter((color) => base.some((p) => matchesColorFilter(p.colors, [color]))),

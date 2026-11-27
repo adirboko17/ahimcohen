@@ -5,20 +5,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { IconCheck, IconFilter, IconFwd, IconPencil, IconTrash } from "./icons";
 import { AdminBackLink } from "./AdminBackLink";
 import { useSupplierFeed } from "./useSupplierFeed";
+import { SupplierLocatedCatalog } from "./SupplierLocatedCatalog";
+import { sourceMappingSuggestion, supplierCategoryLabel, technicalSupplierCategory } from "@/lib/suppliers/category-matching";
 import {
   categoryPath,
   descendants,
   formatMonitorCountdown,
+  indexCollectionProgress,
+  indexCollectionTotal,
   monitorIntervals,
   pullProgress,
-  suggestedMapping,
   supplierUrl,
   type Site,
   type CatalogBatch,
   type CatalogItem,
+  type LocatedCatalogBatch,
+  type PullSample,
 } from "@/lib/suppliers/catalog-model";
 
-type Collection = { id: string; title: string };
+type Collection = { id: string; title: string; paths: { parent: string; sub: string }[] };
 function useAction(domain?: string) {
   const router = useRouter(),
     [busy, setBusy] = useState(false),
@@ -71,7 +76,45 @@ export function RemoveSupplier({ domain, pulling }: { domain: string; pulling: b
     </div>
   );
 }
-type PullStatus = Pick<Site, "phase" | "state" | "pull_checked" | "pull_total" | "pull_started_at" | "pull_sampled_at" | "attempts" | "cursor_page" | "page_count">;
+type PullStatus = Pick<Site, "phase" | "state" | "pull_checked" | "pull_total" | "pull_started_at" | "pull_sampled_at" | "attempts" | "cursor_page" | "page_count" | "pull_all" | "index_group" | "platform"> &
+  (Pick<Site, "categories" | "selection"> | { indexCollections: number });
+
+function estimatedTime(seconds: number | null, step: string) {
+  if (seconds === null) return "";
+  if (seconds < 60) return `פחות מדקה עד סוף ${step}`;
+  const minutes = Math.ceil(seconds / 60);
+  return `כ־${minutes} דקות עד סוף ${step}`;
+}
+
+function usePullTiming(site: PullStatus) {
+  const [observedAt, setObservedAt] = useState(0);
+  const [baseline, setBaseline] = useState<(PullSample & { run: string | null }) | null>(null);
+  const { phase, index_group: group, state, pull_started_at: run, pull_sampled_at: sample, pull_checked: checked } = site;
+  useEffect(() => {
+    if (phase === "index" && !sample) setObservedAt(Date.now());
+  }, [phase, group, state, run, sample]);
+  useEffect(() => {
+    if (phase !== "catalog" || !sample) return;
+    const sampledAt = Date.parse(sample);
+    if (Number.isFinite(sampledAt)) setBaseline(previous => previous?.run === run && previous.checked <= checked
+      ? previous : { run, checked, sampledAt });
+  }, [phase, run, sample, checked]);
+
+  const catalog = pullProgress(site, site.platform === "shopify" ? baseline?.run === run ? baseline : null : undefined);
+  const total = "indexCollections" in site ? site.indexCollections : indexCollectionTotal(site);
+  const index = phase === "index" ? indexStatus(site, total, observedAt) : null;
+  return { catalog, index };
+}
+
+function indexStatus(site: PullStatus, total: number, observedAt: number) {
+  const title = site.pull_all ? "מאתר מוצרים בקטלוג הספק" : "מאתר מוצרים באוספים שנבחרו";
+  const collections = indexCollectionProgress(site, total, observedAt);
+  const count = collections ? `נבדקו ${collections.checked} מתוך ${collections.total} אוספים` : "";
+  const found = site.pull_total !== null ? `אותרו ${site.pull_total} מוצרים` : "";
+  const time = collections ? estimatedTime(collections.secondsLeft, "האיתור") || "מחשב זמן משוער לאיתור" :
+    "זמן השמירה יוערך לאחר ספירת המוצרים";
+  return { title, count, found, time, percent: collections ? Math.round(100 * collections.checked / collections.total) : undefined };
+}
 
 const monitorDate = new Intl.DateTimeFormat("he-IL", {
   timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
@@ -104,16 +147,15 @@ function MonitorCountdown({ next }: { next: string }) {
 }
 
 function MonitorProgress({ progress }: { progress: PullStatus }) {
-  const { percent } = pullProgress(progress);
-  const catalog = progress.phase === "catalog";
+  const { catalog, index } = usePullTiming(progress);
   const detail = progress.attempts > 0 && progress.state === "queued" ? "ממתין לניסיון חוזר" :
     progress.phase === "linked" ? "בודק זמינות של מוצרים מקושרים" :
-    progress.phase === "index" ? "מאתר מוצרים באוספי הספק" :
+    index ? [index.title, index.count, index.found, index.time].filter(Boolean).join(" · ") :
     progress.pull_total === null ? `נבדקו ${progress.pull_checked} מוצרים` :
     `נבדקו ${progress.pull_checked} מתוך ${progress.pull_total} מוצרים`;
   return <div className="supplier-monitor-progress">
     <span>{detail}</span>
-    <progress aria-label="התקדמות בדיקת הספק" max={100} value={catalog ? percent ?? undefined : undefined} />
+    <progress aria-label="התקדמות בדיקת הספק" max={100} value={index?.percent ?? (progress.phase === "catalog" ? catalog.percent ?? undefined : undefined)} />
   </div>;
 }
 
@@ -182,18 +224,24 @@ export function RefreshWhileBusy({ active, interval = 4000, nextAt }: { active: 
 }
 
 export function PullProgress({ site }: { site: PullStatus }) {
-  if (site.phase === "linked" || site.phase === "index") return <div className="supplier-pull-progress">
-    <strong>{site.phase === "linked" ? "בודק זמינות למוצרים המקושרים לשופיפיי…" : "מאתר מוצרים באוספים שנבחרו…"}</strong>
-    <progress aria-label="התקדמות הסריקה" />
-  </div>;
-  const { percent, secondsLeft } = pullProgress(site);
+  const { catalog, index } = usePullTiming(site);
+  if (site.phase === "linked" || site.phase === "index") {
+    const retry = site.attempts > 0 && site.state === "queued";
+    return <div className="supplier-pull-progress">
+      <strong>{index?.title ?? "בודק זמינות למוצרים המקושרים לשופיפיי"}</strong>
+      <progress aria-label="התקדמות הסריקה" value={index?.percent} max={100} />
+      {(retry || index) && <small role="status">
+        {[index?.count, index?.found, retry ? "ממתין לניסיון חוזר" : index?.time].filter(Boolean).join(" · ")}
+      </small>}
+    </div>;
+  }
+  const { percent, secondsLeft } = catalog;
   const count = site.pull_total !== null
     ? `נבדקו ${site.pull_checked} מתוך ${site.pull_total} מוצרים`
     : `נבדקו ${site.pull_checked} מוצרים` + (site.page_count ? ` · עמוד ${site.cursor_page} מתוך ${site.page_count}` : "");
-  const time = secondsLeft == null ? null : secondsLeft < 60
-    ? "פחות מדקה לסיום" : `זמן משוער לסיום כ־${Math.ceil(secondsLeft / 60)} דקות`;
+  const time = estimatedTime(secondsLeft, "המשיכה");
   const detail = site.attempts > 0 && site.state === "queued" ? "ממתין לניסיון חוזר"
-    : time ?? (site.pull_checked === 0 && site.state === "queued" ? "ממתין לתחילת המשיכה"
+    : time || (site.pull_checked === 0 && site.state === "queued" ? "ממתין לתחילת המשיכה"
       : site.pull_total === null && site.pull_checked > 0 ? "מספר המוצרים הכולל עדיין לא ידוע"
       : "מחשב זמן משוער לסיום…");
   return (
@@ -230,17 +278,18 @@ export function AddSupplier() {
     </form>
   );
 }
-export function CategorySetup({ site, collections }: { site: Site; collections: Collection[] }) {
+export function CategorySetup({ site, collections, initialSearch = "" }: { site: Site; collections: Collection[]; initialSearch?: string }) {
   const action = useAction(site.domain);
   const pulling = site.state === "queued" || site.state === "running";
   const [all, setAll] = useState(site.pull_all),
-    [picked, setPicked] = useState(site.selection);
-  const [search, setSearch] = useState("");
-  const [mapping, setMapping] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(
-      site.categories.map((c) => [c.id, site.mappings[c.id] ?? suggestedMapping(c.name, collections)]),
-    ),
-  );
+    [picked, setPicked] = useState(() => site.selection.filter(id => site.categories.some(category => category.id === id)));
+  const [search, setSearch] = useState(initialSearch);
+  const [mapping, setMapping] = useState<Record<string, string[]>>(() => {
+    const available = new Set(collections.map(collection => collection.id));
+    return Object.fromEntries(site.categories.map(category => [category.id,
+      site.mappings[category.id]?.filter(id => available.has(id)) ?? sourceMappingSuggestion(supplierCategoryLabel(category.name, category.handle), collections),
+    ]));
+  });
   const included = new Set(descendants(picked, site.categories));
   function toggle(id: string, enabled: boolean) {
     const next = new Set(included),
@@ -289,6 +338,7 @@ export function CategorySetup({ site, collections }: { site: Site; collections: 
       </label>
       <div className="supplier-category-list">
         {sorted
+          .filter(category => !technicalSupplierCategory(category.name, category.handle) || picked.includes(category.id))
           .filter((c) =>
             categoryPath(c.id, site.categories).some((p) =>
               p.name.toLowerCase().includes(search.trim().toLowerCase()),
@@ -321,7 +371,7 @@ export function CategorySetup({ site, collections }: { site: Site; collections: 
                   <option value="">לפי קטגוריית האב או בחירה לפני הייבוא</option>
                   {collections.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.title}
+                      {t.paths.length === 1 ? [t.paths[0].parent, t.paths[0].sub].filter(Boolean).join(" / ") : t.title}
                     </option>
                   ))}
                 </select>
@@ -469,6 +519,24 @@ function SupplierPricing({site}:{site:Site}) {
     {action.feedback}
   </form>;
 }
+function SupplierDefaultBrand({ domain, name }: { domain: string; name: string }) {
+  const action = useAction(domain);
+  return <details className="catalog-pricing-details">
+    <summary><IconPencil />מותג ברירת מחדל <bdi>{name || "לפי המוצר"}</bdi></summary>
+    <form className="supplier-pricing" onSubmit={event => {
+      event.preventDefault();
+      void action.run("default-brand", new FormData(event.currentTarget));
+    }}>
+      <small>ברירת המחדל משמשת כשאין מותג מזוהה במוצר. לספק עם כמה מותגים אפשר להשאיר את השדה ריק.</small>
+      <div className="supplier-pricing-controls">
+        <label htmlFor="supplier-default-brand">שם המותג</label>
+        <input id="supplier-default-brand" name="brand" defaultValue={name} key={name} maxLength={150} placeholder="לדוגמה Redback" />
+        <button className="btn btn-line" disabled={action.busy}>שמור</button>
+      </div>
+      {action.feedback}
+    </form>
+  </details>;
+}
 function priceRange(min: number | null, max: number | null, currency: string) {
   if (min === null || max === null) return "נדרש מחיר ידני";
   const format = new Intl.NumberFormat("he-IL", { style: "currency", currency });
@@ -501,17 +569,21 @@ function CatalogProductActions({ domain, item, href }: { domain: string; item: C
 export function CatalogList({
   site,
   initial,
+  located,
   cat,
   page,
   importedOnly,
   importing,
+  defaultBrand,
 }: {
   site: Site;
   initial: CatalogBatch;
+  located: LocatedCatalogBatch | null;
   cat: string;
   page: number;
   importedOnly: boolean;
   importing: boolean;
+  defaultBrand: string;
 }) {
   const feed = useSupplierFeed(site.domain, cat, initial, page, importedOnly);
   const statusParams: Record<string, string> = importedOnly ? { status: "imported" } : {};
@@ -567,10 +639,14 @@ export function CatalogList({
         {pulling && <PullProgress site={site} />}
         {site.last_error && <p role="alert">{site.last_error}</p>}
         <div className="catalog-settings">
+          {site.pull_started_at && <Link className="btn btn-line" href={supplierUrl(site.domain, "category-review")} prefetch={false}>
+            בדיקת קטגוריות
+          </Link>}
           <details className="catalog-pricing-details">
             <summary><IconPencil/>תמחור הספק <bdi>{site.percent > 0 ? "+" : ""}{site.percent}%</bdi></summary>
             <SupplierPricing site={site} />
           </details>
+          <SupplierDefaultBrand domain={site.domain} name={defaultBrand} />
           <CatalogIssues site={site} disabled={pulling}/>
         </div>
       </div>
@@ -635,7 +711,9 @@ export function CatalogList({
           </dialog>
           {action.feedback}
         </>}
-        {!items.length && (
+        {located && (located.items.length > 0 || located.more) && <SupplierLocatedCatalog key={site.pull_started_at}
+          domain={site.domain} category={cat} initial={located} saved={pages} />}
+        {!items.length && !located?.items.length && (
           <p className="supplier-sites-empty">
             {importedOnly
               ? cat ? "אין עדיין מוצרים שיובאו בקטגוריה הזו." : "אין עדיין מוצרים שיובאו מהספק הזה."
@@ -669,6 +747,10 @@ export function CatalogList({
             </div>
             <div className="catalog-product-copy">
               <h3><Link href={href}><bdi>{i.title}</bdi></Link></h3>
+              {i.brand && (i.brand.evidence === "missing" || i.brand.evidence === "category" ?
+                <Link className="catalog-brand-alert" href={href} prefetch={false}>
+                  {i.brand.name ? "בדיקת מותג · " + i.brand.name : "חסר מותג"}
+                </Link> : <small>מותג · <bdi>{i.brand.name}</bdi></small>)}
               {categories && <small className="catalog-product-categories" title={categories}>{categories}</small>}
               <small className="catalog-stock" data-available={i.available > 0}>
                 {i.available} מתוך {i.variants} וריאציות זמינות · {i.images} תמונות

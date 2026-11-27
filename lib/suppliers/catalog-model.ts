@@ -1,4 +1,5 @@
 import type { SupplierProduct } from "./redback";
+import type { SupplierBrand } from "./brand";
 
 const publicHost = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]+$/i;
 
@@ -23,7 +24,7 @@ export function publicMediaUrl(value: string, base?: string) {
 }
 
 export type SourceCategory = { id: string; parent: string; name: string; count: number; handle?: string };
-export type ShopifyIndex = Record<string, { handle: string; categories: string[]; image?: string }>;
+export type ShopifyIndex = Record<string, { handle: string; title?: string; categories: string[]; image?: string }>;
 export const monitorIntervals = [0, 24] as const;
 export function formatMonitorCountdown(seconds: number) {
   return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
@@ -69,16 +70,34 @@ export type Site = {
   attempts: number;
 };
 export const catalogPageSize = 12;
-export function pullProgress(site: Pick<Site, "state" | "page_count" | "pull_started_at" | "pull_sampled_at" | "pull_checked" | "pull_total">) {
+export type PullSample = { checked: number; sampledAt: number };
+
+function remainingSeconds(checked: number, remaining: number, elapsed: number) {
+  return checked >= 2 && remaining > 0 && elapsed > 0 ? Math.ceil(elapsed * remaining / checked / 1000) : null;
+}
+
+export function pullProgress(site: Pick<Site, "state" | "page_count" | "pull_started_at" | "pull_sampled_at" | "pull_checked" | "pull_total">,
+  baseline?: PullSample | null) {
   const checked = site.pull_checked;
   const total = site.pull_total ?? site.page_count * catalogPageSize;
-  const elapsed = Date.parse(site.pull_sampled_at || "") - Date.parse(site.pull_started_at || "");
+  const elapsed = Date.parse(site.pull_sampled_at || "") - (baseline?.sampledAt ?? Date.parse(site.pull_started_at || ""));
   const complete = site.state === "complete";
   const percent = complete ? 100 : total ? Math.min(99, Math.floor(100 * checked / total)) : null;
-  const secondsLeft = !complete && total && checked >= 2 && checked < total && elapsed > 0
-    ? Math.ceil((elapsed / checked) * (total - checked) / 1000)
-    : null;
+  const secondsLeft = complete || baseline === null ? null : remainingSeconds(checked - (baseline?.checked ?? 0), total - checked, elapsed);
   return { percent, secondsLeft };
+}
+
+export function indexCollectionTotal(site: Pick<Site, "pull_all" | "categories" | "selection">) {
+  return site.pull_all ? site.categories.length : site.categories.filter(category => site.selection.includes(category.id)).length;
+}
+
+export function indexCollectionProgress(site: Pick<Site, "pull_all" | "index_group" | "pull_started_at" | "pull_sampled_at">,
+  total: number, observedAt: number) {
+  // A nonzero group in a full pull is a legacy run iterating collections after listing products.
+  if (!total || (site.pull_all && site.index_group === 0)) return null;
+  const checked = Math.min(total, Math.max(0, site.index_group - (site.pull_all ? 1 : 0)));
+  const elapsed = (Date.parse(site.pull_sampled_at || "") || observedAt) - Date.parse(site.pull_started_at || "");
+  return { checked, total, secondsLeft: remainingSeconds(checked, total - checked, elapsed) };
 }
 export const supplierKey = (domain: string) => (domain === "redback.co.il" ? "redback" : domain);
 export const productDomain = (p: SupplierProduct) => p.domain || "redback.co.il";
@@ -110,21 +129,6 @@ export function mappedCollections(ids: string[], site: Pick<Site, "categories" |
     .flatMap((c) => (c ? site.mappings[c.id] : []));
   return [...new Set(mapped)];
 }
-export function suggestedMapping(category: string, collections: { id: string; title: string }[]) {
-  const normalize = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(/['"״׳]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  const name = normalize(category);
-  const found =
-    collections.find((c) => normalize(c.title) === name) ??
-    collections
-      .filter((c) => normalize(c.title).length >= 4 && name.includes(normalize(c.title)))
-      .sort((a, b) => b.title.length - a.title.length)[0];
-  return found ? [found.id] : [];
-}
 export function catalogPrice(current: number, regular: number) {
   return regular > current ? regular : current;
 }
@@ -155,6 +159,7 @@ export function supplierUrl(domain?: string, view?: string, extra: Record<string
 export type CatalogItem = {
   id: string;
   title: string;
+  brand?: SupplierBrand;
   image: string;
   categories: string[];
   variants: number;
@@ -178,6 +183,8 @@ export type CatalogItem = {
 };
 
 export type CatalogBatch = { items: CatalogItem[]; more: boolean };
+export type LocatedProduct = { id: string; title: string; image?: string; categories: string[] };
+export type LocatedCatalogBatch = { items: LocatedProduct[]; more: boolean };
 
 export type StockChange = {
   variantId: string;
@@ -191,5 +198,6 @@ export type MonitorReport =
   | { kind: "stock"; more: boolean; items: { id: string; title: string; handle: string; applied_at: string; changes: StockChange[] }[] }
   | { kind: "new"; more: boolean; total: number; items: {
     id: string; title: string; category: string; image: string | null;
+    brand?: SupplierBrand;
     task?: "queued" | "running" | "done" | "failed"; error?: string | null;
   }[] };

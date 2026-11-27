@@ -18,7 +18,7 @@ function reader(contents) {
   return { read: module.exports.readCatalogBootstrap, reads: () => reads };
 }
 const catalog = { categories: [{ id: 'work' }], products: [{ id: 'shirt', choices: [{ color: 'navy', size: 'M', available: true, price: 100 }] }] };
-const seed = { version: 2, scope: 'store-a', createdAt: new Date().toISOString(), encoded: zlib.gzipSync(JSON.stringify(catalog)).toString('base64') };
+const seed = { version: 3, scope: 'store-a', createdAt: new Date().toISOString(), encoded: zlib.gzipSync(JSON.stringify(catalog)).toString('base64') };
 
 test('packaged catalog is validated and read only once per process, preserving variants', async () => {
   const h = reader(JSON.stringify(seed));

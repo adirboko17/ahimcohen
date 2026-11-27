@@ -4,6 +4,8 @@ import { shopDomain } from "@/lib/shopify/config";
 import { descendants, mappedCollections, pricedProduct, supplierKey, type Site } from "./catalog-model";
 import { getPreview, shopFilter, supplierRequest } from "./storage";
 import { importDraft } from "./shopify";
+import { detectSupplierBrand } from "./brand";
+import { isOutdoorFootwear, outdoorFootwearCollection } from "./category-matching";
 
 type Task = {
   intent: "draft" | "publish";
@@ -42,6 +44,7 @@ export function importStatuses(domain: string, ids: string[]) {
 type Candidate = {
   source_id: string; revision: string; manual_price: number | null; category_ids: string[];
   title: string; currency: string | null; shopify_product_id: string | null; scan_error: string | null; collection_ids: string[];
+  productType?: string | null; description?: string[] | null; attributes?: { name: string; values: string[] }[] | null;
 };
 export async function queueImports(
   site: Site, ids: string[], allCategory?: string, intent: "draft" | "publish" = "draft", review: "known" | "pending" = "known",
@@ -56,7 +59,7 @@ export async function queueImports(
   const rows: Candidate[] = [];
   const readCandidates = (filters: Record<string,string>) => supplierRequest<Candidate>("ahim_supplier_previews","GET",{
     ...scope, order:"source_id", limit:"300",
-    select:"source_id,revision,manual_price,category_ids,title:snapshot->>title,currency:snapshot->>currency,shopify_product_id,scan_error,collection_ids",
+    select:"source_id,revision,manual_price,category_ids,title:snapshot->>title,currency:snapshot->>currency,shopify_product_id,scan_error,collection_ids,productType:snapshot->>productType,description:snapshot->description,attributes:snapshot->attributes",
     ...filters,
   });
   if (allCategory === undefined) {
@@ -81,6 +84,9 @@ export async function queueImports(
   const skipped = new Map<string,number>();
   const skip = (reason:string) => skipped.set(reason,(skipped.get(reason) || 0)+1);
   const unresolved = new Set(site.issues?.map(i => i.id));
+  const outdoors = new Set(rows.filter(row => !row.shopify_product_id && !row.collection_ids?.length && isOutdoorFootwear(row))
+    .map(row => row.source_id));
+  const outdoorTarget = outdoors.size ? outdoorFootwearCollection(await (await import("./storefront-collections")).supplierStorefrontCollections()) : undefined;
   let queued = 0;
   for (let offset = 0; offset < rows.length; offset += 80) {
     const chunk = rows.slice(offset,offset+80);
@@ -91,14 +97,15 @@ export async function queueImports(
     for (const row of chunk) {
       const state = states.find(s => s.id === row.shopify_product_id);
       const old = existing.find(t => t.source_id === row.source_id);
-      const collections = row.shopify_product_id ? row.collection_ids : mappedCollections(row.category_ids,site);
+      const collections = row.shopify_product_id || row.collection_ids?.length ? row.collection_ids :
+        outdoors.has(row.source_id) ? outdoorTarget ? [outdoorTarget] : [] : mappedCollections(row.category_ids,site);
       let reason = "";
       if (old?.state === "queued" || old?.state === "running") reason = "כבר בתור";
       else if (row.shopify_product_id && intent === "draft") reason = "כבר מקושרים לשופיפיי";
       else if (row.shopify_product_id && state?.status === "ACTIVE" && state.onSite) reason = "כבר פורסמו";
       else if (row.shopify_product_id && (!state || !["DRAFT","ACTIVE"].includes(state.status))) reason = "מוצר יעד לא זמין";
       else if (row.scan_error || unresolved.has(row.source_id)) reason = "דורשים בדיקה";
-      else if (!collections.length) reason = "חסר שיוך לאוסף";
+      else if (!collections.length) reason = outdoors.has(row.source_id) ? "חסר שיוך לסניקרס ונעלי טיולים" : "חסר שיוך לאוסף";
       else if (!row.shopify_product_id && row.currency && row.currency !== "ILS" && row.manual_price === null) reason = "נדרש מחיר ידני בשקלים";
       if (reason) { skip(reason); continue; }
       const task = {shop_domain:shopDomain(), domain:site.domain, source_id:row.source_id, revision:row.revision,
@@ -145,8 +152,15 @@ export async function processNextImport() {
     )
       throw new Error("התצוגה השתנתה. בדקו את המוצר ובחרו אותו מחדש.");
     if (!row.shopify_product_id || claimed.intent !== "publish") {
-      const draft = await importDraft(row, claimed.collection_ids,
-        row.draft_snapshot && row.shopify_product_id ? row.draft_snapshot : pricedProduct(row.snapshot, claimed.percent, claimed.manual_price));
+      let snapshot = row.draft_snapshot && row.shopify_product_id ? row.draft_snapshot : undefined;
+      if (!snapshot) {
+        const { readSupplierDefaultBrand } = await import("./brand-settings");
+        const defaultBrand = await readSupplierDefaultBrand(claimed.domain);
+        const brand = detectSupplierBrand(row.snapshot, defaultBrand).name;
+        snapshot = pricedProduct({ ...row.snapshot, brand }, claimed.percent, claimed.manual_price);
+      }
+      const collections = !row.shopify_product_id && row.collection_ids?.length ? row.collection_ids : claimed.collection_ids;
+      const draft = await importDraft(row, collections, snapshot);
       if (claimed.intent === "publish") {
         row = await getPreview(claimed.domain, claimed.source_id);
         if (!row || row.shopify_product_id !== draft.id || row.review_state !== "known" || row.scan_error)

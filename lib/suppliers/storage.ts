@@ -88,6 +88,30 @@ export async function saveManualPrice(row: Preview, value: number | null) {
   );
   if (!saved.length) throw new Error("ניתן לשנות מחיר לפני יצירת הטיוטה.");
 }
+const collectionFilter = (ids: string[]) => "eq.{" + ids.map(id => JSON.stringify(id)).join(",") + "}";
+
+export async function saveProductCategory(row: Preview, collections: string | string[]) {
+  const saved = await request("PATCH", {
+    ...scope(row.supplier),
+    source_id: "eq." + row.source_id,
+    revision: "eq." + row.revision,
+    review_state: "in.(known,pending)",
+    scan_error: "is.null",
+    shopify_product_id: "is.null",
+    import_token: "is.null",
+    collection_ids: collectionFilter(row.collection_ids),
+  }, { collection_ids: typeof collections === "string" ? [collections] : collections });
+  if (!saved.length) throw new Error("המוצר השתנה או שהייבוא כבר התחיל. רעננו את התצוגה.");
+}
+
+export async function saveLinkedProductCategories(row: Preview, collections: string[]) {
+  const saved = await request("PATCH", {
+    ...scope(row.supplier),
+    source_id: "eq." + row.source_id,
+    shopify_product_id: "eq." + row.shopify_product_id,
+  }, { collection_ids: collections });
+  if (!saved.length) throw new Error("לא ניתן לעדכן את השיוך של המוצר המקושר.");
+}
 export async function markScanError(domain: string, id: string, error: string) {
   await request("PATCH", { ...scope(supplierKey(domain)), source_id: "eq." + id }, { scan_error: error });
 }
@@ -132,6 +156,7 @@ export async function reserveDraft(row: Preview, snapshot: SupplierProduct, coll
       review_state: "eq." + row.review_state,
       shopify_product_id: "is.null",
       manual_price: row.manual_price === null ? "is.null" : "eq." + row.manual_price,
+      collection_ids: collectionFilter(row.collection_ids),
       import_token: row.import_token ? "eq." + row.import_token : "is.null",
     },
     {
@@ -178,6 +203,8 @@ export async function saveVerification(row: Preview, draftId: string, collection
       source_id: "eq." + row.source_id,
       revision: "eq." + row.revision,
       shopify_product_id: "eq." + draftId,
+      collection_ids: collectionFilter(row.shopify_product_id ? row.collection_ids : collections),
+      import_token: "is.null",
     },
     { verified_at: new Date().toISOString(), collection_ids: collections },
   );

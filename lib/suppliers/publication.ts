@@ -13,11 +13,11 @@ import { savePreview, withLinkedProductLock, type Preview } from "./storage";
 
 type SupplierLink = Pick<SupplierShopifyProduct, "source" | "tags">;
 type ChannelProduct = SupplierLink & {
-  id: string; handle: string; status: string; onSite: boolean;
+  id: string; handle: string; status: string; onSite: boolean; vendor: string;
   otherChannels: { nodes: { publication: { id: string } }[]; pageInfo: { hasNextPage: boolean } };
 };
 
-function sitePublication() {
+export function sitePublication() {
   const id = process.env.SHOPIFY_BUNDLE_PUBLICATION_ID?.trim();
   if (!id || !/^gid:\/\/shopify\/Publication\/\d+$/.test(id)) throw new Error("ערוץ המכירה של האתר אינו מוגדר.");
   return id;
@@ -27,7 +27,7 @@ export async function publicationStates(ids: string[]) {
   if (!ids.length) return [];
   const data = await adminGraphQL<{ nodes: (ChannelProduct | null)[] }>(
     `query SupplierChannels($ids:[ID!]!, $channel:ID!){ nodes(ids:$ids){ ... on Product {
-      id handle status onSite:publishedOnPublication(publicationId:$channel)
+      id handle status vendor onSite:publishedOnPublication(publicationId:$channel)
       tags source:metafield(namespace:"ahim_supplier",key:"product_id"){value}
       otherChannels:resourcePublicationsV2(first:50,onlyPublished:false){nodes{publication{id}} pageInfo{hasNextPage}}
     } } }`, { ids, channel: sitePublication() });
@@ -35,10 +35,10 @@ export async function publicationStates(ids: string[]) {
 }
 export async function catalogPublicationStates(ids: string[]) {
   if (!ids.length) return [];
-  type Status = Pick<ChannelProduct,"id"|"handle"|"status"|"onSite">;
+  type Status = Pick<ChannelProduct,"id"|"handle"|"status"|"onSite"|"vendor">;
   const data = await adminGraphQL<{nodes:(Status|null)[]}>(
     `query SupplierCatalogStatuses($ids:[ID!]!, $channel:ID!){nodes(ids:$ids){... on Product{
-      id handle status onSite:publishedOnPublication(publicationId:$channel)
+      id handle status vendor onSite:publishedOnPublication(publicationId:$channel)
     }}}`, {ids,channel:sitePublication()});
   return data.nodes.filter((s):s is Status => !!s);
 }

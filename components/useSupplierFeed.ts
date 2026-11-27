@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CatalogBatch } from "@/lib/suppliers/catalog-model";
+type Batch<T> = { items: T[]; more: boolean };
+type LoadedBatch<T> = { data: Batch<T>; initial: Batch<T> };
 
-type LoadedBatch = { data: CatalogBatch; initial: CatalogBatch };
-
-export function useSupplierFeed(domain: string, category: string, initial: CatalogBatch, returnPage: number, importedOnly: boolean) {
+export function useSupplierFeed<T>(domain: string, category: string, initial: Batch<T>, returnPage: number, importedOnly: boolean,
+  action = "catalog-batch") {
   const [depth, setDepth] = useState(returnPage);
-  const [loaded, setLoaded] = useState<LoadedBatch[]>([]);
-  const [failure, setFailure] = useState<{ initial: CatalogBatch; message: string } | null>(null);
+  const [loaded, setLoaded] = useState<LoadedBatch<T>[]>([]);
+  const [failure, setFailure] = useState<{ initial: Batch<T>; message: string } | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
   const restore = useRef(returnPage > 1);
   const batches = [initial];
@@ -27,7 +27,7 @@ export function useSupplierFeed(domain: string, category: string, initial: Catal
     const controller = new AbortController();
     async function read(page: number) {
       const body = new FormData();
-      body.set("action","catalog-batch");
+      body.set("action", action);
       body.set("domain",domain);
       body.set("category",category);
       if (importedOnly) body.set("status","imported");
@@ -47,7 +47,7 @@ export function useSupplierFeed(domain: string, category: string, initial: Catal
       if (!controller.signal.aborted) setFailure({initial,message:reason instanceof TypeError ? "החיבור לקטלוג נקטע." : "טעינת המוצרים נכשלה."});
     });
     return () => controller.abort();
-  },[category, domain, importedOnly, initial, next, error]);
+  },[category, domain, importedOnly, initial, next, error, action]);
 
   const count = batches.length;
   useEffect(() => {

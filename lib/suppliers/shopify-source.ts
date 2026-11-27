@@ -49,12 +49,16 @@ export async function discoverShopify(read: Reader) {
 }
 
 export async function indexShopifyPage(read: Reader, site: Site) {
+  // Older full pulls completed the product list before moving on to collections.
+  // Their saved product IDs are ready to use as soon as the new worker resumes.
+  if (site.pull_all && site.index_group > 0) return { phase: "catalog" as const, source_cursor: null };
   const groups: (SourceCategory | null)[] = site.pull_all
-    ? [null,...site.categories] : site.categories.filter(c => site.selection.includes(c.id));
+    ? [null] : site.categories.filter(c => site.selection.includes(c.id));
+  if (!groups.length) return { phase: "catalog" as const };
   const group = groups[site.index_group];
   if (group === undefined) throw new Error("רשימת האוספים השתנתה במהלך המשיכה.");
   const after = site.index_page > 1 ? site.source_cursor : null;
-  const fields = `products(first:100,after:$after,sortKey:ID){ nodes{id handle featuredImage{url}} ${pageInfo} }`;
+  const fields = `products(first:100,after:$after,sortKey:ID){ nodes{id title handle featuredImage{url}} ${pageInfo} }`;
   const data = group ? await query(read,`query Group($id:ID!, $after:String){ collection(id:$id){ ${fields} } }`,
     {id:"gid://shopify/Collection/"+group.id,after}) :
     await query(read,`query All($after:String){ ${fields} }`,{after});
@@ -64,6 +68,7 @@ export async function indexShopifyPage(read: Reader, site: Site) {
   for (const p of connection.nodes) {
     const id = numericId(p.id,"Product");
     const entry = index[id] || {handle:p.handle, categories:[]};
+    if (typeof p.title === "string" && p.title.trim()) entry.title = p.title;
     const image = reviewImage(p.featuredImage?.url, site.domain);
     if (image) entry.image = image;
     if (group && !entry.categories.includes(group.id)) entry.categories.push(group.id);
@@ -76,7 +81,7 @@ export async function indexShopifyPage(read: Reader, site: Site) {
 
 type SourceVariant = {id:string; sku:string|null; availableForSale:boolean; currentlyNotInStock:boolean;
   price:Money; compareAtPrice:Money|null; selectedOptions:{name:string;value:string}[]; image:{url:string}|null};
-const productFields = `id title handle vendor description requiresSellingPlan options { name values }
+const productFields = `id title handle vendor description productType requiresSellingPlan options { name values }
   variants(first:100,after:$variants) @include(if:$getVariants) {
     nodes { id sku availableForSale currentlyNotInStock selectedOptions{name value} price{amount currencyCode}
       compareAtPrice{amount currencyCode} image{url} } ${pageInfo}
@@ -106,9 +111,11 @@ export async function shopifyReviewImages(read: Reader, domain: string, ids: str
   return images;
 }
 
-export async function readShopifyProduct(read:Reader, domain:string, id:string, currency:string, categories:SourceCategory[]):Promise<SupplierProduct> {
+export async function readShopifyProduct(read:Reader, domain:string, id:string, currency:string, categories:SourceCategory[],
+  sourceCategories?: SourceCategory[]):Promise<SupplierProduct> {
   const variants: SupplierVariant[] = [], images = new Set<string>();
-  let vc:string|null=null, ic:string|null=null, getVariants=true, getImages=true;
+  const categoryIds = new Set(categories.map(c => c.id));
+  let vc:string|null=null, ic:string|null=null, cc:string|null=null, getVariants=true, getImages=true, getCategories=!!sourceCategories;
   let result: SupplierProduct;
   function price(money:Money) {
     if (money?.currencyCode !== currency || !/^\d+(\.\d+)?$/.test(money.amount) || !Number.isFinite(Number(money.amount)))
@@ -116,15 +123,21 @@ export async function readShopifyProduct(read:Reader, domain:string, id:string, 
     return Number(money.amount);
   }
   do {
-    const {product:p} = await query(read,`query SupplierProduct($id:ID!, $variants:String, $images:String,
-      $getVariants:Boolean!, $getImages:Boolean!){ product(id:$id){${productFields}} }`,
-      {id:"gid://shopify/Product/"+id,variants:vc,images:ic,getVariants,getImages});
+    const {product:p} = await query(read,`query SupplierProduct($id:ID!, $variants:String, $images:String, $categories:String,
+      $getVariants:Boolean!, $getImages:Boolean!, $getCategories:Boolean!){ product(id:$id){${productFields}
+      collections(first:100,after:$categories) @include(if:$getCategories) {nodes{id} ${pageInfo}} } }`,
+      {id:"gid://shopify/Product/"+id,variants:vc,images:ic,categories:cc,getVariants,getImages,getCategories});
     if (!p || numericId(p.id,"Product") !== id || p.requiresSellingPlan || !p.handle || !p.options?.length)
       throw new Error("זהות המוצר או אפשרות הרכישה לא אומתה.");
     if (getImages) {
       ic = nextCursor(p.images,ic);
       for (const i of p.images.nodes) images.add(imageUrl(i.url, domain));
       getImages = !!ic;
+    }
+    if (getCategories) {
+      cc = nextCursor(p.collections, cc);
+      for (const item of p.collections.nodes) categoryIds.add(numericId(item.id, "Collection"));
+      getCategories = !!cc;
     }
     if (getVariants) {
       vc = nextCursor(p.variants,vc);
@@ -142,9 +155,15 @@ export async function readShopifyProduct(read:Reader, domain:string, id:string, 
       getVariants = !!vc;
     }
     result = {id, domain, platform:"shopify", url:"https://"+domain+"/products/"+encodeURIComponent(decodeURIComponent(p.handle)),
-      title:p.title, brand:canonicalBrandName(p.vendor || "") || "", currency, attributes:p.options.map((o:{name:string;values:string[]})=>({name:o.name,values:o.values})),
+      title:p.title, brand:canonicalBrandName(p.vendor || "") || "", currency, ...(p.productType?.trim() ? { productType: p.productType.trim() } : {}),
+      attributes:p.options.map((o:{name:string;values:string[]})=>({name:o.name,values:o.values})),
       description:[p.description].filter(Boolean),categoryIds:categories.map(c=>c.id),category:categories.map(c=>c.name).join(" · "),images:[],variants};
-  } while (getImages || getVariants);
+  } while (getImages || getVariants || getCategories);
+  if (sourceCategories) {
+    const matched = sourceCategories.filter(c => categoryIds.has(c.id));
+    result.categoryIds = matched.map(c => c.id);
+    result.category = matched.map(c => c.name).join(" · ");
+  }
   if (!images.size || !variants.length || new Set(variants.map(v=>v.id)).size !== variants.length ||
       new Set(variants.map(v=>JSON.stringify(Object.entries(v.options).sort()))).size !== variants.length)
     throw new Error("רשימת התמונות או הווריאציות אינה מלאה.");

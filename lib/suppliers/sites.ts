@@ -103,6 +103,18 @@ export async function saveMappings(site: Site, mappings: Record<string, string[]
   const rows = await updateSite(site.domain, { mappings }, { discovered_at: "eq." + site.discovered_at });
   if (!rows.length) throw new Error("רשימת הקטגוריות השתנתה. רעננו את המסך.");
 }
+export async function addCategoryMapping(site: Site, categoryId: string, collectionId: string, run: string) {
+  if (site.pull_started_at !== run || !site.categories.some(category => category.id === categoryId)) {
+    throw new Error("קטגוריית הספק השתנתה מאז המשיכה.");
+  }
+  const current = site.mappings[categoryId] ?? [];
+  if (current.includes(collectionId)) return;
+  const rows = await updateSite(site.domain, { mappings: { ...site.mappings, [categoryId]: [collectionId, ...current] } }, {
+    state: "not.in.(queued,running)", pull_started_at: "eq." + run,
+    discovered_at: "eq." + site.discovered_at, mappings: "eq." + JSON.stringify(site.mappings), select: "domain",
+  });
+  if (!rows.length) throw new Error("מיפוי הקטגוריות התעדכן. פתחו את בחירת הקטגוריות ורעננו את השיוך.");
+}
 export async function setPercent(domain: string, percent: number) {
   if (!Number.isFinite(percent) || percent < -100) throw new Error("אחוז שינוי לא תקין.");
   await updateSite(domain, { percent });
@@ -121,6 +133,17 @@ async function runPage(domain: string, onStockApplied: () => void) {
   if (!site) return false;
   const owned = { lease: "eq." + token };
   try {
+    const firstPage = site.cursor_page === 1 && (site.phase === "linked" || site.platform === "woo" ||
+      (site.phase === "index" && site.index_group === 0 && site.index_page === 1));
+    if (firstPage && site.pull_started_at && (!site.discovered_at || Date.parse(site.discovered_at) < Date.parse(site.pull_started_at))) {
+      const source = site.platform === "shopify"
+        ? await discoverShopify(await sourceReader(domain))
+        : { categories: await discoverCategories(domain) };
+      const refreshed = { ...source, discovered_at: new Date().toISOString() };
+      const saved = await updateSite(domain, { ...refreshed, lease_until: lease() }, { ...owned, select: "domain" });
+      if (!saved.length) return false;
+      Object.assign(site, refreshed);
+    }
     if (site.phase === "linked") {
       const linked = await previews(domain, { shopify_product_id: "not.is.null", order: "source_id", limit: "4",
         ...(site.linked_cursor ? { source_id: "gt." + site.linked_cursor } : {}) });
@@ -145,14 +168,16 @@ async function runPage(domain: string, onStockApplied: () => void) {
     if (site.phase === "index") {
       for (let i=0; i<6; i++) {
         const next = await indexShopifyPage(read, site);
-        const release = next.phase === "catalog" || i === 5;
-        const saved = await updateSite(domain, { ...next, attempts:0, last_error:null,
+        const release = i === 5 && next.phase !== "catalog";
+        const found = Object.keys(next.source_index ?? site.source_index ?? {}).length;
+        const saved = await updateSite(domain, { ...next, pull_total: found, pull_sampled_at: new Date().toISOString(), attempts:0, last_error:null,
           ...(release ? { state:"queued", lease:null, lease_until:null } : { lease_until:lease() }) },
           { ...owned, select:"domain" });
-        if (!saved.length || release) break;
-        Object.assign(site,next);
+        if (!saved.length) return false;
+        if (release) return true;
+        Object.assign(site, next, { attempts: 0 });
+        if (next.phase === "catalog") break;
       }
-      return true;
     }
     const selected = new Set(descendants(site.selection, site.categories));
     const offset = (site.cursor_page - 1) * catalogPageSize;
@@ -162,11 +187,12 @@ async function runPage(domain: string, onStockApplied: () => void) {
         const ids = Object.keys(index).sort();
         const products = ids.slice(offset,offset + catalogPageSize).map(id => {
           const entry = index[id];
-          return { id, name: entry.handle, image: entry.image, read: () => readShopifyProduct(read, domain, id, site.currency!,
-            site.categories.filter(c => entry.categories.includes(c.id))) };
+          return { id, name: entry.title || entry.handle, image: entry.image, read: () => readShopifyProduct(read, domain, id, site.currency!,
+            site.pull_all ? [] : site.categories.filter(c => entry.categories.includes(c.id)), site.categories) };
         });
         return { products, total: ids.length, pages: Math.ceil(ids.length / catalogPageSize), more: offset + products.length < ids.length };
       }
+      if (!site.pull_all && !selected.size) return { products: [], total: 0, pages: 0, more: false };
       const woo = await catalogPage(read, site.cursor_page, site.pull_all ? [] : [...selected]);
       return { ...woo, products: woo.products.map(p => ({ id:String(p.id), name:p.name, image: wooThumbnail(p, domain),
         read: site.pull_all || p.categories.some(c => selected.has(String(c.id))) ? () => readWooProduct(read, domain, p) : null })) };
@@ -200,7 +226,7 @@ async function runPage(domain: string, onStockApplied: () => void) {
       await savePreview(snapshot, site.run_kind === "monitor" && !site.baseline_exceptions?.includes(p.id));
       pulled++;
     }
-    await updateSite(
+    const saved = await updateSite(
       domain,
       {
         state: page.more ? "queued" : "complete",
@@ -219,6 +245,14 @@ async function runPage(domain: string, onStockApplied: () => void) {
       },
       owned,
     );
+    if (!page.more && saved.length && site.pull_started_at) {
+      try {
+        const { readSupplierCategoryAudit } = await import("./category-audit");
+        await readSupplierCategoryAudit(site);
+      } catch (error) {
+        console.error("Supplier category audit failed after pull", site.domain, message(error));
+      }
+    }
     return page.more;
   } catch (e) {
     const attempts = site.attempts + 1;

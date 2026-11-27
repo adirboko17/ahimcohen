@@ -25,6 +25,8 @@ export type SupplierProduct = {
   platform?: "shopify";
   domain?: string;
   brand?: string;
+  brandCandidates?: string[];
+  productType?: string;
   currency?: string;
   categoryIds?: string[];
   attributes?: {name:string; values:string[]}[];

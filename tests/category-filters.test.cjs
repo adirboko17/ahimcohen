@@ -38,6 +38,7 @@ function load(file, dependencies = {}) {
 }
 
 const colors = load("lib/colors.ts");
+const storefrontCatalog = load("lib/catalog.ts", { "./colors": colors, "./category-placement": load("lib/category-placement.ts") });
 const sizes = load("lib/sizes.ts");
 const variantFilters = load("lib/category-filters.ts", { "./colors": colors, "./sizes": sizes });
 const productSelection = load("lib/product-selection.ts", { "./colors": colors, "./sizes": sizes, "./category-filters": variantFilters });
@@ -64,7 +65,7 @@ function renderCategory(sub, filters = {}, catalog = products, brand) {
   const { CategoryView } = load("components/CategoryView.tsx", {
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/navigation": { useRouter: () => ({}), useSearchParams: () => new URLSearchParams(sub ? { sub } : {}) },
-    "@/lib/catalog": colors,
+    "@/lib/catalog": storefrontCatalog,
     "@/lib/catalog-context": { useCatalog: () => ({ category: () => category, categories: [category], products: catalog, productsInCategory: (id) => catalog.filter((p) => p.cat === id) }) },
     "@/lib/category-filters": variantFilters,
     "@/lib/colors": colors,

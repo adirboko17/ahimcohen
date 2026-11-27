@@ -1,5 +1,7 @@
 import "server-only";
-import { CATS, type Product, type VariantChoice } from "@/lib/catalog";
+import { CATS, productSubcategories, type Product, type VariantChoice } from "@/lib/catalog";
+import { readAdminStore } from "@/lib/admin/storage";
+import { storefrontCategories, type CategoryPlacement } from "@/lib/category-placement";
 import { packColors } from "@/lib/colors";
 import { fetchCollectionsPage } from "./collections";
 import { fetchCollectionProductsPage, fetchProductsByHandles, fetchProductsPage } from "./products";
@@ -14,23 +16,50 @@ const SUB_ALIASES: Record<string, string[]> = {
   "מקטורונים | טוניקות": ["מקטרונים וחלוקים"],
 };
 
+type Placement = { parentId: string; sub: string };
+type RedbackType = "גרביים" | "חגורות" | "מעילים" | "מכנסיים" | "חולצות";
+const redbackPlaces: Record<RedbackType, Placement> = {
+  גרביים: { parentId: "acc", sub: "גרביים" },
+  חגורות: { parentId: "acc", sub: "חגורות" },
+  מעילים: { parentId: "winter", sub: "מעילים" },
+  מכנסיים: { parentId: "pro", sub: "מכנסיים" },
+  חולצות: { parentId: "pro", sub: "חולצות" },
+};
+const redbackTypes = Object.keys(redbackPlaces) as RedbackType[];
+
 export async function fetchShopCatalog(): Promise<ShopCatalog> {
-  const collections = await allCollections();
-  const placements = menuPlacements(collections);
+  const [collections, store] = await Promise.all([allCollections(), readAdminStore()]);
+  const custom = store.categoryPlacements ?? [];
+  const placements = menuPlacements(collections, custom);
   const merged = new Map<string, Product>();
+  const redbackItems = new Map<string, { name: string; types: Set<RedbackType> }>();
+
+  function trackRedback(item: ShopifyProduct, product: Product, collectionType?: RedbackType | "") {
+    if (collectionType === undefined && norm(product.brand ?? "") !== "redback") return;
+    const evidence = redbackItems.get(item.handle) ??
+      { name: [item.title, item.productType].filter(Boolean).join(" "), types: new Set<RedbackType>() };
+    if (collectionType) evidence.types.add(collectionType);
+    redbackItems.set(item.handle, evidence);
+  }
 
   await pool(collections, 3, async (collection) => {
     const pages = await allCollectionProducts(collection.handle);
+    const collectionType = redbackCollectionType(collection.title);
     for (const item of pages) {
       const existing = merged.get(item.handle);
       const product = existing ?? toProduct(item, "shop");
       for (const placement of placements.get(collection.handle) ?? []) place(product, placement);
       if (!existing) merged.set(item.handle, product);
+      trackRedback(item, product, collectionType);
     }
   });
 
   if (merged.size === 0) {
-    for (const item of await allProducts()) merged.set(item.handle, toProduct(item, "shop"));
+    for (const item of await allProducts()) {
+      const product = toProduct(item, "shop");
+      merged.set(item.handle, product);
+      trackRedback(item, product);
+    }
   }
 
   // Some published branded products have no collection. Fetch only the missing
@@ -38,14 +67,25 @@ export async function fetchShopCatalog(): Promise<ShopCatalog> {
   const missing = verifiedBrandHandles.filter(handle => !merged.has(handle));
   const batches = Array.from({ length: Math.ceil(missing.length / 10) }, (_, index) => missing.slice(index * 10, index * 10 + 10));
   await pool(batches, 3, async handles => {
-    for (const item of await fetchProductsByHandles(handles)) merged.set(item.handle, toProduct(item, "shop"));
+    for (const item of await fetchProductsByHandles(handles)) {
+      const product = toProduct(item, "shop");
+      merged.set(item.handle, product);
+      trackRedback(item, product);
+    }
   });
 
+  for (const [handle, { name, types }] of redbackItems) {
+    const product = merged.get(handle)!;
+    if (Object.values(product.categorySubs ?? {}).some(subs => subs.length)) continue;
+    const target = redbackProductPlacement(name, types);
+    if (target) place(product, target);
+  }
+
   const products = [...merged.values()].filter((product) => !/^ahim-bundle-[a-f0-9]{24}$/.test(product.id));
-  const categories = CATS.flatMap((parent) => {
+  const categories = storefrontCategories(CATS, custom).flatMap((parent) => {
     const owned = products.filter((product) => (product.cats ?? [product.cat]).includes(parent.id));
     if (!owned.length) return [];
-    const subs = parent.subs.filter((name) => owned.some((product) => (product.subs ?? []).includes(name)));
+    const subs = parent.subs.filter(name => owned.some(product => productSubcategories(product, parent.id).includes(name)));
     const image =
       imageFor(collections, parent.name) ??
       subs.map((name) => imageFor(collections, name)).find(Boolean) ??
@@ -56,9 +96,13 @@ export async function fetchShopCatalog(): Promise<ShopCatalog> {
   return { categories, products };
 }
 
-function menuPlacements(collections: ShopifyCollection[]) {
-  const placements = new Map<string, { parentId: string; sub: string }[]>();
-  const claimed = new Set<string>();
+type CollectionLabel = Pick<ShopifyCollection, "handle" | "title"> & Partial<Pick<ShopifyCollection, "id">>;
+
+export function menuPlacements(collections: CollectionLabel[], custom: CategoryPlacement[] = []) {
+  const placements = new Map<string, Placement[]>();
+  const explicit = new Set(custom.map(rule => rule.collectionId));
+  const implicit = collections.filter(collection =>
+    !explicit.has(collection.id ?? "") || !/^ahim-category-[a-f0-9]{24}$/.test(collection.handle));
   const add = (handle: string, parentId: string, sub: string) => {
     const list = placements.get(handle) ?? [];
     if (!list.some((item) => item.parentId === parentId && item.sub === sub)) list.push({ parentId, sub });
@@ -67,32 +111,55 @@ function menuPlacements(collections: ShopifyCollection[]) {
 
   for (const parent of CATS) {
     for (const sub of parent.subs) {
-      const handles =
-        parent.id === "redback"
-          ? [...new Set([...redbackHandles(collections, sub), ...titled(collections, [sub])])]
-              .filter((handle) => !claimed.has(handle))
-          : titled(collections, [sub, ...(SUB_ALIASES[sub] ?? [])]);
-      if (!handles.length) continue;
-      for (const handle of handles) {
-        if (parent.id !== "redback") claimed.add(handle);
-        add(handle, parent.id, sub);
-      }
+      for (const handle of titled(implicit, [sub, ...(SUB_ALIASES[sub] ?? [])])) add(handle, parent.id, sub);
     }
-    for (const handle of titled(collections, [parent.name])) add(handle, parent.id, "");
+    for (const handle of titled(implicit, [parent.name])) add(handle, parent.id, "");
+  }
+  for (const collection of implicit) {
+    const type = redbackCollectionType(collection.title);
+    // The old shirts collection also contains outerwear and thermal items.
+    if (type && type !== "חולצות") {
+      const target = redbackPlaces[type];
+      add(collection.handle, target.parentId, target.sub);
+    }
+  }
+  const byId = new Map(collections.map(collection => [collection.id, collection.handle]));
+  for (const rule of custom) {
+    const handle = byId.get(rule.collectionId);
+    if (handle && rule.parentId !== "redback") add(handle, rule.parentId, rule.label);
   }
   return placements;
 }
 
-function redbackHandles(collections: ShopifyCollection[], sub: string) {
-  const exact = norm(`REDBACK ${sub}`);
-  const doubled = norm(`REDBACK ${sub} ${sub}`);
-  return collections.filter((collection) => {
-    const title = norm(collection.title);
-    return title === exact || title === doubled;
-  }).map((collection) => collection.handle);
+function redbackCollectionType(title: string): RedbackType | "" | undefined {
+  const label = norm(title);
+  if (label === "redback") return "";
+  return redbackTypes.find(type => label === `redback ${type}` || label === `redback ${type} ${type}`);
 }
 
-function titled(collections: ShopifyCollection[], titles: string[]) {
+function redbackProductPlacement(name: string, types: Set<RedbackType>): Placement | undefined {
+  const text = norm(name);
+  if (/גרב|\bsocks?\b/.test(text)) return redbackPlaces.גרביים;
+  if (/חגור[תהו]|\bbelts?\b/.test(text)) return redbackPlaces.חגורות;
+  if (/כובע|\b(?:caps?|hats?|beanies)\b/.test(text)) return { parentId: "acc", sub: "כובעים" };
+  if (/תחתוני|בוקסר|\b(?:boxers?|underwear)\b/.test(text)) return { parentId: "acc", sub: "הלבשה תחתונה" };
+  if (/חליפ[תה] גשם|\brain suit\b/.test(text)) return { parentId: "winter", sub: "חליפות גשם" };
+  if (/מעיל|סופט\s*של|\b(?:soft[\s-]*shell|jackets?|parkas?)\b/.test(text)) return redbackPlaces.מעילים;
+  if (/קפוצונ|קפוצון|סווטשירט|\b(?:hoodies?|sweatshirts?)\b/.test(text)) return { parentId: "winter", sub: "סווטשירטים וקפוצ'ונים" };
+  if (!types.has("גרביים") && /תרמי|טרמי|\b(?:thermal|base[\s-]*layer)\b/.test(text))
+    return { parentId: "winter", sub: "ביגוד תרמי" };
+  if (/שרוול ארוך|חולצ[תה] פליז|\b(?:long[\s-]*sleeve|fleece shirt)\b/.test(text))
+    return { parentId: "winter", sub: "חולצות ארוכות" };
+  if (/מכנס|דגמח|\b(?:pants|trousers|shorts|cargo|convertible)\b/.test(text)) return redbackPlaces.מכנסיים;
+  if (/חולצ|טישירט|\b(?:shirts?|polo|tees?)\b/.test(text)) return redbackPlaces.חולצות;
+  if (/ללא (?:כיפת )?מגן|\bsoft toe\b/.test(text)) return { parentId: "shoes", sub: "נעלי עבודה ללא מגן" };
+  if (/כיפת מגן|נעל(?:י|יים)? בטיחות|\bsafety (?:boots?|shoes?)\b/.test(text)) return { parentId: "shoes", sub: "נעלי בטיחות" };
+  if (/נעל|מג(?:ף|פ)|\b(?:shoes?|boots?)\b/.test(text)) return { parentId: "shoes", sub: "" };
+  const type = redbackTypes.find(entry => types.has(entry));
+  return type && redbackPlaces[type];
+}
+
+function titled(collections: CollectionLabel[], titles: string[]) {
   const keys = new Set(titles.map(norm));
   return collections.filter((collection) => keys.has(norm(collection.title))).map((collection) => collection.handle);
 }
@@ -109,12 +176,16 @@ function norm(value: string) {
     .trim();
 }
 
-function place(product: Product, placement: { parentId: string; sub: string }) {
+function place(product: Product, placement: Placement) {
   const cats = new Set((product.cats ?? []).filter((id) => id && id !== "shop"));
   cats.add(placement.parentId);
   product.cats = [...cats];
   product.cat = product.cats[0] ?? placement.parentId;
+  product.categorySubs ??= {};
   if (!placement.sub) return;
+  const categorySubs = new Set(product.categorySubs[placement.parentId]);
+  categorySubs.add(placement.sub);
+  product.categorySubs[placement.parentId] = [...categorySubs];
   const subs = new Set(product.subs ?? []);
   subs.add(placement.sub);
   product.subs = [...subs];

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CategoryView } from "@/components/CategoryView";
 import { loadShopCatalog } from "@/lib/shopify/load-catalog";
 
@@ -8,6 +8,7 @@ type Props = { params: Promise<{ cat: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { cat } = await params;
   const id = decodeURIComponent(cat);
+  if (id === "redback") return { title: "Redback" };
   const catalog = await loadShopCatalog();
   const category = catalog.categories.find((item) => item.id === id);
   return { title: category ? category.name : "קטגוריה" };
@@ -16,6 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function Page({ params }: Props) {
   const { cat } = await params;
   const id = decodeURIComponent(cat);
+  if (id === "redback") permanentRedirect("/brands/redback");
   const catalog = await loadShopCatalog();
   if (!catalog.categories.some((item) => item.id === id)) notFound();
   return <CategoryView catId={id} />;
