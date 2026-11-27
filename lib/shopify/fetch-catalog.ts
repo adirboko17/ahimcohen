@@ -1,7 +1,7 @@
 import "server-only";
 import { CATS, productSubcategories, type Product, type VariantChoice } from "@/lib/catalog";
 import { readAdminStore } from "@/lib/admin/storage";
-import { storefrontCategories, type CategoryPlacement } from "@/lib/category-placement";
+import { legacyWorkFootwearCategoryName, outdoorFootwear, storefrontCategories, storefrontCategoryPlacements, type CategoryPlacement } from "@/lib/category-placement";
 import { packColors } from "@/lib/colors";
 import { fetchCollectionsPage } from "./collections";
 import { fetchCollectionProductsPage, fetchProductsByHandles, fetchProductsPage } from "./products";
@@ -87,7 +87,7 @@ export async function fetchShopCatalog(): Promise<ShopCatalog> {
     if (!owned.length) return [];
     const subs = parent.subs.filter(name => owned.some(product => productSubcategories(product, parent.id).includes(name)));
     const image =
-      imageFor(collections, parent.name) ??
+      categoryCollectionTitles(parent).map(title => imageFor(collections, title)).find(Boolean) ??
       subs.map((name) => imageFor(collections, name)).find(Boolean) ??
       null;
     return [{ id: parent.id, name: parent.name, subs, image }];
@@ -113,7 +113,7 @@ export function menuPlacements(collections: CollectionLabel[], custom: CategoryP
     for (const sub of parent.subs) {
       for (const handle of titled(implicit, [sub, ...(SUB_ALIASES[sub] ?? [])])) add(handle, parent.id, sub);
     }
-    for (const handle of titled(implicit, [parent.name])) add(handle, parent.id, "");
+    for (const handle of titled(implicit, categoryCollectionTitles(parent))) add(handle, parent.id, "");
   }
   for (const collection of implicit) {
     const type = redbackCollectionType(collection.title);
@@ -124,7 +124,7 @@ export function menuPlacements(collections: CollectionLabel[], custom: CategoryP
     }
   }
   const byId = new Map(collections.map(collection => [collection.id, collection.handle]));
-  for (const rule of custom) {
+  for (const rule of storefrontCategoryPlacements(custom)) {
     const handle = byId.get(rule.collectionId);
     if (handle && rule.parentId !== "redback") add(handle, rule.parentId, rule.label);
   }
@@ -157,6 +157,10 @@ function redbackProductPlacement(name: string, types: Set<RedbackType>): Placeme
   if (/נעל|מג(?:ף|פ)|\b(?:shoes?|boots?)\b/.test(text)) return { parentId: "shoes", sub: "" };
   const type = redbackTypes.find(entry => types.has(entry));
   return type && redbackPlaces[type];
+}
+
+function categoryCollectionTitles(parent: { id: string; name: string }) {
+  return parent.id === outdoorFootwear.id ? [parent.name, legacyWorkFootwearCategoryName] : [parent.name];
 }
 
 function titled(collections: CollectionLabel[], titles: string[]) {

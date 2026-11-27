@@ -1,4 +1,4 @@
-import { categoryFilterLabel, outdoorFootwear } from "@/lib/category-placement";
+import { categoryFilterLabel, legacyWorkFootwearCategoryName, outdoorFootwear } from "@/lib/category-placement";
 
 export function categoryText(value?: string | null) {
   return (value ?? "").toLowerCase().normalize("NFKD").replace(/[\p{M}'׳״’]/gu, "")
@@ -6,7 +6,7 @@ export function categoryText(value?: string | null) {
 }
 
 const aliases: Record<string, string[]> = {
-  "נעלי עבודה ובטיחות": ["נעליים", "הנעלה", "נעליים והנעלה", "נעלי עבודה", "נעלים", "footwear", "shoes"],
+  [outdoorFootwear.parent]: [legacyWorkFootwearCategoryName, "הנעלה", "נעליים והנעלה", "נעלי עבודה", "נעלים", "footwear", "shoes"],
   "נעלי בטיחות": ["נעל בטיחות", "נעלי עבודה עם מגן", "safety shoes", "safety shoe"],
   "נעלי עבודה ללא מגן": ["נעל עבודה ללא מגן", "נעל בלי מגן", "soft toe shoes", "soft toe"],
   "מגפי עבודה ובטיחות": ["מגף בטיחות", "מגפי בטיחות", "מגפי עבודה", "מגף עבודה", "safety boots", "work boots"],

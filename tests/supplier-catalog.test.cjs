@@ -214,7 +214,7 @@ test("category selection expands descendants and inherits the nearest approved m
   assert.deepEqual(mappedCollections(["3", "4"], site), ["boots", "sale"]);
 });
 test("category review distinguishes inherited mappings, proposed groups and verified Shopify changes", async () => {
-  const catalog = { CATS: [{ id: "shoes", name: "נעלי עבודה ובטיחות", subs: ["נעלי בטיחות", "מגפי עבודה ובטיחות"] },
+  const catalog = { CATS: [{ id: "shoes", name: "נעליים", subs: ["נעלי בטיחות", "מגפי עבודה ובטיחות"] },
     { id: "acc", name: "אביזרים", subs: ["אביזרים למטבח"] }] };
   const site = {
     domain: "example.com", pull_started_at: "2026-11-26T10:00:00Z",
@@ -234,7 +234,7 @@ test("category review distinguishes inherited mappings, proposed groups and veri
   const collections = [["shoes", "נעלי עבודה ובטיחות", ""], ["safety", "נעלי בטיחות", "נעלי בטיחות"],
     ["safety-copy", "נעל בטיחות", "נעלי בטיחות"], ["boots", "מגפי עבודה ובטיחות", "מגפי עבודה ובטיחות"],
     ["laces", "אביזרי שריכה", null]].map(([id,title,sub]) => ({ id, title, manual: true, published: true,
-      paths: sub === null ? [] : [{ parentId: "shoes", parent: "נעלי עבודה ובטיחות", sub }] }));
+      paths: sub === null ? [] : [{ parentId: "shoes", parent: "נעליים", sub }] }));
   collections.push({ id: "kitchen", title: "אביזרים למטבח", manual: true, published: true,
     paths: [{ parentId: "acc", parent: "אביזרים", sub: "אביזרים למטבח" }] });
   const row = (source_id, title, category, shopify_product_id = null) => ({
@@ -276,14 +276,14 @@ test("category review distinguishes inherited mappings, proposed groups and veri
   assert.deepEqual(suggestions.map(group => [group.kind, group.products.map(product => product.id)]), [
     ["new", ["1", "2"]], ["existing", ["3", "9"]], ["change", ["4"]], ["place", ["6"]], ["new", ["7"]], ["review", ["8", "10"]], ["new", ["13"]],
   ]);
-  assert.equal(suggestions[0].parent, "נעלי עבודה ובטיחות");
+  assert.equal(suggestions[0].parent, "נעליים");
   assert.equal(suggestions[2].title, "נעלי בטיחות");
-  assert.deepEqual(suggestions[2].products[0].current, ["נעלי עבודה ובטיחות / מגפי עבודה ובטיחות"]);
+  assert.deepEqual(suggestions[2].products[0].current, ["נעליים / מגפי עבודה ובטיחות"]);
   assert.equal(suggestions[2].products[0].recommendation.id, "safety");
-  assert.equal(suggestions[1].products[0].proposedCategory, "נעלי עבודה ובטיחות / נעלי בטיחות");
-  assert.equal(suggestions[4].products[0].proposedCategory, "נעלי עבודה ובטיחות / נעלי ריצה כביש");
+  assert.equal(suggestions[1].products[0].proposedCategory, "נעליים / נעלי בטיחות");
+  assert.equal(suggestions[4].products[0].proposedCategory, "נעליים / נעלי ריצה כביש");
   assert.equal(suggestions[4].title, "נעלי ריצה כביש");
-  assert.equal(suggestions[4].parent, "נעלי עבודה ובטיחות");
+  assert.equal(suggestions[4].parent, "נעליים");
   assert.equal(suggestions[4].source.name, "נעלי ריצה כביש Up to 50%off");
   assert.deepEqual(suggestions[1].sources.map(source => source.id), ["3", "8"]);
   assert.deepEqual(suggestions[5].sources, []);
@@ -303,7 +303,7 @@ test("category review distinguishes inherited mappings, proposed groups and veri
   assert.equal(categoryPlacement.categoryFilterLabel("מוצר כותנה 100%"), "מוצר כותנה 100%");
   assert.equal(categoryMatching.supplierCategoryLabel("sibling-c-1417"), "");
   assert.equal(categoryMatching.supplierCategoryLabel("כל מוצרי האתר - לא לגעת להנחות"), "");
-  assert.equal(categoryMatching.canonicalCategoryLabel("נעליים והנעלה"), "נעלי עבודה ובטיחות");
+  assert.equal(categoryMatching.canonicalCategoryLabel("נעליים והנעלה"), "נעליים");
 });
 
 test("category audits count distinct products with matching evidence and exclude apparel and protected footwear", () => {

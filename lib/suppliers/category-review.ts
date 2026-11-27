@@ -148,7 +148,8 @@ function reviewRecommendation(product: ReviewProduct, scores: ReturnType<typeof 
 
 function proposedParent(source: Source, product: Pick<ReviewProduct, "title" | "productType">) {
   const names = source.path.map(name => normalized(categoryFilterLabel(name)));
-  const byPath = CATS.filter(category => names.includes(normalized(category.name)) || category.subs.some(sub => names.includes(normalized(sub))));
+  const byPath = CATS.filter(category => categoryNames(category.name).some(name => names.includes(name)) ||
+    category.subs.some(sub => names.includes(normalized(sub))));
   if (byPath.length === 1) return byPath[0].name;
   const text = `${normalized(categoryFilterLabel(source.name))} ${normalized(product.productType)} ${normalized(product.title)}`;
   const hints: [string, RegExp][] = [
@@ -180,7 +181,7 @@ function groupCategorySuggestion(label: string, row: ScannedProduct, sources: So
       proposedParent({ ...emptySource, name: label }, { title: label });
   return {
     kind: targetIds.length ? "place" : "new", source, title: label, parent, targetIds, productGroup: true,
-    reason: outdoors ? "נעלי טיולים וסניקרס לפנאי צריכות מיקום נפרד מהנעליים המקצועיות." :
+    reason: outdoors ? "נעלי טיולים וסניקרס משויכים לתת־קטגוריית פנאי תחת נעליים." :
       `נמצאה קבוצה של לפחות ${categoryOpportunityMinimum} מוצרים מאותו סוג שיכולה לקבל תת־קטגוריה משלה.`,
   };
 }

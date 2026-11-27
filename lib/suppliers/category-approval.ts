@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { CATS } from "@/lib/catalog";
-import { storefrontCategories, type StorefrontCategoryChoice } from "@/lib/category-placement";
+import { storefrontCategories, storefrontCategoryPlacements, type StorefrontCategoryChoice } from "@/lib/category-placement";
 import { changeAdminStore } from "@/lib/admin/storage";
 import { adminGraphQL } from "@/lib/shopify/admin-bundles";
 import { menuPlacements } from "@/lib/shopify/fetch-catalog";
@@ -51,7 +51,7 @@ async function saveStorefrontCategory(name: string, parentId: string, selectedCo
   const publication = sitePublication();
   let choice!: StorefrontCategoryChoice;
   await changeAdminStore(async store => {
-    const placements = store.categoryPlacements ?? [];
+    const placements = storefrontCategoryPlacements(store.categoryPlacements);
     const categories = storefrontCategories(CATS, placements);
     const existing = parentId ? categories.find(category => category.id === parentId) :
       categories.find(category => categoryNameKey(category.name) === categoryNameKey(title));

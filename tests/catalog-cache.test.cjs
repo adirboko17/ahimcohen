@@ -63,7 +63,7 @@ function harness() {
         { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים"] },
         { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "ביגוד תרמי", "סווטשירטים וקפוצ'ונים"] },
         { id: "acc", name: "אביזרים", subs: ["גרביים", "חגורות", "כובעים"] },
-        { id: "shoes", name: "נעלי עבודה ובטיחות", subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן"] },
+        { id: "shoes", name: "נעליים", subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן", "סניקרס ונעלי טיולים"] },
       ],
       productSubcategories: (product, categoryId) => product.categorySubs?.[categoryId] ?? [],
     },
@@ -163,6 +163,31 @@ test("a category created in admin and its subcategory classify published product
   assert.deepEqual(categories.find(category => category.id === id)?.subs, ["Hammocks"]);
   assert.deepEqual(products.find(product => product.id === "road-shoe")?.categorySubs[id], ["Hammocks"]);
   assert.ok(products.find(product => product.id === "shirt")?.cats.includes(id));
+  await pending.settle();
+});
+
+test("work shoes and the existing outdoor collection share the shoes category", async () => {
+  const { state, request } = harness();
+  const shoe = (handle) => ({ handle, title: handle, vendor: "Brand", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } });
+  const handle = "ahim-category-aaaaaaaaaaaaaaaaaaaaaaaa";
+  state.collections = [
+    { id: "work-shoes", handle: "work-shoes", title: "נעלי עבודה ובטיחות", image: { url: "https://example.com/work-shoes.jpg" } },
+    { id: "safety", handle: "safety", title: "נעלי בטיחות" },
+    { id: "outdoor", handle, title: "סניקרס ונעלי טיולים" },
+  ];
+  state.collectionProducts = { "work-shoes": [shoe("work-only")], safety: [shoe("safety-only")], [handle]: [shoe("hiking-only")] };
+  state.placements = [{ collectionId: "outdoor", parentId: "outdoor-footwear", label: "סניקרס ונעלי טיולים" }];
+  const pending = request();
+  const { categories, products } = await pending.value;
+  assert.deepEqual(categories.find(category => category.id === "shoes"), {
+    id: "shoes", name: "נעליים", subs: ["נעלי בטיחות", "סניקרס ונעלי טיולים"], image: "https://example.com/work-shoes.jpg",
+  });
+  assert.equal(categories.some(category => category.id === "outdoor-footwear"), false);
+  const byId = new Map(products.map(product => [product.id, product]));
+  assert.deepEqual(byId.get("work-only").cats, ["shoes"]);
+  assert.deepEqual(byId.get("safety-only").categorySubs, { shoes: ["נעלי בטיחות"] });
+  assert.deepEqual(byId.get("hiking-only").categorySubs, { shoes: ["סניקרס ונעלי טיולים"] });
+  assert.deepEqual(byId.get("hiking-only").cats, ["shoes"]);
   await pending.settle();
 });
 
