@@ -333,6 +333,22 @@ test("expired catalog returns immediately while one shared refresh updates price
   assert.equal(h.state.loads, 2);
 });
 
+test("an elapsed refresh window loads newly published products even when the prior Next entry is still fresh", async (t) => {
+  const h = harness();
+  const now = Date.now();
+  const clock = t.mock.method(Date, "now", () => now);
+  await h.request().settle();
+  h.state.productCount = 2;
+  h.state.gate = deferred();
+  clock.mock.mockImplementation(() => now + 60_000);
+  const request = h.request();
+  assert.equal((await request.value).products.length, 1);
+  h.state.gate.resolve();
+  await request.settle();
+  assert.equal((await h.request().value).products.length, 2);
+  assert.equal(h.state.loads, 2);
+});
+
 test("failed refresh preserves the last catalog and a later request can retry", async (t) => {
   const h = harness();
   await h.request().settle();

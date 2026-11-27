@@ -19,32 +19,36 @@ export type ShopCatalog = {
 const inFlight = new Map<string, Promise<string>>();
 const compress = promisify(gzip);
 const decompress = promisify(gunzip);
-const lastKnown = new Map<string, string>();
+const refreshMs = 60_000;
+const lastKnown = new Map<string, { slot: number; encoded: string }>();
 
 const readCachedCatalog = unstable_cache(
-  (scope: string): Promise<string> => {
-    const pending = inFlight.get(scope);
+  (scope: string, slot: number): Promise<string> => {
+    const key = JSON.stringify([scope, slot]);
+    const pending = inFlight.get(key);
     if (pending) return pending;
     // Variant image URLs repeat heavily across sizes. Cache the complete snapshot
     // losslessly compressed so it stays below Next's 2 MB per-entry limit.
     // Compression is server-only; consumers still receive the original catalog.
     const request = fetchShopCatalog()
       .then(async (catalog) => (await compress(JSON.stringify(catalog))).toString("base64"))
-      .finally(() => inFlight.delete(scope));
-    inFlight.set(scope, request);
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, request);
     return request;
   },
-  ["shop-catalog-v16-product-memberships"],
-  { revalidate: 60, tags: ["shop-catalog"] },
+  ["shop-catalog-v17-refresh-window"],
+  { revalidate: 300, tags: ["shop-catalog"] },
 );
 
 // React shares the same snapshot between layout, metadata and page rendering.
-// Next's persistent Data Cache serves expired data while refreshing in the background.
+// Give each refresh window its own persistent cache entry. The previous
+// snapshot can still serve requests while the current entry is being populated.
 export const loadShopCatalog = cache(async (): Promise<ShopCatalog> => {
   const scope = JSON.stringify([shopDomain(), storefrontApiVersion(), metafieldIdentifiers()]);
-  const fallback = lastKnown.get(scope) ?? await readCatalogBootstrap(scope);
-  const fresh = readCachedCatalog(scope).then(encoded => {
-    lastKnown.set(scope, encoded);
+  const slot = Math.floor(Date.now() / refreshMs);
+  const fallback = lastKnown.get(scope)?.encoded ?? await readCatalogBootstrap(scope);
+  const fresh = readCachedCatalog(scope, slot).then(encoded => {
+    if ((lastKnown.get(scope)?.slot ?? -1) <= slot) lastKnown.set(scope, { slot, encoded });
     return encoded;
   });
   let encoded: string;
