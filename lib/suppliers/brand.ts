@@ -16,6 +16,10 @@ function normalized(value = "") {
 }
 
 const brandNames = BRANDS.map(brand => ({ name: brand.name, words: normalized(brand.name) }));
+const relevantWooBrands = new Map<string, string[]>([
+  ["redback.co.il", ["Redback", "רדבק", "SCOTT", "Aussie Gear", "AAG", "Bekina Boots", "Bekina", "בקינה", "Karrimor", "Trezeta"]],
+  ["outline.co.il", ["Carhartt", "קארהארט", "Helly Hansen", "הלי הנסן", "Steel Blue", "Jeep"]],
+]);
 const missing: SupplierBrand = { name: "", evidence: "missing" };
 
 export const supplierBrandDomain = (domain: string) => domain.trim().toLowerCase().replace(/^www\./, "");
@@ -29,6 +33,8 @@ export function detectSupplierBrand(product: BrandInput, defaultBrand = supplier
   const supplied = supplierBrandName(product.brand);
   if (supplied) return { name: supplied, evidence: "source" };
 
+  const knownWooLabels = relevantWooBrands.get(supplierBrandDomain(product.domain ?? "")) ?? [];
+  const wooBrands = new Map(knownWooLabels.map(label => [normalized(label), supplierBrandName(label)]));
   const values = new Set(product.brandCandidates?.map(supplierBrandName).filter(Boolean));
   for (const value of (product.attributes ?? []).filter(attribute =>
     /^(?:pa )?(?:brand|manufacturer|מותג|שם המותג|יצרן|שם היצרן)$/i.test(normalized(attribute.name)),
@@ -37,6 +43,11 @@ export function detectSupplierBrand(product: BrandInput, defaultBrand = supplier
     const match = line.match(/^(?:Brand|Manufacturer|מותג|יצרן)\s*[:：]\s*([^|·;\n]{1,80})$/i);
     const name = supplierBrandName(match?.[1]);
     if (name) values.add(name);
+    const text = " " + normalized(line) + " ";
+    for (const [words, label] of wooBrands) {
+      if (["לוגו", "מבית", "תוצרת", "מיוצר על ידי", "של המותג"].some(prefix => text.includes(" " + prefix + " " + words + " ")))
+        values.add(label);
+    }
   }
   if (values.size === 1) return { name: [...values][0], evidence: "source" };
   if (values.size > 1) return missing;
@@ -44,12 +55,19 @@ export function detectSupplierBrand(product: BrandInput, defaultBrand = supplier
   const titleSegments = (product.title ?? "").split(/[|·]/).map(normalized);
   const titleNames = brandNames.filter(({ words }) => titleSegments[0] === words || titleSegments[0].startsWith(words + " ") ||
     titleSegments.slice(1).includes(words) || titleSegments.some(title => ` ${title} `.includes(` מבית ${words} `)));
-  if (titleNames.length === 1) return { name: titleNames[0].name, evidence: "title" };
-  if (titleNames.length > 1) return missing;
+  const names = new Set(titleNames.map(brand => brand.name));
+  const ownTitle = " " + normalized(product.title) + " ";
+  if (!/(?:compatible with|מתאי[םמה]+ ל|תחליף ל)/i.test(product.title ?? "")) {
+    for (const [words, label] of wooBrands) {
+      if (ownTitle.includes(" " + words + " ")) names.add(label);
+    }
+  }
+  if (names.size === 1) return { name: [...names][0], evidence: "title" };
+  if (names.size > 1) return missing;
 
   const categories = (product.category ?? "").split("·").map(name => name.trim()
     .replace(/^(?:מותג|brand)\s*[:：-]?\s+/i, "").replace(/\s+(?:outlet|sale|אאוטלט|מבצעים)$/i, ""));
-  const categoryNames = new Set(categories.map(name => brandByName(name)?.name).filter((name): name is string => !!name));
+  const categoryNames = new Set(categories.map(name => wooBrands.get(normalized(name)) ?? brandByName(name)?.name).filter((name): name is string => !!name));
   if (categoryNames.size > 1) return missing;
   if (categoryNames.size === 1) {
     const [name] = categoryNames;

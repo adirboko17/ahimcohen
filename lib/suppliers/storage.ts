@@ -220,6 +220,14 @@ export async function saveCorrectedDraftPrices(row: Preview, token: string, snap
   if (saved.length !== 1) throw new Error("לא ניתן היה לשמור את המחיר המתוקן בקטלוג הספק. נסו שוב.");
 }
 
+export async function saveCorrectedDraftBrand(row: Preview, token: string, snapshot: SupplierProduct) {
+  const saved = await request("PATCH", {
+    ...scope(row.supplier), source_id: "eq." + row.source_id, shopify_product_id: "eq." + row.shopify_product_id,
+    import_token: "eq." + token, revision: "eq." + row.revision, select: "source_id",
+  }, { draft_snapshot: snapshot });
+  if (saved.length !== 1) throw new Error("לא ניתן היה לשמור את המותג המתוקן בקטלוג הספק. נסו שוב.");
+}
+
 // Serialize publication and stock refresh for this supplier product across server instances.
 export async function withLinkedProductLock<T>(row: Preview, run: (token: string) => Promise<T>) {
   if (!row.shopify_product_id) throw new Error("יש לייבא טיוטה לפני הפרסום.");

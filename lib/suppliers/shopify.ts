@@ -4,10 +4,11 @@ import { createHash } from "node:crypto";
 import { adminGraphQL } from "@/lib/shopify/admin-bundles";
 import { shopDomain } from "@/lib/shopify/config";
 import { type SupplierProduct } from "./redback";
-import { reserveDraft, saveCorrectedDraftPrices, saveDraftId, saveVerification, type Preview } from "./storage";
+import { reserveDraft, saveCorrectedDraftBrand, saveCorrectedDraftPrices, saveDraftId, saveVerification, type Preview } from "./storage";
 
 import { originalPriceSnapshot, productBrand, productDomain, supplierKey } from "./catalog-model";
 import { publicBytes } from "./public-source";
+import { detectSupplierBrand } from "./brand";
 
 type Collection = { id: string; title: string; handle: string; onSite?: boolean; ruleSet: null | { appliedDisjunctively: boolean } };
 type Connection<T> = { nodes: T[]; pageInfo?: { hasNextPage: boolean; endCursor: string } };
@@ -341,6 +342,36 @@ export async function repairImportedSalePrices(row: Preview, product: SupplierSh
   }
   const snapshot = originalPriceSnapshot(approved);
   await saveCorrectedDraftPrices(row, token, snapshot);
+  return { product, snapshot };
+}
+
+export async function repairMissingDraftBrand(
+  row: Preview, product: SupplierShopifyProduct, token: string, fresh: SupplierProduct,
+) {
+  const approved = row.draft_snapshot;
+  if (!approved || productBrand(approved) || product.status !== "DRAFT") return { product, snapshot: approved };
+  const brand = detectSupplierBrand(fresh, "").name;
+  if (!brand) throw new Error("לא נמצא מותג חד־משמעי בנתוני הספק. יש לבדוק את המותג לפני הפרסום.");
+  if (product.id !== row.shopify_product_id || product.source?.value !== row.source_id ||
+    !product.tags.includes("supplier:" + row.supplier)) throw new Error("לא ניתן לאמת את הקישור בין המוצר לספק.");
+  if (product.vendor && product.vendor !== brand && !/^(?:ahim cohen[n]?|האחים כהן(?: – ביגוד והלבשה)?)$/i.test(product.vendor.trim()))
+    throw new Error("המותג ב־Shopify שונה מהמותג שנמצא בנתוני הספק. יש לבדוק את הטיוטה.");
+  if (product.vendor !== brand || !product.tags.includes(brand)) {
+    type Updated = Pick<SupplierShopifyProduct, "id" | "vendor" | "tags">;
+    const { productUpdate } = await adminGraphQL<{
+      productUpdate: { product: Updated | null; userErrors: { message: string }[] };
+    }>(
+      "mutation RepairSupplierDraftBrand($product:ProductUpdateInput!){productUpdate(product:$product){product{id vendor tags} userErrors{message}}}",
+      { product: { id: product.id, vendor: brand, tags: [...new Set([...product.tags, brand])] } },
+    );
+    checkErrors(productUpdate.userErrors);
+    const updated = productUpdate.product;
+    if (!updated || updated.id !== product.id || updated.vendor !== brand || !updated.tags.includes(brand))
+      throw new Error("Shopify טרם אישרה את תיקון המותג.");
+    product = { ...product, ...updated };
+  }
+  const snapshot = { ...approved, brand };
+  await saveCorrectedDraftBrand(row, token, snapshot);
   return { product, snapshot };
 }
 

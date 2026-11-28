@@ -40,6 +40,11 @@ test("supplier brand detection separates declared brands, likely brands and miss
   assert.deepEqual(detect({ ...product, title: "כפפות | SHOWA" }), { name: "SHOWA", evidence: "title" });
   assert.deepEqual(detect({ ...product, brandCandidates: ["Redback", "SHOWA"] }), { name: "", evidence: "missing" });
   assert.deepEqual(detect(product, ""), { name: "", evidence: "missing" });
+  assert.deepEqual(detect({ ...product, title: "SCOTT PURSUIT RIDE" }, ""), { name: "SCOTT", evidence: "title" });
+  assert.deepEqual(detect({ ...product, domain: "www.outline.co.il", title: "כירבולית", category: "HELLY HANSEN" }, ""),
+    { name: "Helly Hansen", evidence: "category" });
+  assert.deepEqual(detect({ ...product, domain: "www.outline.co.il", description: ["לוגו קארהארט מלפנים."] }, ""),
+    { name: "Carhartt", evidence: "source" });
 });
 
 test("a supplier can set or clear the brand fallback without changing other suppliers", async () => {
@@ -182,6 +187,33 @@ test("category replacement verifies the new Shopify membership first and preserv
   assert.deepEqual([...memberships], ["marketing", "smart", "new"]);
   assert.deepEqual(events.slice(-4), [["save", ["new", "marketing"]], ["remove", "old"], ["reviewed", "new"], ["invalidate", "shop-catalog"]]);
 });
+test("legacy draft brand recovery verifies the link and keeps unrelated tags", async () => {
+  const product = { id: "target", status: "DRAFT", vendor: "Ahim Cohenn", source: { value: "25" },
+    tags: ["supplier:redback", "private-label"] };
+  const row = { supplier: "redback", source_id: "25", shopify_product_id: "target",
+    draft_snapshot: { brand: "", domain: "redback.co.il" } };
+  const updates = [], snapshots = [];
+  const { repairMissingDraftBrand } = moduleFor("shopify", {
+    "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "./brand": supplierBrand,
+    "@/lib/shopify/config": {},
+    "./storage": { saveCorrectedDraftBrand: async (_, token, snapshot) => snapshots.push({ token, snapshot }) },
+    "@/lib/shopify/admin-bundles": { adminGraphQL: async (_, input) => {
+      updates.push(input.product);
+      return { productUpdate: { product: input.product, userErrors: [] } };
+    } },
+  });
+  await assert.rejects(repairMissingDraftBrand(row, product, "lock", { brand: "" }), /מותג חד/);
+  await assert.rejects(repairMissingDraftBrand(row, { ...product, vendor: "Manual Brand" }, "lock", { brand: "Viking" }), /המותג ב/);
+  await assert.rejects(repairMissingDraftBrand(row, { ...product, id: "different" }, "lock", { brand: "Viking" }), /הקישור/);
+  assert.equal(updates.length, 0);
+  const repaired = await repairMissingDraftBrand(row, product, "lock", { brand: "Viking" });
+  assert.equal(repaired.product.vendor, "Viking");
+  assert.deepEqual(repaired.product.tags, ["supplier:redback", "private-label", "Viking"]);
+  assert.deepEqual(snapshots, [{ token: "lock", snapshot: { brand: "Viking", domain: "redback.co.il" } }]);
+  await repairMissingDraftBrand(row, repaired.product, "lock", { brand: "Viking" });
+  assert.equal(updates.length, 1);
+});
+
 test("legacy supplier sales are repaired only when the linked Shopify prices still match the approved import", async () => {
   const originalModel = moduleFor("catalog-model");
   const snapshot = { variants: [{ id: "source-variant", price: 252.6, regular: 299 }] };
@@ -190,7 +222,7 @@ test("legacy supplier sales are repaired only when the linked Shopify prices sti
     variants: { nodes: [{ id: "our-variant", source: { value: "source-variant" }, price: "252.60", compareAtPrice: "299.00" }] } };
   const calls = [];
   const { repairImportedSalePrices } = moduleFor("shopify", {
-    "server-only": {}, "./public-source": {}, "./catalog-model": originalModel, "@/lib/shopify/config": {},
+    "server-only": {}, "./public-source": {}, "./catalog-model": originalModel, "./brand": supplierBrand, "@/lib/shopify/config": {},
     "./storage": { saveCorrectedDraftPrices: async (_, token, corrected) => calls.push(["save", token, corrected]) },
     "@/lib/shopify/admin-bundles": { adminGraphQL: async (_, variables) => {
       calls.push(["update", variables]);

@@ -8,7 +8,7 @@ import { rescanShopify } from "./shopify-source";
 import { productDomain, supplierKey, type StockChange } from "./catalog-model";
 import { importStatuses } from "./import-queue";
 import { finishStockUpdate, pendingStockUpdate, stageStockUpdate } from "./monitor-report";
-import { readDraft, repairImportedSalePrices, verifyDraft, type SupplierShopifyProduct } from "./shopify";
+import { readDraft, repairImportedSalePrices, repairMissingDraftBrand, verifyDraft, type SupplierShopifyProduct } from "./shopify";
 import { savePreview, withLinkedProductLock, type Preview } from "./storage";
 
 type SupplierLink = Pick<SupplierShopifyProduct, "source" | "tags">;
@@ -186,7 +186,8 @@ export async function refreshLinkedProduct(row: Preview, publish: boolean, onSto
       }
       if (!row.collection_ids.length) throw new Error("לטיוטה אין אוספים מאושרים.");
       const repaired = await repairImportedSalePrices(row, product, token);
-      verifyDraft(repaired.product, repaired.snapshot ?? row.snapshot, row.collection_ids, false);
+      const branded = await repairMissingDraftBrand({ ...row, draft_snapshot: repaired.snapshot ?? null }, repaired.product, token, fresh);
+      verifyDraft(branded.product, branded.snapshot ?? row.snapshot, row.collection_ids, false);
     }
     const domain = productDomain(row.snapshot);
     if (onStockApplied && live) await recoverStockUpdate(domain, row.source_id, product, onStockApplied);

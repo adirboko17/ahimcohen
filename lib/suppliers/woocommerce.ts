@@ -17,7 +17,7 @@ type WooProduct = {
   short_description: string;
   sku: string;
   prices: { price: string; regular_price: string; currency_minor_unit: number; currency_code: string };
-  images: { src: string; thumbnail?: string }[];
+  images: { src: string; thumbnail?: string; alt?: string }[];
   categories: Term[];
   brands?: Term[];
   attributes: Attribute[];
@@ -122,6 +122,14 @@ export async function catalogPage(read: Reader, page: number, categoryIds: strin
     more,
   };
 }
+export function wooCollectionBrand(domain: string, categories: Pick<Term, "slug">[]) {
+  if (domain !== "redback.co.il") return "";
+  const names = new Set(categories.map(category =>
+    ["all-redback-outdoor", "redback-boots", "redback-outlet-up-to-50off"].includes(category.slug) ? "Redback" :
+    category.slug === "scott-2" ? "SCOTT" : "").filter(Boolean));
+  return names.size === 1 ? [...names][0] : "";
+}
+
 export async function readWooProduct(read: Reader, domain: string, p: WooProduct): Promise<SupplierProduct> {
   if (!["simple", "variable"].includes(p.type)) throw new Error("סוג המוצר אינו מוצר רגיל או מוצר עם וריאציות.");
   const url = new URL(p.permalink);
@@ -233,17 +241,21 @@ export async function readWooProduct(read: Reader, domain: string, p: WooProduct
     .map((_, el) => plain(doc(el).text()))
     .get()
     .filter(Boolean);
+  const brand = sourceBrand(p) ||
+    (!p.brands?.length && domain === "redback.co.il" && ([39468, 9151].includes(p.id) || /^redback\b/i.test(p.name)) ? "Redback" : "");
+  const collectionBrand = !brand ? wooCollectionBrand(domain, p.categories) : "";
+  const galleryBrand = !brand && domain === "redback.co.il" && p.images.some(image =>
+    /(?:לוגו|תג|של)\s+(?:redback|רדבק)(?![\p{L}\p{N}])/iu.test(plain(image.alt ?? "")));
+  const brandCandidates = (p.brands?.length ?? 0) > 1
+    ? p.brands!.map(item => plain(item.name)).filter(Boolean)
+    : [...new Set([collectionBrand, galleryBrand ? "Redback" : ""].filter(Boolean))];
   return {
     id: id(p.id),
     domain,
     url: url.href,
     title: plain(p.name),
-    brand:
-      sourceBrand(p) ||
-      (!p.brands?.length && domain === "redback.co.il" && ([39468, 9151].includes(p.id) || /^redback\b/i.test(p.name))
-        ? "Redback"
-        : ""),
-    ...(p.brands && p.brands.length > 1 ? { brandCandidates: p.brands.map(brand => plain(brand.name)).filter(Boolean) } : {}),
+    brand,
+    ...(brandCandidates.length ? { brandCandidates } : {}),
     currency,
     categoryIds: p.categories.map((c) => id(c.id)),
     attributes: p.attributes

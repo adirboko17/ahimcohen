@@ -221,7 +221,14 @@ function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
   });
   const colors = unique(choices.map((choice) => choice.color).filter(Boolean));
   const sizes = unique(choices.map((choice) => choice.size).filter(Boolean));
-  const price = Number(product.priceRange.min.amount);
+  let price = Number(product.priceRange.min.amount);
+  if (price === 0 && /^(?:ahim-redback-|ahim-[a-f0-9]{16}-)/.test(product.handle) &&
+    !choices.some(choice => choice.available && choice.price === 0)) {
+    const positive = choices.filter(choice => choice.price > 0);
+    const available = positive.filter(choice => choice.available);
+    const priced = available.length ? available : positive;
+    if (priced.length) price = Math.min(...priced.map(choice => choice.price));
+  }
   const compare = product.variants
     .map((variant) => (variant.compareAtPrice ? Number(variant.compareAtPrice.amount) : 0))
     .filter((amount) => amount > price);

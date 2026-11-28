@@ -128,9 +128,11 @@ export async function queueImports(
   if (!rows.length) throw new Error("אין מוצרים מתאימים לפעולה.");
   return {queued,skipped:Array.from(skipped,([reason,n])=>reason+" ("+n+")")};
 }
-export async function processNextImport() {
+export async function processNextImport(selection?: Pick<Task, "domain" | "source_id">) {
   const now = new Date().toISOString();
-  const due = { ...shopFilter(), state: "in.(queued,running)", available_at: "lte." + now };
+  const due = { ...shopFilter(), state: "in.(queued,running)", available_at: "lte." + now,
+    ...(selection ? { domain: "eq." + selection.domain, source_id: "eq." + selection.source_id } : {}),
+  };
   const [next] = await supplierRequest<Task>(table, "GET", { ...due, order: "available_at", limit: "1" });
   if (!next) return;
   const token = randomUUID(),

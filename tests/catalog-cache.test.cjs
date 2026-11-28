@@ -295,6 +295,25 @@ test("published products after page eight keep category memberships from later c
   assert.deepEqual(catalog.products.find(product => product.id === handle).categorySubs, { work: ["Shirts", "Uniforms"] });
 });
 
+test("an unavailable zero-priced supplier variant does not set the storefront display price", async () => {
+  const h = harness();
+  const base = { title: "Supplier shirt", vendor: "Brand", description: "", images: [],
+    priceRange: { min: { amount: "0" } } };
+  const sizes = [[0, false], [80, false], [95, true], [110, true]];
+  const variants = sizes.map(([amount, availableForSale], index) => ({
+    id: String(index), title: "M", selectedOptions: [], price: { amount: String(amount) }, availableForSale,
+  }));
+  h.state.extraBrandProducts = [
+    { ...base, handle: "ahim-redback-1", variants },
+    { ...base, handle: "ahim-redback-2", variants: variants.map(v => ({ ...v, availableForSale: false })) },
+    { ...base, handle: "regular-free-product", variants },
+  ];
+  const { products } = await h.request().value;
+  assert.equal(products.find(p => p.id === "ahim-redback-1").price, 95);
+  assert.equal(products.find(p => p.id === "ahim-redback-2").price, 80);
+  assert.equal(products.find(p => p.id === "regular-free-product").price, 0);
+});
+
 test("Shopify option aliases retain the chosen size, color, variant ID and availability", async () => {
   const h = harness();
   const cases = [
