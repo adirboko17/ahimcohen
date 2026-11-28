@@ -391,7 +391,8 @@ function BundleList({ bundles, catalog }: { bundles: AdminBundle[]; catalog: Pro
     const product = productId ? catalog.get(productId) : undefined;
     const name = product?.name ?? productId ?? "ערכה ממספר מוצרים";
     const relatedIds = new Set(bundle.items.map(([sourceId]) => sourceId));
-    const edit = product && <AdminBundleDialog id={product.id} snapshot={bundleGroupSnapshot(items)}
+    const snapshot = bundleGroupSnapshot(items);
+    const edit = product && <AdminBundleDialog id={product.id} snapshot={snapshot}
       summary={{ name, sku: product.sku, imgs: product.imgs?.slice(0, 1) }} tiers={[...items].sort((a, b) => a.items[0][1] - b.items[0][1]).map((tier) => ({
         id: tier.id, quantity: tier.items[0][1], total: tier.total ?? (tier.bundleProductId ? catalog.get(tier.bundleProductId)?.price : undefined),
         title: tier.name, bestValue: tier.bestValue, showInQuantityOffers: tier.showInQuantityOffers, active: tier.active,
@@ -399,7 +400,8 @@ function BundleList({ bundles, catalog }: { bundles: AdminBundle[]; catalog: Pro
     return {
       id,
       keywords: Array.from(relatedIds, (sourceId) => productKeywords(catalog.get(sourceId), sourceId)).join(" "),
-      card: <PromotionCard name={name} product={product} actions={edit}
+      card: <PromotionCard name={name} product={product} actions={<>{edit}
+        <AdminRemoveButton section="bundles" id={bundle.id} title={productId ? name : bundle.name} wholeBundle={{ productId, snapshot }} /></>}
         editHref={product ? undefined : adminUrl("bundles", { manage: id, edit: items.length === 1 ? bundle.id : undefined })} />,
     };
   })} />;
