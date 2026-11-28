@@ -16,14 +16,14 @@ const email = "shopper@example.invalid";
 const authUser = { email, email_confirmed_at: "2026-01-01" };
 const order = { id: "gid://shopify/Order/123", email };
 const other = { id: "gid://shopify/Order/456", email: "other@example.invalid" };
-function setup(user, nodes) {
+function setup(user, nodes, scopes = ["read_orders"]) {
   const queries = [];
   const { GET } = compile("app/api/account/orders/route.ts", {
     "@supabase/supabase-js": { createClient: () => ({ auth: { getUser: async () => ({ data: { user } }) } }) },
     "@/lib/customer-auth-config": { customerAuthConfig: () => ({}) },
     "@/lib/shopify/admin-bundles": { adminGraphQL: async (_, params) => {
       queries.push(params);
-      return { orders: { nodes, pageInfo: { hasNextPage: false } } };
+      return { orders: { nodes, pageInfo: { hasNextPage: false } }, currentAppInstallation: { accessScopes: scopes.map(handle => ({ handle })) } };
     } },
   });
   return { queries, get: (params, headers = { Authorization: "Bearer test" }) =>
@@ -42,8 +42,16 @@ test("order list uses only the account email, rechecks ownership and disables ca
   const api = setup(authUser, [order, other]);
   const res = await api.get("email=other@example.invalid");
   assert.equal(api.queries[0].search, 'email:"shopper@example.invalid"');
-  assert.deepEqual(await res.json(), { items: [{ id: order.id }], next: null });
+  assert.deepEqual(await res.json(), { items: [{ id: order.id }], next: null, allDates: false });
   assert.match(res.headers.get("Cache-Control"), /private, no-store/);
+});
+
+test("all-order permission includes an older order only for its verified owner", async () => {
+  const historicalOrder = { ...order, createdAt: "2020-01-01T00:00:00Z" };
+  const api = setup(authUser, [historicalOrder, other], ["read_orders", "read_all_orders"]);
+  const res = await api.get("");
+  assert.deepEqual(await res.json(), { items: [{ id: order.id, createdAt: historicalOrder.createdAt }], next: null, allDates: true });
+  assert.equal(api.queries[0].search, 'email:"shopper@example.invalid"');
 });
 
 test("detail pages require both matching owner and matching order ID even when paginating", async () => {

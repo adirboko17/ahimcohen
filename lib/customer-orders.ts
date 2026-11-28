@@ -10,6 +10,7 @@ export type HistoryLine = {
   id: string; name: string; quantity: number; handle: string | null; variantId: string | null;
 };
 export type HistoryPage<T> = { items: T[]; next: string | null };
+export type OrderHistoryPage = HistoryPage<CustomerOrder> & { allDates: boolean };
 
 export function orderCartSelection(lines: HistoryLine[], productById: (id: string) => Product | undefined, cart: CartLine[]) {
   const items: AddItem[] = [];

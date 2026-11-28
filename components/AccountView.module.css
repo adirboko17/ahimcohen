@@ -34,7 +34,7 @@
 .hero h1::before { content: ""; display: block; background: var(--yellow); width: 36px; height: 4px; margin-bottom: 16px; }
 .hero p { margin: 12px 0 0; color: #e5e5db; overflow-wrap: anywhere; }
 .heroImage { background: center / cover url("/images/hero/parkes-workshop.webp"); }
-.dashboardGrid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; margin-top: 18px; }
+.dashboardGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 16px; align-items: start; margin-top: 18px; }
 .tile { min-width: 0; display: flex; flex-direction: column; align-items: stretch; background: #fff; border: 1px solid #deded6; border-radius: 12px; padding: clamp(20px, 3vw, 32px); }
 .tile h2 { display: flex; align-items: center; gap: 10px; font-size: 23px; margin: 0 0 16px; }
 .details { margin: 0; }
@@ -44,8 +44,7 @@
 .details dd bdi { min-width: 0; }
 .details dd svg, .verified { color: #32654a; }
 .verified { font-size: 13px; }
-.cartCount { margin: 0 0 24px; }
-.history { margin-top: 18px; padding: clamp(20px, 3vw, 32px); border: 1px solid #deded6; border-radius: 12px; }
+.history { overflow-wrap: anywhere; }
 .history h2, .orderHeading, .orderActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .history h2, .orderHeading h3 { margin: 0; }
 .history > p { margin: 8px 0; color: #54544d; }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useStore } from "@/lib/store";
-import { IconBag, IconCheck, IconFwd, IconUser } from "./icons";
+import { IconCheck, IconFwd, IconUser } from "./icons";
 import styles from "./AccountView.module.css";
 import { CustomerOrderHistory } from "./CustomerOrderHistory";
 
@@ -20,12 +20,11 @@ export function CustomerDashboard() {
 }
 
 function DashboardContent() {
-  const { account, cart, openCart, flash } = useStore();
+  const { account, flash } = useStore();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [busy, setBusy] = useState<"save" | "logout" | null>(null);
   const [error, setError] = useState("");
-  const items = cart.reduce((total, item) => total + item.qty, 0);
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
@@ -81,14 +80,8 @@ function DashboardContent() {
           setDraftName(account.name); setError(""); setEditing(true);
         }}>{account.name ? "עריכת השם" : "הוספת שם לחשבון"}<IconFwd /></button>}
       </section>
-      <section className={styles.tile}>
-        <h2><IconBag size={22} /> הסל שלי</h2>
-        <p className={styles.cartCount}>{items ? items === 1 ? "פריט אחד בסל" : `${items} פריטים בסל` : "הסל שלך ריק"}</p>
-        {items ? <button className={styles.action} type="button" onClick={openCart}>פתיחת הסל<IconFwd /></button>
-          : <Link className={styles.action} href="/">להמשך קניות<IconFwd /></Link>}
-      </section>
+      <CustomerOrderHistory />
     </div>
-    <CustomerOrderHistory />
     {error && <p className="err" role="alert">{error}</p>}
     <footer className={styles.accountFooter}><nav aria-label="שירות לקוחות">
       <Link href="/info/shipping">משלוחים והחזרות</Link><Link href="/info/contact">יצירת קשר</Link>

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { customerAuthConfig } from "@/lib/customer-auth-config";
-import type { CustomerOrder, HistoryLine, HistoryPage } from "@/lib/customer-orders";
+import type { CustomerOrder, HistoryLine, HistoryPage, OrderHistoryPage } from "@/lib/customer-orders";
 import { adminGraphQL } from "@/lib/shopify/admin-bundles";
 import { storefront } from "@/lib/shopify/client";
 
@@ -10,6 +10,7 @@ type OrderRow = CustomerOrder & { email: string | null };
 type LineRow = { id: string; name: string; quantity: number; customAttributes: { key: string }[];
   lineItemGroup: { id: string } | null; sellingPlan: { name: string } | null; isGiftCard: boolean; variant: { id: string } | null };
 const listQuery = `query CustomerHistory($search:String!, $after:String) {
+  currentAppInstallation { accessScopes { handle } }
   orders(first:10, after:$after, query:$search, sortKey:CREATED_AT, reverse:true) {
     pageInfo { hasNextPage endCursor }
     nodes { id email name createdAt cancelledAt displayFinancialStatus displayFulfillmentStatus
@@ -47,9 +48,12 @@ export async function GET(request: Request) {
     const search = "email:" + JSON.stringify(email.replace(/([:*()])/g, "\\$1"));
     const owned = (row: { email: string | null }) => row.email?.trim().toLowerCase() === email;
     if (!order) {
-      const { orders } = await adminGraphQL<{ orders: Connection<OrderRow> }>(listQuery, { search, after });
+      const { orders, currentAppInstallation } = await adminGraphQL<{
+        orders: Connection<OrderRow>; currentAppInstallation: { accessScopes: { handle: string }[] }
+      }>(listQuery, { search, after });
       const items = orders.nodes.filter(owned).map(({ email: _email, ...row }) => row);
-      return json({ items, next: orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null } satisfies HistoryPage<CustomerOrder>);
+      const allDates = currentAppInstallation.accessScopes.some(scope => scope.handle === "read_all_orders");
+      return json({ items, next: orders.pageInfo.hasNextPage ? orders.pageInfo.endCursor : null, allDates } satisfies OrderHistoryPage);
     }
     type Detail = { id: string; email: string | null; lineItems: Connection<LineRow> };
     const { orders } = await adminGraphQL<{ orders: { nodes: Detail[] } }>(linesQuery, { search: search + " AND id:" + order, after });

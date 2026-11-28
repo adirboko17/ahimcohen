@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCatalog } from "@/lib/catalog-context";
-import { orderCartSelection, type CustomerOrder, type HistoryLine, type HistoryPage } from "@/lib/customer-orders";
+import { orderCartSelection, type CustomerOrder, type HistoryLine, type HistoryPage, type OrderHistoryPage } from "@/lib/customer-orders";
 import { useStore } from "@/lib/store";
 import { IconPackages } from "./icons";
 import styles from "./AccountView.module.css";
@@ -14,11 +14,12 @@ const statuses: Record<string, string> = {
   IN_PROGRESS: "בטיפול", ON_HOLD: "בהשהיה", OPEN: "פתוחה", RESTOCKED: "הוחזרה למלאי",
   SCHEDULED: "מתוזמנת לטיפול", REQUEST_DECLINED: "בקשת הטיפול נדחתה",
 };
-type FetchPage = <T>(params: URLSearchParams, signal: AbortSignal) => Promise<HistoryPage<T>>;
+type FetchPage = <T extends HistoryPage<unknown>>(params: URLSearchParams, signal: AbortSignal) => Promise<T>;
 
 export function CustomerOrderHistory() {
   const { account } = useStore();
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [allDates, setAllDates] = useState<boolean | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -39,10 +40,11 @@ export function CustomerOrderHistory() {
     setLoading(true);
     setError(false);
     try {
-      const page = await fetchPage<CustomerOrder>(new URLSearchParams(cursor ? { after: cursor } : {}), controller.signal);
+      const page = await fetchPage<OrderHistoryPage>(new URLSearchParams(cursor ? { after: cursor } : {}), controller.signal);
       if (controller.signal.aborted) return;
       setOrders(previous => cursor ? [...new Map([...previous, ...page.items].map(o => [o.id, o])).values()] : page.items);
       setNext(page.next);
+      setAllDates(page.allDates);
     } catch {
       if (!controller.signal.aborted) setError(true);
     } finally {
@@ -55,12 +57,12 @@ export function CustomerOrderHistory() {
     return () => { request.current?.abort(); request.current = null; };
   }, [load]);
 
-  return <section className={styles.history}>
+  return <section className={`${styles.tile} ${styles.history}`}>
     <h2><IconPackages /> ההזמנות שלי</h2>
-    <p>הזמנות מ־60 הימים האחרונים שבוצעו עם כתובת המייל של החשבון.</p>
+    {allDates === false && <p>מוצגות הזמנות מ־60 הימים האחרונים.</p>}
     {orders.map(order => <OrderCard key={order.id} order={order} fetchPage={fetchPage} />)}
     {loading && <p role="status">טוענים הזמנות…</p>}
-    {!error && !loading && !orders.length && !next && <p>אין הזמנות להצגה בתקופה הזו.</p>}
+    {!error && !loading && !orders.length && !next && <p>{allDates ? "עדיין אין הזמנות המשויכות לכתובת המייל הזו." : "אין הזמנות להצגה בתקופה הזו."}</p>}
     {error && <p role="alert">לא הצלחנו לטעון את ההזמנות.</p>}
     {(error || next) && <button type="button" className={styles.textButton} disabled={loading} onClick={() => void load(next)}>
       {error ? "ניסיון נוסף" : "הצגת הזמנות נוספות"}</button>}
@@ -88,7 +90,7 @@ function OrderCard({ order, fetchPage }: { order: CustomerOrder; fetchPage: Fetc
       const items: HistoryLine[] = [];
       let page: HistoryPage<HistoryLine>;
       do {
-        page = await fetchPage<HistoryLine>(params, controller.signal);
+        page = await fetchPage<HistoryPage<HistoryLine>>(params, controller.signal);
         items.push(...page.items);
         if (page.next) params.set("after", page.next);
       } while (page.next && !controller.signal.aborted);
