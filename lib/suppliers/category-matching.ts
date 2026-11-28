@@ -1,4 +1,4 @@
-import { categoryFilterLabel, legacyWorkFootwearCategoryName, outdoorFootwear } from "@/lib/category-placement";
+import { categoryFilterLabel, legacyWorkFootwearCategoryName, outdoorFootwear, workCoatsAndRobes } from "@/lib/category-placement";
 
 export function categoryText(value?: string | null) {
   return (value ?? "").toLowerCase().normalize("NFKD").replace(/[\p{M}'׳״’]/gu, "")
@@ -16,7 +16,7 @@ const aliases: Record<string, string[]> = {
   "חגורות": ["חגורת", "חגורה", "belts", "belt"],
   "חולצות": ["חולצת", "חולצה", "חולצות טי", "חולצת טי", "חולצת פולו", "חולצות פולו", "טישירט", "טי שירט", "t shirt", "polo shirt", "shirt"],
   "מכנסיים": ["מכנסי עבודה", "מכנס עבודה", "מכנסיים מקצועיים", "דגמח", "pants", "trousers"],
-  "מקטורונים | טוניקות": ["מקטורן", "מקטורונים", "טוניקה", "טוניקות", "מקטרונים וחלוקים"],
+  [workCoatsAndRobes.sub]: [...workCoatsAndRobes.previous, "מקטורן", "מקטורונים", "טוניקה", "טוניקות"],
   "כפפות עבודה": ["כפפת עבודה", "כפפות מגן", "כפפות", "הגנת ידיים", "work gloves", "safety gloves"],
   "הגנת ראייה ופנים": ["הגנת עיניים ופנים", "משקף מגן", "משקפי מגן", "משקפי בטיחות", "safety glasses", "face shield"],
   "הגנת ראש": ["קסדת בטיחות", "קסדות בטיחות", "hard hat", "safety helmet"],

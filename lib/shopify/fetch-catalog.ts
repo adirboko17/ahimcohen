@@ -1,7 +1,7 @@
 import "server-only";
 import { CATS, productSubcategories, type Product, type VariantChoice } from "@/lib/catalog";
 import { readAdminStore } from "@/lib/admin/storage";
-import { legacyWorkFootwearCategoryName, outdoorFootwear, storefrontCategories, storefrontCategoryPlacements, type CategoryPlacement } from "@/lib/category-placement";
+import { legacyWorkFootwearCategoryName, outdoorFootwear, storefrontCategories, storefrontCategoryPlacements, workCoatsAndRobes, type CategoryPlacement } from "@/lib/category-placement";
 import { packColors } from "@/lib/colors";
 import { fetchCollectionsPage } from "./collections";
 import { fetchProductCollectionsPage, fetchProductsPage } from "./products";
@@ -12,7 +12,7 @@ import { productBrand } from "./product-brand";
 const PAGE = 50;
 
 const SUB_ALIASES: Record<string, string[]> = {
-  "מקטורונים | טוניקות": ["מקטרונים וחלוקים"],
+  [workCoatsAndRobes.sub]: [...workCoatsAndRobes.previous],
 };
 
 type Placement = { parentId: string; sub: string };

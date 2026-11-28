@@ -1,5 +1,5 @@
 import type { OrderLine } from "./types";
-import { outdoorFootwear } from "./category-placement";
+import { outdoorFootwear, workCoatsAndRobes } from "./category-placement";
 
 export const FREE_SHIPPING = 299;
 
@@ -30,7 +30,7 @@ export type VariantChoice = {
 export const CATS: Category[] = [
   { id: outdoorFootwear.id, name: outdoorFootwear.parent, subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן", "מגפי עבודה ובטיחות", "נעלי מלונאות ומטבחים", "אביזרי הנעלה ורפידות", outdoorFootwear.sub] },
   { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "חליפות גשם", "חרמוניות", "סווטשירטים וקפוצ'ונים", "ביגוד תרמי", "חולצות ארוכות"] },
-  { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", "מקטורונים | טוניקות", "אפודים זוהרים", "סרבלים"] },
+  { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", workCoatsAndRobes.sub, "אפודים זוהרים", "סרבלים"] },
   { id: "safety", name: "מוצרי בטיחות", subs: ["הגנת ראש", "כפפות עבודה", "הגנת ראייה ופנים", "הגנת נשימה", "הגנת שמיעה", "ציוד לעבודה בגובה", "הגנת גוף", "ציוד בטיחות נלווה", "משטפות עינים ומקלחות חירום", "ציוד להגנת הסביבה", "בטיחות בדרכים", "נראות גבוהה"] },
   { id: "rep", name: "ביגוד ייצוגי", subs: ["חולצות ייצוגיות", "מכנסיים ייצוגיים", "ג'קטים", "חצאיות", "אקססוריז"] },
   { id: "kitchen", name: "מטבח ומזון", subs: ["ג'קט שף", "כובעי שף", "מכנסי שף | מכנסי טבחים", "סינרים"] },

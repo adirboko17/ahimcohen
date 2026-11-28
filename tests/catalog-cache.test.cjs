@@ -59,7 +59,7 @@ function harness() {
     "@/lib/catalog": {
       CATS: [
         { id: "work", name: "Work", subs: ["Shirts", "Uniforms"] },
-        { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים"] },
+        { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", categoryPlacement.workCoatsAndRobes.sub] },
         { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "ביגוד תרמי", "סווטשירטים וקפוצ'ונים"] },
         { id: "acc", name: "אביזרים", subs: ["גרביים", "חגורות", "כובעים"] },
         { id: "shoes", name: "נעליים", subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן", "סניקרס ונעלי טיולים"] },
@@ -182,6 +182,18 @@ test("a category created in admin and its subcategory classify published product
   assert.deepEqual(categories.find(category => category.id === id)?.subs, ["Hammocks"]);
   assert.deepEqual(products.find(product => product.id === "road-shoe")?.categorySubs[id], ["Hammocks"]);
   assert.ok(products.find(product => product.id === "shirt")?.cats.includes(id));
+  await pending.settle();
+});
+
+test("renaming the work coats and robes filter keeps the existing Shopify collection membership", async () => {
+  const { state, request } = harness();
+  const item = { handle: "work-coat", title: "Work coat", vendor: "Brand", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } };
+  state.collections = [{ handle: "existing-work-coats", title: "מקטרונים וחלוקים" }];
+  state.collectionProducts = { "existing-work-coats": [item] };
+  const pending = request();
+  const { categories, products } = await pending.value;
+  assert.deepEqual(categories.find(category => category.id === "pro")?.subs, ["מקטורנים וחלוקים"]);
+  assert.deepEqual(products.find(product => product.id === item.handle)?.categorySubs.pro, ["מקטורנים וחלוקים"]);
   await pending.settle();
 });
 

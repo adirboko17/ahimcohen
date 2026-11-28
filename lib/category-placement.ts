@@ -9,6 +9,12 @@ export const outdoorFootwear = {
   sub: "סניקרס ונעלי טיולים",
 } as const;
 
+export const workCoatsAndRobes = {
+  parentId: "pro",
+  sub: "מקטורנים וחלוקים",
+  previous: ["מקטורונים | טוניקות", "מקטרונים וחלוקים"],
+} as const;
+
 export type CategoryPlacement = { collectionId: string; parentId: string; label: string; parentName?: string };
 export type StorefrontCategoryChoice = { id: string; parentId: string; parent: string; sub: string };
 
