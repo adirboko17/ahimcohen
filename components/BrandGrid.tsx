@@ -16,7 +16,7 @@ export function BrandGrid({ featured = false }: { featured?: boolean }) {
   }
   const allBrands = BRANDS.filter(brand => counts.has(brand.name));
   const search = query.trim().toLocaleLowerCase().replace(/[\s-]+/g, "");
-  const brands = featured ? allBrands.filter(brand => brand.featured) : allBrands.filter(brand =>
+  const brands = featured ? allBrands.filter(brand => brand.featured || brand.id === "neri") : allBrands.filter(brand =>
     `${brand.name}${brand.id}`.toLocaleLowerCase().replace(/[\s-]+/g, "").includes(search)
   ).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name, "he") : sort === "products" ? (counts.get(b.name) ?? 0) - (counts.get(a.name) ?? 0) : 0);
   const track = useRef<HTMLDivElement>(null);
@@ -42,7 +42,7 @@ export function BrandGrid({ featured = false }: { featured?: boolean }) {
     </>}
     <div className="brands-grid" ref={track}>
     {(featured ? [false, true] : [false]).map(duplicate => <Fragment key={String(duplicate)}>
-    {brands.map((brand) => <Link key={brand.id} href={`/brands/${brand.id}`} className={`brand-card${featured && brand.id === "albatros" ? " brand-card-mobile-only" : ""}${duplicate ? " brand-card-loop-copy" : ""}`} aria-label={`למוצרי ${brand.name}`} aria-hidden={duplicate || undefined} tabIndex={duplicate ? -1 : undefined}>
+    {brands.map((brand) => <Link key={brand.id} href={`/brands/${brand.id}`} className={`brand-card${featured && !brand.featured ? " brand-card-desktop-only" : ""}${duplicate ? " brand-card-loop-copy" : ""}`} aria-label={`למוצרי ${brand.name}`} aria-hidden={duplicate || undefined} tabIndex={duplicate ? -1 : undefined}>
       <span className={`brand-logo brand-logo-${brand.id}`}>
         {brand.logo ? <img src={brand.logo} alt={brand.name} width={180} height={72} loading="lazy" decoding="async" /> : <span dir="ltr">{brand.name}</span>}
       </span>

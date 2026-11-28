@@ -886,7 +886,10 @@ img { max-width: 100%; }
 .brands-showcase .brand-card.brand-card-all { background: #f7f7f3; }
 .brands-showcase .brand-card.brand-card-all:hover { background: #efefe8; }
 @media (min-width: 768px) {
-  .brands-showcase .brand-card-mobile-only, .brands-showcase .brand-card-loop-copy { display: none; }
+  .brands-showcase .brand-card-loop-copy { display: none; }
+}
+@media (max-width: 767px) {
+  .brands-showcase .brand-card-desktop-only { display: none; }
 }
 .brand-card-all .brand-logo .brand-all-title { font-size: clamp(30px, 3vw, 40px); line-height: 1.15; direction: rtl; border-bottom: 4px solid var(--yellow); padding-bottom: 8px; }
 .brand-page-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
