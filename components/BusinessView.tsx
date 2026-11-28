@@ -349,6 +349,7 @@ export function BusinessView() {
                     </div>
                   </div>
                 )}
+                {step >= 2 && <p className="policy-note">מסירת הפרטים היא לבחירתכם. פרטי קשר דרושים לצוות האחים כהן כדי לחזור אליכם עם הצעה. <a href="/info/privacy">מי מקבל את המידע וזכויות עיון ותיקון</a></p>}
                 {err && <span className="err" role="alert">{err}</span>}
                 <div className="business-form-actions">
                   {step > 0 && <button disabled={sending} className="btn btn-line" style={{ padding: "0 24px" }} onClick={() => go(step - 1)}><IconBack /> חזרה</button>}

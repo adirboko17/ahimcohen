@@ -1980,3 +1980,39 @@ body:has(.business-page) .site-footer { margin-top: 48px; }
   .mobile-filter-sheet[open], .mobile-filter-sheet::backdrop, .mobile-filter-sheet.is-closing::backdrop { animation: none; }
   .mobile-filter-sheet, .mobile-filter-sheet.is-closing { transition: none; }
 }
+
+.store-skip, .access-launch {
+  position: fixed;
+  inset-inline-end: max(12px, env(safe-area-inset-left));
+  background: #171715;
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 16px;
+  border: 2px solid #fff;
+  border-radius: 24px;
+}
+.store-skip { top: 8px; z-index: 100; transform: translateY(-160%); }
+.store-skip:focus { transform: none; }
+#store-content, #cancellation { scroll-margin-top: 8rem; }
+.access-launch { bottom: max(18px, env(safe-area-inset-bottom)); z-index: 44; min-height: 44px; }
+@media (max-width: 767px) {
+  .access-launch { bottom: calc(84px + env(safe-area-inset-bottom)); }
+}
+.access-dialog {
+  margin: auto; width: min(28rem, calc(100% - 2rem)); max-height: 85dvh;
+  padding: 20px; overflow: auto; color: #171715; background: white;
+  border: 1px solid #555; border-radius: 12px; text-align: start;
+}
+.access-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.access-dialog header, .access-dialog label { display: flex; align-items: center; gap: 12px; }
+.access-dialog header { justify-content: space-between; margin-bottom: 12px; }
+.access-dialog button { padding: 8px 12px; min-height: 44px; }
+.access-dialog label { min-height: 44px; cursor: pointer; }
+.access-dialog input { width: 20px; height: 20px; }
+.access-dialog p { margin-block: 12px; }
+.access-dialog a, .policy-note a, .legal-contact a, .legal-cancellation a, .site-footer .cancel-link { text-decoration: underline; text-underline-offset: .17em; }
+.site-footer .cancel-link { font-weight: 800; }
+.policy-note { font-size: 15px; line-height: 1.55; margin-block: 8px; }
+.access-launch:focus-visible, .store-skip:focus-visible, .access-dialog :focus-visible,
+html[data-accessibility~="focus"] :focus-visible { outline: 3px solid #005fcc !important; outline-offset: 2px; box-shadow: 0 0 0 6px #fff !important; }
+html[data-accessibility~="links"] a[href] { text-decoration: underline !important; text-underline-offset: .17em; }

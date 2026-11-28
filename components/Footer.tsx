@@ -72,6 +72,7 @@ export function Footer() {
           <div className="col">
             <span style={{ fontWeight: 800, marginBottom: 4 }}>מידע</span>
             <Link href="/info/terms">תקנון האתר</Link>
+            <Link className="cancel-link" href="/info/terms#cancellation">ביטול עסקה</Link>
             <Link href="/info/privacy">מדיניות פרטיות</Link>
             <Link href="/info/accessibility">הצהרת נגישות</Link>
             <a href="https://www.instagram.com/ahim.cohen" target="_blank" rel="noreferrer">

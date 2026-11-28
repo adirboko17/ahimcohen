@@ -116,6 +116,7 @@ export function AccountView() {
       {account.loading || account.email ? <p role="status">פותחים את האזור האישי…</p> :
         !account.client ? <p role="status">הכניסה לחשבון אינה זמינה כרגע. נסו שוב בהמשך.</p> :
         <form onSubmit={submit} className={styles.form}>
+          {!recipient && <p className="policy-note">פתיחת חשבון היא לבחירתכם. כתובת המייל משמשת את האחים כהן ואת שירות האימות לשליחת קוד ולזיהוי ההזמנות שלכם. <a href="/info/privacy">מדיניות פרטיות וזכויות עיון ותיקון</a></p>}
           <ol className={styles.steps} aria-label="שלבי הכניסה">
             <li aria-current={!recipient ? "step" : undefined}><span>{recipient ? <IconCheck size={14} /> : "1"}</span>כתובת מייל</li>
             <li aria-current={recipient ? "step" : undefined}><span>2</span>אימות קוד</li>

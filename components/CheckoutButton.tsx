@@ -45,6 +45,7 @@ export function CheckoutButton({ onPendingChange }: { onPendingChange?: (pending
     onPendingChange?.(false);
   }
   return <>
+    <p className="policy-note">התשלום מתבצע אצל Shopify. פרטי הקשר, המשלוח והתשלום דרושים לטיפול ברכישה. <a href="/info/terms">תקנון הרכישה והביטולים</a> · <a href="/info/privacy">מדיניות הפרטיות וזכויותיכם</a></p>
     {cartQuote.error && <p role="alert" className="err">{cartQuote.error} <button type="button" className="cart-edit-link" onClick={cartQuote.retry}>ניסיון נוסף</button></p>}
     {error && <p role="alert" className="err" style={{ margin: 0 }}>{error}</p>}
     <button type="button" className="btn" style={{ width: "100%", height: 58, fontSize: 16 }} disabled={pending || !cart.length || !cartQuote.quote} aria-busy={pending || cartQuote.pending} onClick={() => void checkout()}>
