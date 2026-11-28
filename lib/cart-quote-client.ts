@@ -23,10 +23,11 @@ export function quoteSignature(lines: QuoteLine[]) {
   return JSON.stringify([...merged].sort(([a], [b]) => a.localeCompare(b)).map(([, line]) => line));
 }
 
-export function cachedCartQuote(signature: string) {
-  const entry = cache.get(signature);
+export function cachedCartQuote(signature: string, shopperCart = false) {
+  const key = shopperCart ? "cart:" + signature : signature;
+  const entry = cache.get(key);
   if (!entry) return undefined;
-  if (entry.expires <= Date.now()) { cache.delete(signature); return undefined; }
+  if (entry.expires <= Date.now()) { cache.delete(key); return undefined; }
   return entry.quote;
 }
 
@@ -36,31 +37,32 @@ export function invalidateCartQuotes() {
   pending.clear();
 }
 
-export function requestCartQuote(signature: string): Promise<Response> {
-  const cached = cachedCartQuote(signature);
+export function requestCartQuote(signature: string, shopperCart = false): Promise<Response> {
+  const key = shopperCart ? "cart:" + signature : signature;
+  const cached = cachedCartQuote(signature, shopperCart);
   if (cached) return Promise.resolve({ ok: true, quote: cached });
-  const running = pending.get(signature);
+  const running = pending.get(key);
   if (running) return running;
   const request: Promise<Response> = Promise.resolve().then(async (): Promise<Response> => {
     try {
       const response = await fetch("/api/shopify/cart/quote", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lines: JSON.parse(signature) }), cache: "no-store",
+        body: JSON.stringify({ lines: JSON.parse(signature), ...(shopperCart && { shopperCart }) }), cache: "no-store",
         signal: AbortSignal.timeout(22_000),
       });
       if (!response.ok) throw new Error("Quote failed");
       const result: Response = await response.json();
-      if (result.ok && pending.get(signature) === request) {
+      if (result.ok && pending.get(key) === request) {
         if (cache.size >= 80) cache.delete(cache.keys().next().value!);
-        cache.set(signature, { quote: result.quote, expires: Date.now() + TTL });
+        cache.set(key, { quote: result.quote, expires: Date.now() + TTL });
       }
       return result;
     } catch {
       return { ok: false, error: "לא הצלחנו לעדכן את המחיר. נסו שוב." };
     } finally {
-      if (pending.get(signature) === request) pending.delete(signature);
+      if (pending.get(key) === request) pending.delete(key);
     }
   });
-  pending.set(signature, request);
+  pending.set(key, request);
   return request;
 }

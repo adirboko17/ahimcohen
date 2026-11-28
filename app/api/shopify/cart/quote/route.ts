@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       body.lines.some((line: unknown) => !line || typeof line !== "object")) {
       return Response.json({ ok: false, error: "הסל לא תקין." }, { status: 400, headers });
     }
-    return Response.json(await quoteShopifyCart(body.lines), { headers });
+    return Response.json(await quoteShopifyCart(body.lines, body.shopperCart === true), { headers });
   } catch {
     return Response.json({ ok: false, error: "לא הצלחנו לעדכן את המחיר. נסו שוב." }, { status: 500, headers });
   }

@@ -5,7 +5,7 @@ import { cachedCartQuote, invalidateCartQuotes, quoteSignature, requestCartQuote
 import type { CartLine } from "./types";
 import type { CartQuote } from "./cart-quote";
 
-export function useCartQuote(lines: Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId" | "packUnits">[]) {
+export function useCartQuote(lines: Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId" | "packUnits">[], shopperCart = false) {
   const signature = quoteSignature(lines);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{ key: string; quote?: CartQuote; error?: string }>();
@@ -25,21 +25,21 @@ export function useCartQuote(lines: Pick<CartLine, "pid" | "color" | "size" | "q
   }, [retry]);
   useEffect(() => {
     if (!active) return;
-    const cached = cachedCartQuote(signature);
+    const cached = cachedCartQuote(signature, shopperCart);
     if (cached) { setResult({ key, quote: cached }); return; }
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const response = await requestCartQuote(signature);
+        const response = await requestCartQuote(signature, shopperCart);
         if (!cancelled) setResult(response.ok ? { key, quote: response.quote } : { key, error: response.error });
       } catch {
         if (!cancelled) setResult({ key, error: "לא הצלחנו לעדכן את המחיר. נסו שוב." });
       }
     }, 80);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [key, signature, active]);
+  }, [key, signature, active, shopperCart]);
   const current = active && result?.key === key ? result : undefined;
-  const quote = active ? current?.quote ?? cachedCartQuote(signature) : undefined;
+  const quote = active ? current?.quote ?? cachedCartQuote(signature, shopperCart) : undefined;
   const error = current?.error;
   const pending = active && !current && !quote;
   return useMemo(() => ({ quote, pending, error, retry }), [quote, pending, error, retry]);

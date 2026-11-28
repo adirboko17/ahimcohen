@@ -58,7 +58,7 @@ export function StoreProvider({ children, customerAuth }: { children: React.Reac
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
   const [cart, setCart] = useState<CartLine[]>([]);
-  const cartQuote = useCartQuote(cart);
+  const cartQuote = useCartQuote(cart, true);
   const pricing = useMemo(() => ({ ...cartMath(cart), ...cartQuote.quote }), [cart, cartQuote.quote]);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);

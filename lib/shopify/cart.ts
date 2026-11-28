@@ -32,9 +32,9 @@ type CartPayload = {
   userErrors: { field?: string[] | null; message: string }[];
 };
 
-export async function createCart(lines: CartLineDraft[], buyerIp?: string, discountCodes: string[] = []) {
+export async function createCart(lines: CartLineDraft[], buyerIp?: string, discountCodes: string[] = [], buyerRequest?: Pick<Headers, "get">) {
   const input = { lines: lines.map(toCartLineInput), ...(discountCodes.length ? { discountCodes } : {}) };
-  const data = await storefront<{ cartCreate: CartPayload }>(CART_CREATE, { input }, buyerIp);
+  const data = await storefront<{ cartCreate: CartPayload }>(CART_CREATE, { input }, buyerIp, buyerRequest);
   return readCart(data.cartCreate);
 }
 

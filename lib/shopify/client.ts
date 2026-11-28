@@ -8,9 +8,21 @@ export async function storefront<T>(
   query: string,
   variables?: Record<string, unknown>,
   buyerIp?: string,
+  buyerRequest?: Pick<Headers, "get">,
 ): Promise<T> {
   const endpoint = storefrontEndpoint();
   const headers = storefrontHeaders(buyerIp);
+  if (buyerRequest) {
+    const cookie = (buyerRequest.get("cookie") || "").split(";").map(v => v.trim())
+      .filter(v => /^(?:_shopify_(?:essential|analytics|marketing|s|y)|_tracking_consent)=/.test(v)).join("; ");
+    if (cookie) headers.Cookie = cookie;
+    for (const name of ["user-agent", "sec-gpc", "referer"]) {
+      const value = buyerRequest.get(name);
+      if (value) headers[name] = value;
+    }
+    const origin = buyerRequest.get("origin");
+    if (origin) headers["Sec-Shopify-Storefront-Origin"] = origin;
+  }
   let response: Response;
   try {
     response = await fetch(endpoint, {

@@ -14,7 +14,7 @@ import type { PackUnit } from "@/lib/types";
 type CheckoutLine = { pid: string; color: string; size: string; qty: number; variantId?: string; packUnits?: PackUnit[] };
 
 export async function beginShopifyCheckout(lines: CheckoutLine[], expectedTotal?: number) {
-  const result = await prepareCart(lines);
+  const result = await prepareCart(lines, true);
   if (!result.ok) return result;
   if (expectedTotal !== undefined) {
     try {
@@ -29,8 +29,8 @@ export async function beginShopifyCheckout(lines: CheckoutLine[], expectedTotal?
   return { ok: true as const, checkoutUrl: result.cart.checkoutUrl, receipt: checkoutReceipt(result.cart.id) };
 }
 
-export async function quoteShopifyCart(lines: CheckoutLine[]) {
-  const result = await prepareCart(lines);
+export async function quoteShopifyCart(lines: CheckoutLine[], shopperCart = false) {
+  const result = await prepareCart(lines, shopperCart);
   if (!result.ok) return result;
   try {
     return { ok: true as const, quote: cartQuote(result.cart, result.drafts) };
@@ -39,7 +39,7 @@ export async function quoteShopifyCart(lines: CheckoutLine[]) {
   }
 }
 
-async function prepareCart(lines: CheckoutLine[]) {
+async function prepareCart(lines: CheckoutLine[], shopperCart: boolean) {
   try {
     if (!Array.isArray(lines) || lines.length === 0 || lines.length > 50) {
       return { ok: false as const, error: "הסל ריק." };
@@ -102,7 +102,7 @@ async function prepareCart(lines: CheckoutLine[]) {
     }
     const merged = mergeDrafts(drafts);
     const discountCodes = await managedDiscountCodes(merged);
-    const cart = discountCodes.length ? await createCart(merged, buyerIp, discountCodes) : await createCart(merged, buyerIp);
+    const cart = await createCart(merged, buyerIp, discountCodes.length ? discountCodes : undefined, shopperCart ? headerList : undefined);
     return { ok: true as const, cart, drafts: merged };
   } catch (error) {
     if (error instanceof ShopifyError) return { ok: false as const, error: hebrewShopifyError(error.message) };
