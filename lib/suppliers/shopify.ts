@@ -235,26 +235,43 @@ export type SupplierShopifyProduct = {
 };
 const variantFields = `id sku price compareAtPrice inventoryPolicy inventoryItem{tracked} sellableOnlineQuantity selectedOptions{name value} media(first:1){nodes{id}}
       source:metafield(namespace:"ahim_supplier",key:"variant_id"){value} availability:metafield(namespace:"ahim_supplier",key:"source_availability"){value}`;
+const draftPage = "pageInfo{hasNextPage endCursor}";
+const mediaFields = "id status alt ... on MediaImage{image{url}}";
+
 export async function readDraft(identifier: { id: string } | { handle: string }) {
   const { productByIdentifier } = await adminGraphQL<{ productByIdentifier: SupplierShopifyProduct | null }>(
     `query VerifySupplierDraft($identifier:ProductIdentifierInput!){
     productByIdentifier(identifier:$identifier){id status title vendor tags description source:metafield(namespace:"ahim_supplier",key:"product_id"){value}
-    collections(first:250){nodes{id}} media(first:250){nodes{id status alt ... on MediaImage{image{url}}}}
-    variants(first:50){pageInfo{hasNextPage endCursor} nodes{${variantFields}}}}}`,
+    collections(first:40){${draftPage} nodes{id}} media(first:40){${draftPage} nodes{${mediaFields}}}
+    variants(first:50){${draftPage} nodes{${variantFields}}}}}`,
     { identifier },
   );
-  if (productByIdentifier) {
-    let page = productByIdentifier.variants.pageInfo;
-    while (page?.hasNextPage) {
-      const { product } = await adminGraphQL<{ product: { variants: SupplierShopifyProduct["variants"] } }>(
-        `query MoreSupplierVariants($id:ID!,$after:String!){product(id:$id){variants(first:50,after:$after){pageInfo{hasNextPage endCursor} nodes{${variantFields}}}}}`,
-        { id: productByIdentifier.id, after: page.endCursor },
-      );
-      productByIdentifier.variants.nodes.push(...product.variants.nodes);
-      page = product.variants.pageInfo;
-    }
-  }
+  if (!productByIdentifier) return null;
+  const { id, collections, media, variants } = productByIdentifier;
+  await completeDraftConnection(id, "collections", collections, "id");
+  await completeDraftConnection(id, "media", media, mediaFields);
+  await completeDraftConnection(id, "variants", variants, variantFields);
   return productByIdentifier;
+}
+
+async function completeDraftConnection<T>(
+  id: string, field: "collections" | "media" | "variants", connection: Connection<T>, fields: string,
+) {
+  let page = connection.pageInfo;
+  const cursors = new Set<string>();
+  while (page?.hasNextPage) {
+    const after = page.endCursor;
+    if (!after || cursors.has(after)) throw new Error("Shopify לא השלימה את קריאת הטיוטה.");
+    cursors.add(after);
+    const { product } = await adminGraphQL<{ product: { next: Connection<T> } | null }>(
+      `query MoreSupplierDraftData($id:ID!,$after:String!){product(id:$id){
+        next:${field}(first:50,after:$after){${draftPage} nodes{${fields}}}}}`,
+      { id, after },
+    );
+    if (!product) throw new Error("טיוטת הספק השתנתה בזמן הקריאה.");
+    connection.nodes.push(...product.next.nodes);
+    page = product.next.pageInfo;
+  }
 }
 
 export async function importDraft(row: Preview, collectionIds: string[], preview = row.snapshot) {

@@ -187,6 +187,30 @@ test("category replacement verifies the new Shopify membership first and preserv
   assert.deepEqual([...memberships], ["marketing", "smart", "new"]);
   assert.deepEqual(events.slice(-4), [["save", ["new", "marketing"]], ["remove", "old"], ["reviewed", "new"], ["invalidate", "shop-catalog"]]);
 });
+test("draft verification reads every collection, media file, and variant across Shopify pages", async () => {
+  const page = (nodes, endCursor) => ({ nodes, pageInfo: { hasNextPage: Boolean(endCursor), endCursor } });
+  const draft = { id: "target", collections: page([{ id: "c1" }], "collection"),
+    media: page([{ id: "m1" }], "media"), variants: page([{ id: "v1" }], "variant") };
+  const { readDraft } = moduleFor("shopify", {
+    "server-only": {}, "./public-source": {}, "./catalog-model": moduleFor("catalog-model"), "./brand": supplierBrand,
+    "@/lib/shopify/config": {}, "./storage": {},
+    "@/lib/shopify/admin-bundles": { adminGraphQL: async (query, input) => {
+      if (input.identifier) {
+        assert.match(query, /collections\(first:40\)/);
+        assert.match(query, /media\(first:40\)/);
+        return { productByIdentifier: draft };
+      }
+      const key = { collection: "c2", media: "m2", variant: "v2" }[input.after];
+      assert.equal(input.id, "target");
+      assert.ok(key);
+      return { product: { next: page([{ id: key }], null) } };
+    } },
+  });
+  const found = await readDraft({ id: "target" });
+  assert.deepEqual([found.collections, found.media, found.variants].map(x => x.nodes.map(y => y.id)),
+    [["c1", "c2"], ["m1", "m2"], ["v1", "v2"]]);
+});
+
 test("legacy draft brand recovery verifies the link and keeps unrelated tags", async () => {
   const product = { id: "target", status: "DRAFT", vendor: "Ahim Cohenn", source: { value: "25" },
     tags: ["supplier:redback", "private-label"] };
