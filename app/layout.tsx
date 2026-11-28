@@ -13,7 +13,7 @@ import { managedBundleProducts } from "@/lib/admin/bundle-catalog";
 import { setCartProducts } from "@/lib/product-sets";
 import { readAdminStore } from "@/lib/admin/storage";
 import { visibleQuantityOffers } from "@/lib/admin/models";
-import { getAccountPreview } from "@/lib/account-preview";
+import { customerAuthConfig } from "@/lib/customer-auth-config";
 import "./globals.css";
 
 const assistant = Assistant({
@@ -59,7 +59,7 @@ async function ShopLayout({ children }: { children: React.ReactNode }) {
   const bundleProducts = await managedBundleProducts(catalog.products, admin.bundles, visibleQuantityOffers(admin));
   return (
     <CatalogProvider catalog={packCatalog({ ...catalog, products: [...applyAdminProducts(catalog.products, admin), ...bundleProducts, ...setCartProducts(catalog.products, admin.sets)] })}>
-      <StoreProvider accountPreviewPhone={getAccountPreview()?.phone}>
+      <StoreProvider customerAuth={customerAuthConfig()}>
         <Shell>{children}</Shell>
       </StoreProvider>
     </CatalogProvider>

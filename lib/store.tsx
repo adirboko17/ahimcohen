@@ -8,6 +8,7 @@ import { productColorIndex } from "./product-selection";
 import { updateCartSelection, updateCartUnitSelection } from "./cart-selection";
 import { useCartQuote } from "./use-cart-quote";
 import { useCheckoutReturn } from "./use-checkout-return";
+import { useCustomerAuth, type CustomerAuthConfig } from "./use-customer-auth";
 import { lockPageScroll } from "./page-scroll-lock";
 import { cartMath } from "./pricing";
 import type { AddItem, CartLine } from "./types";
@@ -29,9 +30,7 @@ type Store = {
   qSize: string | null;
   toast: string;
   toastOn: boolean;
-  auth: boolean;
-  phone: string;
-  accountPreviewPhone?: string;
+  account: ReturnType<typeof useCustomerAuth>;
   extraLock: boolean;
   anyOverlay: boolean;
   openCart: () => void;
@@ -48,15 +47,12 @@ type Store = {
   setLineSelection: (key: string, selection: { color: string; size: string }) => void;
   setUnitSelection: (key: string, selection: { color: string; size: string }) => void;
   flash: (msg: string) => void;
-  login: (phone: string) => void;
-  logout: () => void;
   setExtraLock: (on: boolean) => void;
 };
 
 const Ctx = createContext<Store | null>(null);
-const accountPreviewStorageKey = "ahim-account-preview-phone";
 
-export function StoreProvider({ children, accountPreviewPhone }: { children: React.ReactNode; accountPreviewPhone?: string }) {
+export function StoreProvider({ children, customerAuth }: { children: React.ReactNode; customerAuth: CustomerAuthConfig }) {
   const catalog = useCatalog();
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
@@ -74,9 +70,7 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
   const [qSize, setQSize] = useState<string | null>(null);
   const [toast, setToast] = useState("");
   const [toastOn, setToastOn] = useState(false);
-  const [previewSession, setPreviewSession] = useState("");
-  const auth = !!accountPreviewPhone && previewSession === accountPreviewPhone;
-  const phone = auth ? previewSession : "";
+  const account = useCustomerAuth(customerAuth);
   const [extraLockCount, setExtraLockCount] = useState(0);
   const extraLock = extraLockCount > 0;
   const setExtraLock = useCallback((on: boolean) => {
@@ -98,16 +92,6 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
     }
     setReady(true);
   }, []);
-
-  useEffect(() => {
-    if (!accountPreviewPhone) return;
-    try {
-      const saved = localStorage.getItem(accountPreviewStorageKey);
-      if (saved === accountPreviewPhone) setPreviewSession(saved);
-    } catch {
-      /* The preview can still run without saved browser state. */
-    }
-  }, [accountPreviewPhone]);
 
   useEffect(() => {
     if (ready) localStorage.setItem("ahim-cart", JSON.stringify(cart));
@@ -224,22 +208,6 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
     });
   }, [catalog]);
 
-  const login = useCallback((value: string) => {
-    if (value !== accountPreviewPhone) return;
-    setPreviewSession(value);
-    try {
-      localStorage.setItem(accountPreviewStorageKey, value);
-    } catch { /* Continue with the preview for this page session. */ }
-  }, [accountPreviewPhone]);
-
-  const logout = useCallback(() => {
-    setPreviewSession("");
-    try {
-      localStorage.removeItem(accountPreviewStorageKey);
-    } catch { /* Browser storage is unavailable. */ }
-    flash("התנתקתם מהחשבון");
-  }, [flash]);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeAll();
@@ -264,9 +232,7 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
       qSize,
       toast,
       toastOn,
-      auth,
-      phone,
-      accountPreviewPhone,
+      account,
       extraLock,
       anyOverlay,
       openCart,
@@ -283,8 +249,6 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
       setLineSelection,
       setUnitSelection,
       flash,
-      login,
-      logout,
       setExtraLock,
     }),
     [
@@ -302,9 +266,7 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
       qSize,
       toast,
       toastOn,
-      auth,
-      phone,
-      accountPreviewPhone,
+      account,
       extraLock,
       anyOverlay,
       openCart,
@@ -317,8 +279,6 @@ export function StoreProvider({ children, accountPreviewPhone }: { children: Rea
       setLineSelection,
       setUnitSelection,
       flash,
-      login,
-      logout,
     ]
   );
 

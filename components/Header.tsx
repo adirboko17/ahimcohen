@@ -26,7 +26,7 @@ export function Announcement() {
 export function Header() {
   const path = usePathname();
   const { categories, category } = useCatalog();
-  const { cart, openCart, openSearch, openMenu, auth } = useStore();
+  const { cart, openCart, openSearch, openMenu, account } = useStore();
   const count = cart.reduce((a, l) => a + l.qty, 0);
   const [mega, setMega] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
@@ -94,7 +94,7 @@ export function Header() {
           <div className="header-side end">
             <Link href="/account" className="icon-btn">
               <IconUser />
-              {auth ? "אזור אישי" : "חשבון"}
+              {account.email ? "אזור אישי" : "חשבון"}
             </Link>
             <button className="cart-btn" onClick={openCart}>
               <IconBag />

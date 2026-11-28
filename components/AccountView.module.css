@@ -1,0 +1,7 @@
+.main { padding: clamp(24px, 5vw, 72px) var(--gutter) clamp(56px, 7vw, 112px); }
+.card { max-width: 540px; margin-inline-start: max(0px, calc((100% - 1160px) / 2)); }
+.card p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.form { display: grid; gap: 20px; }
+.form input { text-align: start; }
+.links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.links button { background: none; border: 0; padding: 4px 0; text-decoration: underline; font: inherit; }
