@@ -1,5 +1,15 @@
-.main { padding: clamp(24px, 5vw, 72px) var(--gutter) clamp(56px, 7vw, 112px); }
-.card { max-width: 540px; margin-inline-start: max(0px, calc((100% - 1160px) / 2)); }
+.main { display: grid; place-items: center; min-height: min(72svh, 760px); padding: clamp(32px, 6vw, 72px) var(--gutter); background: #f7f7f4; }
+.card { width: min(100%, 496px); min-width: 0; padding: clamp(24px, 4.4vw, 48px); background: #fff; border: 1px solid #dfdfd7; border-radius: 16px; box-shadow: 0 12px 40px #17171009; }
+.authHeader { display: grid; justify-items: center; gap: 14px; margin-bottom: 24px; text-align: center; }
+.symbol { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #fff3bc; }
+.authHeader h1, .hero h1 { margin: 0; line-height: 1; font-size: clamp(42px, 5vw, 58px); }
+.steps { margin: 0; padding: 0 0 20px; list-style: none; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #e3e3dc; }
+.steps li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #62625a; }
+.steps li + li::before { content: ""; width: clamp(20px, 5vw, 40px); height: 1px; background: #cecec6; margin: 0 9px; }
+.steps li span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f1f1eb; font-weight: 700; }
+.steps li[aria-current] { color: #151510; font-weight: 700; }
+.steps li[aria-current] span { background: var(--yellow); }
+.hint { text-align: center; color: #54544d; }
 .card p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .form { display: grid; gap: 20px; }
 .form input { text-align: start; }
@@ -17,3 +27,34 @@
 .form .submit:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
 .links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .links button { background: none; border: 0; padding: 4px 0; text-decoration: underline; font: inherit; }
+.card > p[role="alert"] { margin-top: 16px; }
+.dashboard { width: min(calc(100% - 2 * var(--gutter)), 960px); margin: clamp(28px, 5vw, 64px) auto; }
+.hero { display: grid; grid-template-columns: 1.2fr 1fr; align-items: stretch; overflow: hidden; background: #171817; color: #fff; border-radius: 14px; }
+.hero > div:first-child { padding: clamp(28px, 4vw, 52px); align-self: center; }
+.hero h1::before { content: ""; display: block; background: var(--yellow); width: 36px; height: 4px; margin-bottom: 16px; }
+.hero p { margin: 12px 0 0; color: #e5e5db; overflow-wrap: anywhere; }
+.heroImage { background: center / cover url("/images/hero/parkes-workshop.webp"); }
+.dashboardGrid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; margin-top: 18px; }
+.tile { min-width: 0; display: flex; flex-direction: column; align-items: stretch; background: #fff; border: 1px solid #deded6; border-radius: 12px; padding: clamp(20px, 3vw, 32px); }
+.tile h2 { display: flex; align-items: center; gap: 10px; font-size: 23px; margin: 0 0 16px; }
+.details { margin: 0; }
+.details > div { margin: 0 0 14px; }
+.details dt { color: #5a5a54; font-size: 14px; }
+.details dd { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: 3px 0 0; font-weight: 650; overflow-wrap: anywhere; }
+.details dd bdi { min-width: 0; }
+.details dd svg, .verified { color: #32654a; }
+.verified { font-size: 13px; }
+.cartCount { margin: 0 0 24px; }
+.action { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 0; margin-top: auto; border: 0; border-top: 1px solid #e5e5df; background: transparent; color: #151510; text-decoration: none; font: inherit; font-weight: 700; cursor: pointer; }
+.action:hover, .accountFooter a:hover { text-decoration: underline; }
+.edit { display: grid; gap: 12px; }
+.edit > div, .accountFooter nav { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+.edit button[type="submit"] { min-height: 44px; padding-inline: 24px; border-radius: 6px; }
+.textButton { background: transparent; border: 0; font: inherit; text-decoration: underline; cursor: pointer; padding: 8px 0; }
+.accountFooter { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-top: 18px; font-size: 15px; }
+@media (max-width: 640px) {
+  .dashboardGrid { grid-template-columns: 1fr; }
+  .hero { grid-template-columns: 1.6fr 1fr; }
+  .heroImage { background-image: url("/images/hero/parkes-workshop-mobile.webp"); }
+  .hero > div:first-child { padding: 24px 18px; }
+}

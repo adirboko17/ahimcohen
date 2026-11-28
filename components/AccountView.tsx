@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { IconLock } from "./icons";
+import { IconCheck, IconLock, IconUser } from "./icons";
 import styles from "./AccountView.module.css";
 
-type Operation = "send" | "verify" | "logout";
+type Operation = "send" | "verify";
 const codeLength = 6;
 const emptyDigits = () => Array<string>(codeLength).fill("");
 
 export function AccountView() {
   const { account, flash } = useStore();
+  const router = useRouter();
   const [draft, setDraft] = useState("");
   const [recipient, setRecipient] = useState("");
   const [digits, setDigits] = useState(emptyDigits);
@@ -22,6 +24,10 @@ export function AccountView() {
   const [now, setNow] = useState(0);
   const remaining = Math.max(0, Math.ceil((retryAt - now) / 1000));
   const codeInputs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (account.email) router.replace("/account");
+  }, [account.email, router]);
 
   useEffect(() => {
     if (recipient) codeInputs.current[0]?.focus();
@@ -76,25 +82,20 @@ export function AccountView() {
         setRetryAt(time + 60_000);
         setNow(time);
         if (recipient) flash("קוד חדש נשלח למייל");
-      } else if (operation === "verify") {
+      } else {
         const { error } = await auth.verifyOtp({ email: recipient, token: code.trim(), type: "email" });
         if (error) throw error;
         setRecipient("");
         setDigits(emptyDigits());
         setDraft("");
         flash("התחברתם בהצלחה");
-      } else {
-        const { error } = await auth.signOut({ scope: "local" });
-        if (error) throw error;
-        flash("התנתקתם מהחשבון");
       }
     } catch (cause) {
       if (cause && typeof cause === "object" && "status" in cause && cause.status === 429)
         setError("בוצעו כמה ניסיונות ברצף. המתינו מעט ונסו שוב.");
       else if (operation === "verify" && cause && typeof cause === "object" && "code" in cause && cause.code === "otp_expired")
         setError("הקוד שגוי או שפג תוקפו. בדקו את הקוד האחרון שקיבלתם או בקשו קוד חדש.");
-      else setError(operation === "send" ? "שליחת הקוד נכשלה. בדקו את כתובת המייל ונסו שוב." :
-        operation === "verify" ? "אימות הקוד נכשל. נסו שוב." : "ההתנתקות נכשלה. נסו שוב.");
+      else setError(operation === "send" ? "שליחת הקוד נכשלה. בדקו את כתובת המייל ונסו שוב." : "אימות הקוד נכשל. נסו שוב.");
     } finally {
       pending.current = false;
       setBusy(null);
@@ -106,20 +107,20 @@ export function AccountView() {
     void run(recipient ? "verify" : "send");
   }
 
-  return <main className={`wrap ${styles.main}`}>
-    <header className="account-intro"><h1 className="k">האזור האישי</h1></header>
-    <section className={`panel ${styles.card}`}>
-      {account.loading ? <p role="status">טוענים את החשבון…</p> :
-        account.email ? <>
-          <h2 className="k account-form-title">החשבון שלי</h2>
-          <p>מחוברים עם כתובת המייל <bdi>{account.email}</bdi></p>
-          <button type="button" className="btn btn-line" disabled={!!busy} onClick={() => void run("logout")}>
-            {busy === "logout" ? "מתנתקים…" : "התנתקות"}
-          </button>
-        </> : !account.client ? <p role="status">הכניסה לחשבון אינה זמינה כרגע. נסו שוב בהמשך.</p> :
+  return <main className={styles.main}>
+    <section className={styles.card}>
+      <div className={styles.authHeader}>
+        <span className={styles.symbol}>{recipient ? <IconLock size={24} /> : <IconUser size={24} />}</span>
+        <h1 className="k">{recipient ? "אימות כתובת המייל" : "כניסה לאזור האישי"}</h1>
+      </div>
+      {account.loading || account.email ? <p role="status">פותחים את האזור האישי…</p> :
+        !account.client ? <p role="status">הכניסה לחשבון אינה זמינה כרגע. נסו שוב בהמשך.</p> :
         <form onSubmit={submit} className={styles.form}>
-          <h2 className="k account-form-title">{recipient ? "הזנת קוד אימות" : "כניסה והרשמה"}</h2>
-          <p className="muted" aria-live="polite">{recipient
+          <ol className={styles.steps} aria-label="שלבי הכניסה">
+            <li aria-current={!recipient ? "step" : undefined}><span>{recipient ? <IconCheck size={14} /> : "1"}</span>כתובת מייל</li>
+            <li aria-current={recipient ? "step" : undefined}><span>2</span>אימות קוד</li>
+          </ol>
+          <p className={styles.hint} aria-live="polite">{recipient
             ? <>שלחנו קוד חד־פעמי לכתובת <bdi>{recipient}</bdi>.</>
             : "נשלח לכם קוד חד־פעמי למייל. בכניסה הראשונה ייפתח עבורכם חשבון."}</p>
           {recipient ? <fieldset className={styles.codeField}>
