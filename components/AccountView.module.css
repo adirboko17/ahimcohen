@@ -45,6 +45,15 @@
 .details dd svg, .verified { color: #32654a; }
 .verified { font-size: 13px; }
 .cartCount { margin: 0 0 24px; }
+.history { margin-top: 18px; padding: clamp(20px, 3vw, 32px); border: 1px solid #deded6; border-radius: 12px; }
+.history h2, .orderHeading, .orderActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.history h2, .orderHeading h3 { margin: 0; }
+.history > p { margin: 8px 0; color: #54544d; }
+.order { border-top: 1px solid #e5e5df; margin-top: 18px; padding-top: 18px; }
+.orderHeading time { color: #65655d; }
+.orderHeading strong { margin-inline-start: auto; }
+.orderActions button { min-height: 44px; }
+.orderActions button:first-child { border-radius: 6px; padding-inline: 18px; }
 .action { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 0; margin-top: auto; border: 0; border-top: 1px solid #e5e5df; background: transparent; color: #151510; text-decoration: none; font: inherit; font-weight: 700; cursor: pointer; }
 .action:hover, .accountFooter a:hover { text-decoration: underline; }
 .edit { display: grid; gap: 12px; }

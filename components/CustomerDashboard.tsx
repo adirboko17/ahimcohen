@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useStore } from "@/lib/store";
 import { IconBag, IconCheck, IconFwd, IconUser } from "./icons";
 import styles from "./AccountView.module.css";
+import { CustomerOrderHistory } from "./CustomerOrderHistory";
 
 export function CustomerDashboard() {
   const { account } = useStore();
@@ -87,6 +88,7 @@ function DashboardContent() {
           : <Link className={styles.action} href="/">להמשך קניות<IconFwd /></Link>}
       </section>
     </div>
+    <CustomerOrderHistory />
     {error && <p className="err" role="alert">{error}</p>}
     <footer className={styles.accountFooter}><nav aria-label="שירות לקוחות">
       <Link href="/info/shipping">משלוחים והחזרות</Link><Link href="/info/contact">יצירת קשר</Link>
