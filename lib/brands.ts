@@ -13,6 +13,7 @@ export const BRANDS: Brand[] = [
   { id: "kratos", name: "KRATOS", logo: "/images/brands/kratos.svg", featured: true },
   { id: "albatros", name: "ALBATROS", logo: "/images/brands/albatros.webp", featured: true },
   { id: "birkenstock", name: "Birkenstock", logo: "/images/brands/birkenstock.svg", featured: true },
+  { id: "the-north-face", name: "The North Face", logo: "/images/brands/the-north-face.webp" },
   { id: "jeep", name: "Jeep", logo: "/images/brands/jeep.webp" },
   { id: "neri", name: "Neri", logo: "/images/brands/neri.webp" },
   { id: "medop", name: "MEDOP", logo: "/images/brands/medop.webp" },

@@ -12,7 +12,7 @@ function load(path, dependencies = {}) {
 }
 const brands = load('../lib/brands.ts');
 const { productBrand } = load('../lib/shopify/product-brand.ts', { 'server-only': {}, '@/lib/brand-products.json': index, '@/lib/brands': brands });
-const { BRANDS, brandById, canonicalBrandName, uniqueBrandNames } = brands;
+const { BRANDS, brandById, brandByName, canonicalBrandName, uniqueBrandNames } = brands;
 
 test('supplier imports resolve to audited manufacturers without blanket assignment', () => {
   assert.equal(productBrand({ handle: 'כפפות-showa-376', vendor: 'worker.co.il' }), 'SHOWA');
@@ -57,11 +57,20 @@ test('filter names are canonical and supplier domains do not impersonate a manuf
 });
 test('featured brand destinations contain audited products and original local logos', () => {
   assert.equal(new Set(BRANDS.map(b => b.id)).size, BRANDS.length);
+  const auditedNames = new Set(Object.values(index));
+  auditedNames.add(productBrand({ handle: 'ahim-16d0c6eb9436254a-15407761359035', vendor: 'The North Face' }));
   for (const brand of BRANDS) {
-    assert.ok(Object.values(index).includes(brand.name), brand.name);
+    assert.ok(auditedNames.has(brand.name), brand.name);
     assert.equal(brandById(brand.id), brand);
     if (brand.featured) assert.ok(brand.logo && existsSync(resolve(__dirname, '../public' + brand.logo)), brand.name);
   }
   assert.equal(brandById('unknown'), undefined);
   assert.ok(!BRANDS.some(b => ['FORCE', '3M', 'Vibram'].includes(b.name)));
+});
+
+test('The North Face vendor resolves to its product logo', () => {
+  const brand = brandByName('  THE NORTH FACE  ');
+  assert.equal(brand.id, 'the-north-face');
+  assert.equal(brand.logo, '/images/brands/the-north-face.webp');
+  assert.ok(existsSync(resolve(__dirname, '../public' + brand.logo)));
 });
