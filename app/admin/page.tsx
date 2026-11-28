@@ -23,6 +23,7 @@ import "./admin.css";
 import { Suppliers } from "./Suppliers";
 import { ColorReview } from "./ColorReview";
 import { BusinessQuotes } from "./BusinessQuotes";
+import { AdminNavigation } from "./AdminNavigation";
 import { NewProductForm } from "./NewProductForm";
 import "./new-product.css";
 import { BRANDS, uniqueBrandNames } from "@/lib/brands";
@@ -126,12 +127,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
       <div className="admin-layout">
-        <nav aria-label="כלי ניהול" className="admin-nav" key={query}>
+        <AdminNavigation key={query}>
           <Link className="admin-nav-overview" href="/admin" prefetch={false} aria-current={overviewView ? "page" : undefined}>
             <span className="admin-nav-icon" aria-hidden="true"><IconHome /></span>{overview.title}
           </Link>
           {toolGroups.map(({ label, Icon: GroupIcon, tools }) => (
-            <details key={label} name="admin-tools" className="admin-nav-group" open={tools.some(tool => tool === query)}>
+            <details key={label} className="admin-nav-group" open={tools.some(tool => tool === query)}>
               <summary><span className="admin-nav-icon"><GroupIcon /></span>{label}<span className="admin-nav-chevron"><IconFwd /></span></summary>
               <div className="admin-nav-children">{tools.map(key =>
                 <Link key={key} href={adminUrl(key)} prefetch={false} aria-current={query === key ? "page" : undefined}>
@@ -140,7 +141,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               )}</div>
             </details>
           ))}
-        </nav>
+        </AdminNavigation>
         <section className="admin-main" aria-labelledby="admin-title">
           <header className={categoryView ? "admin-section-heading storefront-category-heading" : "admin-section-heading"}>
             {backHref && <AdminBackLink href={backHref} label={reviewHref ? "חזרה לכל המוצרים" : undefined} />}

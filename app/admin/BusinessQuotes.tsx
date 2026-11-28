@@ -27,7 +27,7 @@ export async function BusinessQuotes({ requestedPage, search }: { requestedPage?
   }
   return <div className={styles.list}>
     {searchForm}
-    {!result.quotes.length && <p className="admin-panel supplier-box">{page > 1 ? "אין בקשות נוספות בעמוד הזה." : query ? <>לא נמצאו בקשות עבור ״<bdi>{query}</bdi>״.</> : "טרם התקבלו בקשות להצעת מחיר."}</p>}
+    {!result.quotes.length && <p className={`admin-panel ${styles.empty}`}>{page > 1 ? "אין בקשות נוספות בעמוד הזה." : query ? <>לא נמצאו בקשות עבור ״<bdi>{query}</bdi>״.</> : "טרם התקבלו בקשות להצעת מחיר."}</p>}
     {result.quotes.map(({ id, createdAt, items, branding, contact, logoName }) => {
       const units = items.reduce((total, item) => total + Object.values(item.sizes).reduce((sum, qty) => sum + qty, 0), 0);
       return <details className={styles.card} key={id} open={result.quotes.length === 1}>

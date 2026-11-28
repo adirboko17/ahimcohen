@@ -6,6 +6,8 @@
 .searchField:focus-within { outline: 2px solid #876a00; outline-offset: 1px; }
 .search button { min-height: 44px; padding-inline: 20px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; }
 .search a { padding: 8px; text-decoration: underline; text-underline-offset: 3px; }
+.empty { margin: 0; padding: 18px; overflow-wrap: anywhere; }
+.searchField input:placeholder-shown { direction: rtl; }
 .card {
   min-width: 0; background: #fff; color: var(--ink);
   border: 1px solid var(--admin-border); border-radius: 12px;
