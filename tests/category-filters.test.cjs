@@ -31,6 +31,7 @@ function load(file, dependencies = {}) {
       : name === "@/lib/brands" ? load("lib/brands.ts")
       : name === "@/lib/product-search" ? load("lib/product-search.ts")
       : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
+      : name === "./UnitSwatchSelect" ? load("components/UnitSwatchSelect.tsx", dependencies)
       : name === "@/lib/quantity-selection" ? load("lib/quantity-selection.ts", { "./sizes": sizes })
       : name === "@/lib/quantity-offers" ? load("lib/quantity-offers.ts")
       : name === "@/lib/checkout-return" ? load("lib/checkout-return.ts")
@@ -451,6 +452,7 @@ test("entering a quantity offer preselects its quantity while a packed product s
   assert.match(renderProduct(shirt, undefined, undefined, [], true), /class="qty"[\s\S]*?<span>2<\/span>/);
   const mixed = renderProduct(shirt, undefined, undefined, [], true);
   assert.match(mixed, /aria-label="צבע ליחידה 1"/);
+  assert.match(mixed, /role="combobox" aria-label="צבע ליחידה 1"[^>]*><span aria-hidden="true" class="swatch-dot" style="background:[^"]+"/);
   assert.match(mixed, /aria-label="מידה ליחידה 2"/);
   assert.match(mixed, /בחרו מידה לכל יחידה/);
   assert.equal((mixed.match(/<fieldset/g) || []).length, 2);
@@ -458,6 +460,44 @@ test("entering a quantity offer preselects its quantity while a packed product s
   const pack = { ...shirt, name: "מארז שתי חולצות בייסיק", price: 99, was: 119 };
   assert.match(renderProduct(pack, undefined, undefined, [], true), /class="qty"[\s\S]*?<span>1<\/span>/);
   assert.doesNotMatch(renderProduct(pack, undefined, undefined, [], true), /צבע ליחידה/);
+});
+
+test("a bundle variant shows its mapped color in the menu and after selection, and skips sold-out variants", () => {
+  let active = null;
+  const select = load("components/UnitSwatchSelect.tsx", { react: {
+    useEffect() {}, useId: () => "swatches", useRef: value => ({ current: value }),
+    useState: () => [active, value => { active = value; }],
+  } }).UnitSwatchSelect;
+  const choices = [
+    { id: "gray", color: "אפור", size: "M", available: true, optionsLabel: "אפור · M · כותנה" },
+    { id: "navy", color: "navy", size: "M", available: false, optionsLabel: "כחול כהה · M · כותנה" },
+    { id: "custom", color: "גוון מיוחד", size: "L", available: true, optionsLabel: "גוון מיוחד · L · כותנה" },
+  ];
+  const { QuantityUnitPicker } = load("components/QuantityUnitPicker.tsx", {
+    "@/lib/catalog": colors, "@/lib/sizes": sizes, "./UnitSwatchSelect": { UnitSwatchSelect: select },
+    "@/lib/catalog-context": { useCatalog: () => ({ colorMappings: { "גוון מיוחד": { family: "blue", swatch: "#123456" } } }) },
+  });
+  let picked = choices[0];
+  function render() {
+    const tree = QuantityUnitPicker({ product: { choices, colors: choices.map(choice => choice.color) },
+      rows: [{ variant: picked, valid: true }], showErrors: false, selectByVariant: true,
+      onChange: (unit, selection) => { assert.equal(unit, 0); picked = choices.find(choice => choice.id === selection.variantId); },
+    });
+    const field = tree.props.children[2][0].props.children[1].props.children;
+    return select(field.props);
+  }
+  const trigger = () => render().props.children[1];
+  trigger().props.onClick();
+  const menu = render().props.children[2];
+  assert.deepEqual(menu.props.children.map(option => option.props.children[0].props.style.background),
+    [colors.swatchColor("אפור"), colors.swatchColor("navy"), "#123456"]);
+  assert.equal(menu.props.children[1].props["aria-disabled"], true);
+  menu.props.children[1].props.onClick();
+  assert.equal(picked.id, "gray");
+  for (const key of ["ArrowDown", "Enter"]) trigger().props.onKeyDown({ key, preventDefault() {} });
+  assert.equal(picked.id, "custom");
+  assert.equal(trigger().props["aria-expanded"], false);
+  assert.equal(trigger().props.children[0].props.style.background, "#123456");
 });
 
 test("product opens with the linked color selected and its photo first in both galleries", () => {

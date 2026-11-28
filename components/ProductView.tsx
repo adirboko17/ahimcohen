@@ -173,7 +173,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
   const requireSelection = () => {
     setSizeErr(true);
     flash(selectByVariant ? unitPrompt : separateUnits ? "בחרו צבע ומידה לכל יחידה" : "בחרו מידה");
-    unitPicker.current?.querySelector<HTMLSelectElement>('select[data-missing="true"]')?.focus();
+    unitPicker.current?.querySelector<HTMLElement>('[data-missing="true"]:not(:disabled)')?.focus();
   };
   const add = () => {
     if (!selectionReady) {

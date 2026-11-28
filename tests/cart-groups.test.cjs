@@ -68,10 +68,11 @@ function dependencies(store) {
     "@/lib/cart-groups": { cartGroups, cartGroupPrice, offerMissingQuantity },
     "@/lib/quantity-selection": load("lib/quantity-selection.ts"),
     "@/lib/pricing": { fmt: (n) => `${n} ₪` },
-    "@/lib/catalog": { colorLabel: colors.colorLabel, phOf: () => "" },
+    "@/lib/catalog": { colorLabel: colors.colorLabel, swatchColor: colors.swatchColor, phOf: () => "" },
     "@/lib/product-selection": { cartProductImage: () => undefined },
     "@/lib/sizes": sizes,
     "./ProductImage": { ProductImage: () => null },
+    "./UnitSwatchSelect": component("UnitSwatchSelect", {}),
   };
 }
 test("cart renders a single offer total and every unit's Hebrew color and normalized size", () => {
