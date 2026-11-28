@@ -2,26 +2,55 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useStore } from "@/lib/store";
+import { IconLock } from "./icons";
 import styles from "./AccountView.module.css";
 
 type Operation = "send" | "verify" | "logout";
+const codeLength = 6;
+const emptyDigits = () => Array<string>(codeLength).fill("");
 
 export function AccountView() {
   const { account, flash } = useStore();
   const [draft, setDraft] = useState("");
   const [recipient, setRecipient] = useState("");
-  const [code, setCode] = useState("");
+  const [digits, setDigits] = useState(emptyDigits);
+  const code = digits.join("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<Operation | null>(null);
   const pending = useRef(false);
   const [retryAt, setRetryAt] = useState(0);
   const [now, setNow] = useState(0);
   const remaining = Math.max(0, Math.ceil((retryAt - now) / 1000));
-  const codeInput = useRef<HTMLInputElement>(null);
+  const codeInputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    if (recipient) codeInput.current?.focus();
-  }, [recipient]);
+    if (recipient) codeInputs.current[0]?.focus();
+  }, [recipient, retryAt]);
+
+  function enterDigits(index: number, raw: string) {
+    const entered = raw.replace(/\s/g, "");
+    if (!/^\d*$/.test(entered)) return;
+    if (entered.length > codeLength) {
+      setError("הקוד צריך להכיל 6 ספרות. השתמשו בקוד האחרון שנשלח אליכם.");
+      return;
+    }
+    const start = entered.length === codeLength ? 0 : index;
+    const next = digits.slice();
+    if (entered) {
+      for (let offset = 0; offset < entered.length && start + offset < codeLength; offset++) {
+        next[start + offset] = entered[offset];
+      }
+    } else {
+      next[start] = "";
+    }
+    setDigits(next);
+    setError("");
+    if (entered) {
+      const target = codeInputs.current[Math.min(start + entered.length, codeLength - 1)];
+      target?.focus();
+      target?.select();
+    }
+  }
 
   useEffect(() => {
     if (!remaining) return;
@@ -32,6 +61,7 @@ export function AccountView() {
   async function run(operation: Operation) {
     const auth = account.client;
     if (!auth || pending.current) return;
+    if (operation === "verify" && !/^\d{6}$/.test(code)) return;
     pending.current = true;
     setBusy(operation);
     setError("");
@@ -41,7 +71,7 @@ export function AccountView() {
         const { error } = await auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
         if (error) throw error;
         setRecipient(email);
-        setCode("");
+        setDigits(emptyDigits());
         const time = Date.now();
         setRetryAt(time + 60_000);
         setNow(time);
@@ -50,7 +80,7 @@ export function AccountView() {
         const { error } = await auth.verifyOtp({ email: recipient, token: code.trim(), type: "email" });
         if (error) throw error;
         setRecipient("");
-        setCode("");
+        setDigits(emptyDigits());
         setDraft("");
         flash("התחברתם בהצלחה");
       } else {
@@ -92,22 +122,40 @@ export function AccountView() {
           <p className="muted" aria-live="polite">{recipient
             ? <>שלחנו קוד חד־פעמי לכתובת <bdi>{recipient}</bdi>.</>
             : "נשלח לכם קוד חד־פעמי למייל. בכניסה הראשונה ייפתח עבורכם חשבון."}</p>
-          {recipient ? <label className="field">הקוד שקיבלתם במייל
-            <input ref={codeInput} dir="ltr" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6,10}"
-              minLength={6} maxLength={10} required value={code} readOnly={!!busy}
-              onChange={e => { setCode(e.target.value.replace(/\D/g, "")); setError(""); }} />
-          </label> : <label className="field">כתובת מייל
+          {recipient ? <fieldset className={styles.codeField}>
+            <legend>קוד האימות בן 6 הספרות</legend>
+            <div className={styles.digits} dir="ltr">
+              {digits.map((digit, i) => <input key={i} ref={el => { codeInputs.current[i] = el; }}
+                type="text" inputMode="numeric" autoComplete={i === 0 ? "one-time-code" : "off"}
+                aria-label={`ספרה ${i + 1} מתוך 6`} required pattern="[0-9]" value={digit} readOnly={!!busy}
+                onFocus={e => e.currentTarget.select()} onClick={e => e.currentTarget.select()}
+                onChange={e => enterDigits(i, e.target.value)}
+                onPaste={e => { e.preventDefault(); if (!busy) enterDigits(i, e.clipboardData.getData("text")); }}
+                onKeyDown={e => {
+                  if (busy) return;
+                  if (e.key === "Backspace" && !digit && i > 0) {
+                    e.preventDefault();
+                    enterDigits(i - 1, "");
+                    codeInputs.current[i - 1]?.focus();
+                  } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                    e.preventDefault();
+                    codeInputs.current[i + (e.key === "ArrowLeft" ? -1 : 1)]?.focus();
+                  }
+                }} />)}
+            </div>
+          </fieldset> : <label className="field">כתובת מייל
             <input dir="ltr" type="email" name="email" autoComplete="email" placeholder="name@example.com"
               required maxLength={254} value={draft} readOnly={!!busy} onChange={e => { setDraft(e.target.value); setError(""); }} />
           </label>}
-          <button className="btn" disabled={!!busy} type="submit">{recipient
+          <button className={`btn btn-yellow btn-lg ${styles.submit}`} disabled={!!busy || (!!recipient && code.length !== codeLength)} type="submit">
+            {recipient && <IconLock size={18} />}{recipient
             ? busy === "verify" ? "מאמתים…" : "אימות וכניסה"
             : busy === "send" ? "שולחים…" : "שליחת קוד למייל"}</button>
           {recipient && <div className={styles.links}>
             <button type="button" disabled={!!busy || remaining > 0} onClick={() => void run("send")}>
               {remaining ? `שליחה חוזרת בעוד ${remaining} שניות` : "שליחת קוד חדש"}
             </button>
-            <button type="button" disabled={!!busy} onClick={() => { setRecipient(""); setCode(""); setError(""); }}>שינוי כתובת מייל</button>
+            <button type="button" disabled={!!busy} onClick={() => { setRecipient(""); setDigits(emptyDigits()); setError(""); }}>שינוי כתובת מייל</button>
           </div>}
         </form>}
       {error && <p className="err" role="alert">{error}</p>}

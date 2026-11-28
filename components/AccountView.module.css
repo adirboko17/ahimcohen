@@ -3,5 +3,17 @@
 .card p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .form { display: grid; gap: 20px; }
 .form input { text-align: start; }
+.codeField { border: 0; padding: 0; margin: 0; min-width: 0; }
+.codeField legend { padding: 0; margin-bottom: 9px; font-size: 15px; font-weight: 700; }
+.digits { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(5px, 1.6vw, 10px); }
+.digits input {
+  min-width: 0; width: 100%; height: clamp(44px, 12vw, 60px); padding: 0;
+  text-align: center; font: inherit; font-size: clamp(22px, 5vw, 28px); font-weight: 700;
+  font-variant-numeric: tabular-nums; color: #111; background: #fff; border: 1px solid #a7a7a0; border-radius: 6px;
+}
+.digits input:focus { outline: 2px solid #111; outline-offset: 1px; }
+.form .submit { width: 100%; min-height: 52px; gap: 9px; border-radius: 6px; font-weight: 800; }
+.form .submit:disabled { background: #e5e5df; color: #55554e; cursor: not-allowed; }
+.form .submit:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
 .links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .links button { background: none; border: 0; padding: 4px 0; text-decoration: underline; font: inherit; }
