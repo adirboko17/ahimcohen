@@ -2,7 +2,10 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { InvalidHeroImage, uploadedHero, uploadHero } from "@/lib/admin/hero-images";
-import type { Product } from "@/lib/catalog";
+import { CATS, type Product } from "@/lib/catalog";
+import { storefrontCategories } from "@/lib/category-placement";
+import { labelTargetKeys } from "./labels";
+import type { AdminLabel } from "./models";
 import { activeManagedBundleTiers, bundleGroupSnapshot, bundleTierName, quantityOfferTier, type AdminBundle, type AdminHero, type AdminImage, type AdminOffer, type AdminSaveResult, type AdminStore, type HeroDevice, type HeroTarget } from "@/lib/admin/models";
 import { bundleRevision } from "@/lib/admin/bundle-mapping";
 import { AdminEditBusy, changeAdminStore, upsert } from "@/lib/admin/storage";
@@ -228,6 +231,37 @@ export async function saveAdmin(data: FormData): Promise<AdminSaveResult> {
 }
 
 async function saveSection(store: AdminStore, section: Section, id: string, data: FormData) {
+  if (section === "labels") {
+    const base = { id, text: required(data, "label", 60) };
+    const scope = data.has("scope") ? required(data, "scope") : "product";
+    let label: AdminLabel;
+    if (scope === "all") {
+      label = { ...base, scope };
+    } else if (scope === "categories") {
+      const parents = data.getAll("parentId"), subs = data.getAll("sub");
+      if (!parents.length || parents.length !== subs.length) throw new InvalidInput("בחרו קטגוריה לכל שיוך.");
+      const taxonomy = storefrontCategories(CATS, store.categoryPlacements);
+      const paths = parents.map((parent, index) => {
+        const category = taxonomy.find(entry => entry.id === parent);
+        const sub = subs[index];
+        if (!category || typeof sub !== "string" || (sub && !category.subs.includes(sub))) throw new InvalidInput("בחרו קטגוריה ותת־קטגוריה תואמות מהרשימה.");
+        return { parentId: category.id, sub };
+      });
+      label = { ...base, scope, paths };
+    } else if (scope === "product") {
+      const productId = required(data, "productId", 512);
+      if (!(await loadShopCatalog()).products.some(product => product.id === productId)) throw new InvalidInput("בחרו מוצר שקיים בקטלוג.");
+      label = { ...base, productId };
+    } else throw new InvalidInput("בחרו היכן להציג את התווית.");
+    const keys = labelTargetKeys(label);
+    const selected = new Set(keys);
+    if (selected.size !== keys.length) throw new InvalidInput("אותו שיוך נבחר פעמיים.");
+    if (store.labels.some(item => item.id !== id && labelTargetKeys(item).some(key => selected.has(key)))) {
+      throw new InvalidInput("כבר קיימת תווית לאחד היעדים שנבחרו. אפשר לערוך אותה ברשימה.");
+    }
+    upsert(store.labels, label);
+    return;
+  }
   if (section === "heroes") {
     await saveHero(store, id, data);
     return;
@@ -292,9 +326,6 @@ async function saveSection(store: AdminStore, section: Section, id: string, data
       return `החבילות נשמרו כטיוטה. ${reason}`;
     }
     saveBundleTiers(store, productId, bundles);
-  } else if (section === "labels") {
-    if (store.labels.some((item) => item.productId === productId && item.id !== id)) throw new InvalidInput("כבר קיימת תווית למוצר הזה. אפשר לערוך אותה ברשימה.");
-    upsert(store.labels, { id, productId, text: required(data, "label", 60) });
   } else if (section === "offers") {
     if (store.offers.some((item) => item.productId === productId && item.id !== id)) throw new InvalidInput("כבר קיים מבצע כמות למוצר הזה. אפשר לערוך אותו ברשימה.");
     const previous = store.offers.find((item) => item.id === id);

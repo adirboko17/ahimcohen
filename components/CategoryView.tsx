@@ -42,7 +42,7 @@ function CategoryResults({ catId, categoryFallback, brand, sub, sorting }: Listi
   useScrollLock(sheet || sortDialog);
 
   const categoryProducts = useMemo(() => brand
-    ? products.filter(product => canonicalBrandName(product.brand) === canonicalBrandName(brand.name))
+    ? products.filter(product => canonicalBrandName(product.brand)?.toLowerCase() === brand.name.toLowerCase())
     : productsInCategory(catId), [brand, products, catId, productsInCategory]);
   const catalogCategory = catId ? category(catId) : undefined;
   const cat = useMemo(() => brand ? {

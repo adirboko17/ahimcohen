@@ -4,15 +4,16 @@ import { loadShopCatalog } from "@/lib/shopify/load-catalog";
 import type { CartLineDraft } from "@/lib/shopify/types";
 import { visibleQuantityOffers, type AdminStore } from "./models";
 import { readAdminStore } from "./storage";
+import { productLabelResolver } from "./labels";
 
 export function applyAdminProducts(products: Product[], store: AdminStore): Product[] {
   const offers = new Map(visibleQuantityOffers(store).filter((offer) => offer.active && !offer.sourceVariantIds?.length).map((offer) => [offer.productId, offer]));
-  const labels = new Map(store.labels.map((label) => [label.productId, label.text]));
   const hidden = new Set(store.hiddenQuantityOffers);
-  if (!offers.size && !labels.size && !hidden.size) return products;
+  if (!offers.size && !store.labels.length && !hidden.size) return products;
+  const labelFor = productLabelResolver(store.labels);
   return products.map((product) => {
     const offer = offers.get(product.id);
-    const label = labels.get(product.id);
+    const label = labelFor(product);
     if (hidden.has(product.id)) return { ...product, deal: undefined, quantityOfferHidden: true, promoLabel: label ?? product.promoLabel };
     if (!offer && !label) return product;
     return { ...product, ...(offer ? { deal: [offer.quantity, offer.total] as [number, number] } : {}), promoLabel: label };

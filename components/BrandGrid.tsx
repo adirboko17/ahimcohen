@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { BRANDS } from "@/lib/brands";
 import { useCatalog } from "@/lib/catalog-context";
 import { startBrandAutoplay } from "@/lib/brand-carousel-autoplay";
 
 export function BrandGrid({ featured = false }: { featured?: boolean }) {
-  const { products } = useCatalog();
+  const { products, brands: directory, brand: findBrand } = useCatalog();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("featured");
   const counts = new Map<string, number>();
   for (const product of products) {
-    if (product.brand) counts.set(product.brand, (counts.get(product.brand) ?? 0) + 1);
+    const brand = findBrand(product.brand);
+    if (brand) counts.set(brand.name, (counts.get(brand.name) ?? 0) + 1);
   }
-  const allBrands = BRANDS.filter(brand => counts.has(brand.name));
+  const allBrands = directory.filter(brand => counts.has(brand.name));
   const search = query.trim().toLocaleLowerCase().replace(/[\s-]+/g, "");
   const brands = featured ? allBrands.filter(brand => brand.featured || brand.id === "neri") : allBrands.filter(brand =>
     `${brand.name}${brand.id}`.toLocaleLowerCase().replace(/[\s-]+/g, "").includes(search)

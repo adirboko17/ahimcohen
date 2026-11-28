@@ -102,6 +102,26 @@ export async function markSupplierCategoryReviewed(productId: string, collection
 }
 
 type FileInput = { originalSource: string; filename: string; alt: string; contentType: "IMAGE" };
+export async function stageProductImage(file: Blob, filename: string) {
+  type Target = { url: string; resourceUrl: string; parameters: { name: string; value: string }[] };
+  const { stagedUploadsCreate } = await adminGraphQL<{
+    stagedUploadsCreate: { stagedTargets: Target[]; userErrors: { message: string }[] };
+  }>(
+    `mutation StageProductImage($input:[StagedUploadInput!]!){stagedUploadsCreate(input:$input){
+      stagedTargets{url resourceUrl parameters{name value}} userErrors{message}}}`,
+    { input: [{ filename, mimeType: file.type, resource: "IMAGE", httpMethod: "POST", fileSize: String(file.size) }] },
+  );
+  checkErrors(stagedUploadsCreate.userErrors);
+  const target = stagedUploadsCreate.stagedTargets[0];
+  if (!target) throw new Error("Shopify לא החזירה יעד העלאה לתמונה.");
+  const form = new FormData();
+  target.parameters.forEach(({ name, value }) => form.append(name, value));
+  form.append("file", file, filename);
+  const uploaded = await fetch(target.url, { method: "POST", body: form, signal: AbortSignal.timeout(25000) });
+  if (!uploaded.ok) throw new Error("העלאת התמונה ל־Shopify נכשלה.");
+  return target.resourceUrl;
+}
+
 async function shopifyImage(product: SupplierProduct, url: string, index: number): Promise<FileInput> {
   const prefix = `${supplierKey(productDomain(product))}-${product.id}-${index + 1}`;
   let originalSource = url;
@@ -110,32 +130,7 @@ async function shopifyImage(product: SupplierProduct, url: string, index: number
     const svg = await publicBytes(new URL(url), 16 * 1024 * 1024);
     if (svg.status !== 200) throw new Error("קריאת תמונת הצבע נכשלה.");
     const png = await sharp(svg.body, { limitInputPixels: 24_000_000 }).png().toBuffer();
-    type Target = { url: string; resourceUrl: string; parameters: { name: string; value: string }[] };
-    const { stagedUploadsCreate } = await adminGraphQL<{
-      stagedUploadsCreate: { stagedTargets: Target[]; userErrors: { message: string }[] };
-    }>(
-      `mutation StageSupplierImage($input:[StagedUploadInput!]!){ stagedUploadsCreate(input:$input){stagedTargets{url resourceUrl parameters{name value}} userErrors{message}}}`,
-      {
-        input: [
-          {
-            filename: prefix + ".png",
-            mimeType: "image/png",
-            resource: "IMAGE",
-            httpMethod: "POST",
-            fileSize: String(png.length),
-          },
-        ],
-      },
-    );
-    checkErrors(stagedUploadsCreate.userErrors);
-    const target = stagedUploadsCreate.stagedTargets[0];
-    if (!target) throw new Error("Shopify לא החזירה יעד העלאה לתמונה.");
-    const form = new FormData();
-    target.parameters.forEach((p) => form.append(p.name, p.value));
-    form.append("file", new Blob([new Uint8Array(png)], { type: "image/png" }), prefix + ".png");
-    const uploaded = await fetch(target.url, { method: "POST", body: form, signal: AbortSignal.timeout(25000) });
-    if (!uploaded.ok) throw new Error("העלאת תמונת הצבע ל־Shopify נכשלה.");
-    originalSource = target.resourceUrl;
+    originalSource = await stageProductImage(new Blob([new Uint8Array(png)], { type: "image/png" }), prefix + ".png");
     extension = "png";
   }
   return {

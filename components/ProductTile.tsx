@@ -46,6 +46,7 @@ export function ProductTile({ p, imageSrc, selectedColor, selectedSize, priority
         </button>
       </Link>
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {p.promoLabel && <span className="badge y product-promo-label" dir="auto">{p.promoLabel}</span>}
         <h3>
           <Link href={href}>{p.name}</Link>
         </h3>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { bundleTierName, type AdminLabel, type AdminSaveResult } from "@/lib/admin/models";
-import { colorLabel, type Product } from "@/lib/catalog";
+import { colorLabel, type Category, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { useScrollLock } from "@/lib/store";
 import { fmt } from "@/lib/pricing";
@@ -115,14 +115,15 @@ export function AdminForm({ section, id, children, returnTo = `/admin?tab=${sect
   );
 }
 
-export function AdminRemoveButton({ section, id, title, wholeBundle }: {
-  section: string; id: string; title: string; wholeBundle?: { productId?: string; snapshot: string };
+export function AdminRemoveButton({ section, id, title, revision, wholeBundle }: {
+  section: string; id: string; title: string; revision?: string; wholeBundle?: { productId?: string; snapshot: string };
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const remove = async () => {
-    const prompt = wholeBundle ? `למחוק את הבאנדל של ״${title}״ ואת כל מדרגות הכמות שלו? מוצרי הבסיס יישארו בחנות.` : `להסיר את ״${title}״?`;
+    const prompt = section === "sets" ? `למחוק את הסט השמור של ״${title}״? אם קיימות המלצות אוטומטיות למוצר, הן יוצגו בעמוד שלו.`
+      : wholeBundle ? `למחוק את הבאנדל של ״${title}״ ואת כל מדרגות הכמות שלו? מוצרי הבסיס יישארו בחנות.` : `להסיר את ״${title}״?`;
     if (pending || !window.confirm(prompt)) return;
     const data = new FormData();
     data.set("section", section);
@@ -133,6 +134,7 @@ export function AdminRemoveButton({ section, id, title, wholeBundle }: {
     } else {
       data.set("id", id);
       data.set("operation", "delete");
+      if (revision !== undefined) data.set("revision", revision);
     }
     setPending(true);
     setError("");
@@ -148,10 +150,10 @@ export function AdminRemoveButton({ section, id, title, wholeBundle }: {
   };
   return <div className="admin-row-remove">
     <button type="button" className={wholeBundle ? "admin-remove admin-remove-bundle" : "admin-remove"} onClick={remove}
-      disabled={pending} aria-label={wholeBundle ? `מחיקת הבאנדל של ${title}` : `הסרת ${title}`}
+      disabled={pending} aria-label={section === "sets" ? `מחיקת הסט של ${title}` : wholeBundle ? `מחיקת הבאנדל של ${title}` : `הסרת ${title}`}
       title={wholeBundle ? "מחיקת הבאנדל כולו" : undefined}>
-      {(section === "bundles" || section === "offers" || section === "labels") && <IconTrash />}
-      {!wholeBundle && (pending ? "מסירים…" : section === "labels" ? "הסר תווית" : "הסרה")}
+      {(section === "bundles" || section === "offers" || section === "labels" || section === "sets") && <IconTrash />}
+      {!wholeBundle && (pending ? "מסירים…" : section === "sets" ? "מחיקת סט" : section === "labels" ? "הסר תווית" : "הסרה")}
     </button>
     {error && <span className="admin-feedback" role="alert">{error}</span>}
   </div>;
@@ -303,36 +305,66 @@ export function AdminProductField({ initialId = "", initialVariant, variants = f
   </>;
 }
 
-export function AdminLabelEditor({ item }: { item?: AdminLabel }) {
+export function AdminLabelEditor({ item, categories }: { item?: AdminLabel; categories: Category[] }) {
   const [text, setText] = useState(item?.text ?? "");
+  const [scope, setScope] = useState<NonNullable<AdminLabel["scope"]>>(item?.scope ?? "product");
+  const initialProduct = item && "productId" in item ? item.productId : "";
+  const [productId, setProductId] = useState(initialProduct);
+  const [rows, setRows] = useState(() => (item?.scope === "categories" ? item.paths : [{ parentId: "", sub: "" }])
+    .map((path, key) => ({ ...path, key })));
+  const nextKey = useRef(rows.length);
+  const { product: findProduct } = useCatalog();
+  const product = scope === "product" ? findProduct(productId) : undefined;
+  const image = product?.imgs?.find(Boolean) ?? product?.choices?.find(choice => choice.image)?.image;
   const previewTitle = useId();
+  const audience = scope === "all" ? "כל המוצרים בחנות" : rows.flatMap(row => {
+    const category = categories.find(cat => cat.id === row.parentId);
+    return category ? [[category.name, row.sub].filter(Boolean).join(" / ")] : [];
+  }).join(" · ");
   return <AdminForm section="labels" id={item?.id}>
     <div className="admin-label-editor">
-      <AdminProductField initialId={item?.productId} showSummary={false}>
-        {product => {
-          const image = product?.imgs?.find(Boolean) ?? product?.choices?.find(choice => choice.image)?.image;
-          return <>
-            <label className="field">טקסט התווית
-              <input name="label" maxLength={60} value={text} onChange={event => setText(event.target.value)}
-                placeholder="מבצע חדש" required />
-            </label>
-            <section className="admin-label-live" aria-labelledby={previewTitle}>
-              <h2 id={previewTitle}>תצוגה מקדימה</h2>
-              {product ? <div className="admin-label-live-product">
-                <div className="admin-label-live-photo">
-                  {image ? <ProductImage src={image} alt={product.name} sizes="112px" maxWidth={320}/>
-                    : <span>אין תמונת מוצר</span>}
-                </div>
-                <div className="admin-label-live-copy">
-                  {text.trim() && <span className="badge y product-promo-label">{text.trim()}</span>}
-                  <strong dir="auto">{product.name}</strong>
-                  {product.sku && <small>מק״ט <bdi>{product.sku}</bdi></small>}
-                </div>
-              </div> : <p>בחרו מוצר כדי להציג אותו כאן.</p>}
-            </section>
-          </>;
-        }}
-      </AdminProductField>
+      <div className="admin-label-fields">
+        <fieldset className="admin-label-scope"><legend>היכן להציג את התווית?</legend>
+          {([["product", "מוצר בודד"], ["categories", "לפי קטגוריה"], ["all", "כל המוצרים"]] as const).map(([value, title]) =>
+            <label key={value}><input type="radio" name="scope" value={value} checked={scope === value} onChange={() => setScope(value)} />{title}</label>)}
+        </fieldset>
+        {scope === "product" && <AdminProductField initialId={productId} onSelection={setProductId} showSummary={false} />}
+        {scope === "categories" && <>
+          {rows.map((row, index) => <div className="admin-label-path" key={row.key}>
+            <div className="admin-field-pair">
+              <label className="field">קטגוריה<select required name="parentId" value={row.parentId}
+                onChange={event => setRows(rows.map(entry => entry.key === row.key ? { ...entry, parentId: event.target.value, sub: "" } : entry))}>
+                <option value="">בחרו קטגוריה</option>
+                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select></label>
+              <label className="field">תת־קטגוריה<select name="sub" value={row.sub}
+                onChange={event => setRows(rows.map(entry => entry.key === row.key ? { ...entry, sub: event.target.value } : entry))}>
+                <option value="">כל הקטגוריה</option>
+                {categories.find(cat => cat.id === row.parentId)?.subs.map(sub => <option key={sub}>{sub}</option>)}
+              </select></label>
+            </div>
+            {rows.length > 1 && <button type="button" className="btn btn-line" aria-label={`הסרת שיוך ${index + 1}`}
+              onClick={() => setRows(rows.filter(entry => entry.key !== row.key))}><IconTrash />הסרה</button>}
+          </div>)}
+          <button type="button" className="btn btn-line admin-label-add" onClick={() => setRows([...rows, { key: nextKey.current++, parentId: "", sub: "" }])}><IconPlus size={15} />הוספת שיוך נוסף</button>
+        </>}
+        <label className="field">טקסט התווית<input name="label" maxLength={60} value={text}
+          onChange={event => setText(event.target.value)} placeholder="מבצע חדש" required /></label>
+      </div>
+      <section className="admin-label-live" aria-labelledby={previewTitle}>
+        <h2 id={previewTitle}>תצוגה מקדימה</h2>
+        <div className={product ? "admin-label-live-product" : undefined}>
+          {product && <div className="admin-label-live-photo">
+            {image ? <ProductImage src={image} alt={product.name} sizes="112px" maxWidth={320}/> : <span>אין תמונת מוצר</span>}
+          </div>}
+          <div className="admin-label-live-copy">
+            {text.trim() && <span className="badge y product-promo-label" dir="auto">{text.trim()}</span>}
+            <strong dir="auto">{scope === "product" ? product?.name ?? "בחרו מוצר" : audience || "בחרו קטגוריה"}</strong>
+            {product?.sku && <small>מק״ט <bdi>{product.sku}</bdi></small>}
+          </div>
+        </div>
+        <p className="admin-label-priority">כשכמה תוויות מתאימות, תווית למוצר קודמת לתווית לתת־קטגוריה, אחריה תווית לקטגוריה ולבסוף התווית הכללית.</p>
+      </section>
     </div>
   </AdminForm>;
 }

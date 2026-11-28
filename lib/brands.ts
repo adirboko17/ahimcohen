@@ -78,7 +78,7 @@ export function canonicalBrandName(name?: string): string | undefined {
   const key = clean.toLowerCase();
   // This supplier sells many manufacturers; an unidentified import is not a WORKER product.
   if (/^(?:https?:\/\/)?(?:www\.)?worker\.co\.il\/?$/.test(key)) return undefined;
-  return brandAliases[key] ?? brandsByName.get(key)?.name ?? brandMentioned(key) ?? clean;
+  return (Object.hasOwn(brandAliases, key) ? brandAliases[key] : undefined) ?? brandsByName.get(key)?.name ?? brandMentioned(key) ?? clean;
 }
 
 function brandMentioned(key: string) {
@@ -103,3 +103,17 @@ export const brandByName = (name?: string) => {
   const canonical = canonicalBrandName(name);
   return canonical ? brandsByName.get(canonical.toLowerCase()) : undefined;
 };
+
+/** Include brands explicitly assigned by an admin alongside the curated directory. */
+export function catalogBrands(products: { id: string; brand?: string }[]): Brand[] {
+  const brands = new Map(brandsByName);
+  for (const product of products) {
+    if (!product.id.startsWith("ahim-manual-")) continue;
+    const name = canonicalBrandName(product.brand);
+    if (!name || brands.has(name.toLowerCase())) continue;
+    const bytes = new TextEncoder().encode(name.toLowerCase());
+    const id = "brand-" + Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+    brands.set(name.toLowerCase(), { id, name });
+  }
+  return [...brands.values()];
+}

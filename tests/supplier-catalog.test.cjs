@@ -9,7 +9,7 @@ function moduleFor(name, deps = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
   const out = {};
-  new Function("require", "exports", js)((id) => deps[id] ?? require(id), out);
+  new Function("require", "exports", js)((id) => deps[id] ?? (id === "@/lib/brands" ? moduleFor("../brands") : require(id)), out);
   return out;
 }
 const categoryPlacement = moduleFor("../category-placement");

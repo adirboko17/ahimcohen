@@ -7,7 +7,7 @@ import type { Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { fmt } from "@/lib/pricing";
 import { setExtras, type ProductSet } from "@/lib/product-sets";
-import { AdminForm, AdminProductField, AdminProductSummary } from "./AdminControls";
+import { AdminForm, AdminProductField, AdminProductSummary, AdminRemoveButton } from "./AdminControls";
 import { ProductImage } from "./ProductImage";
 import { IconBag, IconPencil } from "./icons";
 
@@ -57,6 +57,7 @@ export function AdminProductSets({ settings, initialId }: { settings: EditorSett
               {base ? <Link className="btn admin-primary" prefetch={false}
                 aria-label={`עריכת הסט של ${base.name}`} href={`/admin?tab=sets&product=${encodeURIComponent(base.id)}#set-editor`}><IconPencil />עריכה</Link>
                 : <small>המוצר אינו בקטלוג</small>}
+              <AdminRemoveButton section="sets" id={setting.id} revision={setting.revision ?? ""} title={base?.name ?? setting.id} />
             </div>
           </li>;
         })}

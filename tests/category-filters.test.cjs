@@ -27,7 +27,7 @@ function load(file, dependencies = {}) {
       : name === "./CategorySorting" ? load("components/CategorySorting.tsx", dependencies)
       : name === "./ProductListProgress" ? load("components/ProductListProgress.tsx", dependencies)
       : name === "@/lib/page-scroll-lock" ? load("lib/page-scroll-lock.ts")
-      : name === "./ProductBrand" ? load("components/ProductBrand.tsx", { "@/lib/brands": load("lib/brands.ts") })
+      : name === "./ProductBrand" ? load("components/ProductBrand.tsx", { "@/lib/catalog-context": { useCatalog: () => ({ brand: brandByName }) } })
       : name === "@/lib/brands" ? load("lib/brands.ts")
       : name === "@/lib/product-search" ? load("lib/product-search.ts")
       : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
@@ -40,6 +40,7 @@ function load(file, dependencies = {}) {
 }
 
 const colors = load("lib/colors.ts");
+const { brandByName } = load("lib/brands.ts");
 const colorFamilies = load("lib/color-families.ts", { "./colors": colors });
 const placement = load("lib/category-placement.ts");
 const storefrontCatalog = load("lib/catalog.ts", { "./colors": colors, "./category-placement": placement });
@@ -407,7 +408,7 @@ function renderProduct(product, initialColor, initialSize, extras = [], fromQuan
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/navigation": { useRouter: () => ({}) },
     "@/lib/catalog": { ...colors, FREE_SHIPPING: 299, phOf: () => "" },
-    "@/lib/catalog-context": { useCatalog: () => ({ product: (id) => [product, ...extras].find((p) => p.id === id), category: () => ({ name: "Work" }), products: [product, ...extras] }) },
+    "@/lib/catalog-context": { useCatalog: () => ({ product: (id) => [product, ...extras].find((p) => p.id === id), category: () => ({ name: "Work" }), products: [product, ...extras], brand: brandByName }) },
     "@/lib/colors": colors,
     "@/lib/product-selection": productSelection,
     "@/lib/quantity-offers": load("lib/quantity-offers.ts"),

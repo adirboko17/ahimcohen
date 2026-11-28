@@ -128,7 +128,7 @@ async function syncAvailability(id: string, plan: ReturnType<typeof stockPlan>) 
   checkErrors(productVariantsBulkUpdate);
 }
 
-async function makeVisible(product: ChannelProduct) {
+export async function makeVisible(product: Pick<ChannelProduct, "id" | "onSite" | "status">) {
   if (!product.onSite) {
     const { publishablePublish } = await adminGraphQL<{ publishablePublish: { userErrors: { message: string }[] } }>(
       `mutation PublishSupplierToSite($id:ID!, $channel:ID!){publishablePublish(id:$id,input:[{publicationId:$channel}]){userErrors{message}}}`,

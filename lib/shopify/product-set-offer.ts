@@ -49,7 +49,13 @@ async function inspectSet(variants: SetOffer["variants"], price: number) {
 function check(result: Result) {
   if (result.userErrors.length) throw new Error(result.userErrors.map(e => e.message).join(" · "));
 }
-export async function setOfferStatus(id: string, status: "ARCHIVED" | "ACTIVE") {
+type OfferStatus = "ARCHIVED" | "ACTIVE" | "DRAFT" | "UNLISTED";
+export async function readSetOfferStatus(id: string) {
+  const { product } = await adminGraphQL<{ product: { status: OfferStatus } | null }>(
+    "query ReadSetStatus($id:ID!) { product(id:$id) { status } }", { id });
+  return product?.status;
+}
+export async function setOfferStatus(id: string, status: OfferStatus) {
   const { productUpdate } = await adminGraphQL<{ productUpdate: Result }>(
     "mutation SetStatus($p:ProductUpdateInput!) { productUpdate(product:$p) { userErrors { message } } }", { p: { id, status } });
   check(productUpdate);

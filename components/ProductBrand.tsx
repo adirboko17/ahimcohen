@@ -1,8 +1,10 @@
-import { brandByName } from "@/lib/brands";
+"use client";
+
+import { useCatalog } from "@/lib/catalog-context";
 
 /** Use only identified manufacturers, never the multi-brand supplier fallback. */
 export function ProductBrand({ name, inline = false }: { name?: string; inline?: boolean }) {
-  const brand = brandByName(name);
+  const brand = useCatalog().brand(name);
   if (!brand) return null;
 
   return (

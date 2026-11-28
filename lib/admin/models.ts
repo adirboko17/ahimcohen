@@ -76,7 +76,11 @@ export function quantityOfferTier(offer: AdminOffer): AdminBundle {
   return { id: offer.id, name: `מבצע כמות · ${offer.quantity} יחידות`, items: [[offer.productId, offer.quantity]],
     total: offer.total, active: offer.active, sourceVariantIds: offer.sourceVariantIds };
 }
-export type AdminLabel = { id: string; productId: string; text: string };
+export type AdminLabel = { id: string; text: string } & (
+  | { scope?: "product"; productId: string }
+  | { scope: "all" }
+  | { scope: "categories"; paths: import("../category-sorting").CategoryPath[] }
+);
 export type AdminReview = { id: string; productId: string; author: string; rating: number; text: string; published: boolean; source?: "customer" | "admin"; createdAt?: string };
 export function reviewAwaitsApproval(review: AdminReview) {
   return review.source === "customer" && !review.published;

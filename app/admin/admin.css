@@ -54,20 +54,25 @@
   display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(18px, 3vw, 36px); align-items: start;
 }
 .admin-nav {
-  position: sticky; top: 88px; display: grid; gap: 14px; padding: 14px;
+  position: sticky; top: 88px; display: grid; gap: 3px; padding: 10px;
   background: var(--admin-sidebar); color: #fff; border-radius: var(--admin-radius);
 }
-.admin-nav-group { display: grid; gap: 3px; }
-.admin-nav-overview { border-block-end: 1px solid #373832; }
-.admin-nav-group + .admin-nav-group { padding-top: 12px; border-top: 1px solid #373832; }
-.admin-nav-label { padding: 2px 8px 5px; color: #c5c6bc; font-size: 12px; font-weight: 700; }
-.admin-nav a {
+.admin-nav-overview { margin-block-end: 4px; }
+.admin-nav-group { border-block-start: 1px solid #373832; padding-block-start: 3px; }
+.admin-nav summary { list-style: none; cursor: pointer; }
+.admin-nav summary::-webkit-details-marker { display: none; }
+.admin-nav a, .admin-nav summary {
   display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 7px 8px;
   border-radius: 5px; color: #e9eae4; font-weight: 700;
 }
-.admin-nav a:hover { background: #353631; color: #fff; }
+.admin-nav a:hover, .admin-nav summary:hover { background: #353631; color: #fff; }
+.admin-nav-chevron { display: grid; margin-inline-start: auto; color: #bfc0b9; }
+.admin-nav-chevron svg { width: 14px; height: 14px; }
+.admin-nav-group[open] .admin-nav-chevron { transform: rotate(-90deg); color: var(--yellow); }
+.admin-nav-children { display: grid; gap: 2px; margin: 1px 0 8px; margin-inline-start: 18px; padding-inline-start: 8px; border-inline-start: 1px solid #484941; }
+.admin-nav-children a { min-height: 38px; font-size: 14px; font-weight: 600; }
 .admin-nav a[aria-current="page"] { background: var(--yellow-soft); color: var(--ink); }
-.admin-nav a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.admin-nav :is(a, summary):focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 .admin-nav-icon { display: grid; place-items: center; width: 22px; height: 22px; flex: none; }
 .admin-nav-icon svg { width: 17px; height: 17px; stroke: currentColor; }
 
@@ -347,12 +352,12 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .admin-promotion-row-price { font-size: 18px; white-space: nowrap; }
 .admin-promotion-row .admin-status { display: inline-flex; align-items: center; gap: 5px; margin: 0; border-radius: 6px; }
 .admin-promotion-row .admin-status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-:is(.admin-promotion-row,.admin-label-actions) .admin-remove {
+:is(.admin-promotion-row,.admin-label-actions,.admin-set-card-footer) .admin-remove {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 10px;
   border: 1px solid #ecd8d4; border-radius: 6px; background: #fff; color: #a33728; font-size: 14px; text-decoration: none;
 }
-:is(.admin-promotion-row,.admin-label-actions) .admin-remove:not(:disabled):hover { background: #fff1ef; border-color: #d9a39b; }
-:is(.admin-promotion-row,.admin-label-actions) .admin-remove:disabled { opacity: .6; cursor: wait; }
+:is(.admin-promotion-row,.admin-label-actions,.admin-set-card-footer) .admin-remove:not(:disabled):hover { background: #fff1ef; border-color: #d9a39b; }
+:is(.admin-promotion-row,.admin-label-actions,.admin-set-card-footer) .admin-remove:disabled { opacity: .6; cursor: wait; }
 
 .admin-records { display: grid; gap: 8px; }
 .admin-records h2 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 21px; }
@@ -391,8 +396,15 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .admin-label-product .admin-label-preview {align-self:start;justify-self:start;max-width:100%;white-space:normal;line-height:1.35;text-align:start}
 .admin-label-actions {align-items:start;gap:8px}
 .admin-label-editor {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 22px;align-items:start}
-.admin-label-editor>.field {grid-column:1}
-.admin-label-live {grid-area:1 / 2 / 3 / 3;align-self:stretch;min-width:0;border:1px solid var(--admin-border);
+.admin-label-fields,.admin-label-path {display:grid;gap:12px;min-width:0}
+.admin-label-path>button,.admin-label-add {justify-self:start}
+.admin-label-scope {display:flex;flex-wrap:wrap;gap:6px;border:0;margin:0;padding:0;min-width:0}
+.admin-label-scope legend {padding:0;margin-bottom:6px;font-weight:700}
+.admin-label-scope label {display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 10px;border:1px solid var(--admin-border);border-radius:7px;cursor:pointer}
+.admin-label-scope input {accent-color:var(--ink)}
+.admin-label-scope label:has(:checked) {background:var(--yellow-soft);border-color:#c5a636}
+.admin-label-live .admin-label-priority {margin-top:16px}
+.admin-label-live {align-self:start;min-width:0;border:1px solid var(--admin-border);
   border-radius:8px;background:var(--admin-soft);padding:14px}
 .admin-label-live h2 {font-size:15px;margin:0 0 12px}
 .admin-label-live p,.admin-label-live small,.admin-label-live-photo span {margin:0;color:var(--muted);font-size:14px}
@@ -505,12 +517,8 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
   .admin-header .btn { min-height: 35px; padding-inline: 9px; }
   .admin-store-link { font-size: 13px; }
   .admin-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px 14px 36px; }
-  .admin-nav { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 9px; }
-  .admin-nav-overview { grid-column: 1 / -1; }
-  .admin-nav-group { align-content: start; }
-  .admin-nav-group + .admin-nav-group { padding-top: 0; border-top: 0; border-inline-start: 1px solid #373832; padding-inline-start: 7px; }
-  .admin-nav-label { padding-inline: 6px; }
-  .admin-nav a { min-height: 37px; gap: 6px; padding: 5px 6px; font-size: 14px; }
+  .admin-nav { position: static; padding: 8px; }
+  .admin-nav :is(a, summary) { min-height: 44px; }
   .admin-nav-icon { width: 17px; }
   .admin-nav-icon svg { width: 15px; height: 15px; }
   .admin-section-intro { min-height: 0; align-items: flex-start; gap: 10px; }

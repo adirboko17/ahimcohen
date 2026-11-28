@@ -44,7 +44,7 @@ async function publishCollection(id: string, publication: string) {
   }
 }
 
-async function saveStorefrontCategory(name: string, parentId: string, selectedCollectionId = "") {
+export async function saveStorefrontCategory(name: string, parentId: string, selectedCollectionId = "") {
   const title = name.trim().replace(/\s+/g, " ");
   if (!title || title.length > 100 || !/^[\p{L}\p{N}]/u.test(title) || /[\p{C}]/u.test(title))
     throw new Error("הזינו שם קטגוריה תקין באורך של עד 100 תווים.");

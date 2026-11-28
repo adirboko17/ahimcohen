@@ -91,18 +91,48 @@ async function readQuote(id: string): Promise<BusinessQuote> {
   return response.json();
 }
 
-export async function listBusinessQuotes(page: number) {
+type QuoteFile = { name: string; created_at: string };
+
+async function listQuoteFiles(offset: number, limit: number): Promise<QuoteFile[]> {
   const response = await adminRequest("/storage/v1/object/list/" + bucket, {
-    method: "POST", body: JSON.stringify({ prefix: shopDomain() + "/requests", limit: pageSize + 1, offset: (page - 1) * pageSize,
+    method: "POST", body: JSON.stringify({ prefix: shopDomain() + "/requests", limit, offset,
       sortBy: { column: "created_at", order: "desc" } }),
   });
-  const files: { name: string; created_at: string }[] = await response.json();
-  const quotes = await Promise.all(files.slice(0, pageSize).map(async file => {
-    const id = file.name.replace(/\.json$/, "");
-    if (!quoteIdPattern.test(id)) throw new Error("Invalid stored quote key");
-    return { id, createdAt: file.created_at, ...await readQuote(id) };
-  }));
-  return { quotes, hasNext: files.length > pageSize };
+  return response.json();
+}
+
+async function readListedQuote(file: QuoteFile) {
+  const id = file.name.replace(/\.json$/, "");
+  if (!quoteIdPattern.test(id)) throw new Error("Invalid stored quote key");
+  return { id, createdAt: file.created_at, ...await readQuote(id) };
+}
+
+export async function listBusinessQuotes(page: number, query = "") {
+  const skip = (page - 1) * pageSize;
+  const term = query.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!term) {
+    const files = await listQuoteFiles(skip, pageSize + 1);
+    return { quotes: await Promise.all(files.slice(0, pageSize).map(readListedQuote)), hasNext: files.length > pageSize };
+  }
+
+  const digits = /^[\d\s()+.-]+$/.test(term) ? term.replace(/\D/g, "") : "";
+  const quotes: Awaited<ReturnType<typeof readListedQuote>>[] = [];
+  let matches = 0;
+  for (let offset = 0; ; offset += pageSize) {
+    const files = await listQuoteFiles(offset, pageSize);
+    const batch = await Promise.all(files.map(readListedQuote));
+    for (const quote of batch) {
+      const { org, name, email, phone } = quote.contact;
+      const match = [org, name, email, phone].some(value => value.toLowerCase().replace(/\s+/g, " ").includes(term))
+        || (digits && phone.replace(/\D/g, "").includes(digits));
+      if (!match) continue;
+      matches += 1;
+      if (matches <= skip) continue;
+      if (quotes.length === pageSize) return { quotes, hasNext: true };
+      quotes.push(quote);
+    }
+    if (files.length < pageSize) return { quotes, hasNext: false };
+  }
 }
 
 export async function quoteLogo(id: string) {

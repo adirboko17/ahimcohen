@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Fragment, Suspense, type ReactNode } from "react";
+import { Fragment, Suspense, type ComponentType, type ReactNode } from "react";
 import { CATS, type Category, type Product } from "@/lib/catalog";
 import { storefrontCategories } from "@/lib/category-placement";
 import { AdminBackLink } from "@/components/AdminBackLink";
@@ -10,7 +10,7 @@ import { AdminHeroEditor } from "@/components/AdminHeroEditor";
 import { AdminProductSets } from "@/components/AdminProductSets";
 import { AdminHeroOrder } from "@/components/AdminHeroOrder";
 import { StorefrontCategoryCreator } from "@/components/StorefrontCategoryCreator";
-import { IconBag, IconCheck, IconFilter, IconFwd, IconGrid, IconHome, IconPackages, IconPencil, IconPlus, IconUpload } from "@/components/icons";
+import { IconBag, IconCheck, IconFilter, IconFwd, IconGrid, IconHome, IconPackages, IconPencil, IconPlus, IconUpload, IconUser } from "@/components/icons";
 import { isAdmin } from "@/lib/admin/access";
 import { ReviewRatingInput, ReviewStars } from "@/components/ReviewStars";
 import { bundleGroupSnapshot, heroImageTarget, heroIsPublished, reviewAwaitsApproval, type AdminBundle, type AdminHero, type AdminLabel, type AdminRedirect, type AdminReview, type AdminSale, type AdminStore, type HeroDevice } from "@/lib/admin/models";
@@ -23,6 +23,9 @@ import "./admin.css";
 import { Suppliers } from "./Suppliers";
 import { ColorReview } from "./ColorReview";
 import { BusinessQuotes } from "./BusinessQuotes";
+import { NewProductForm } from "./NewProductForm";
+import "./new-product.css";
+import { BRANDS, uniqueBrandNames } from "@/lib/brands";
 
 export const metadata: Metadata = { title: "ניהול החנות", robots: { index: false, follow: false } };
 
@@ -39,12 +42,20 @@ type Tab = keyof typeof tabs;
 
 const overview = { title: "סקירת החנות", description: "מצב הקטלוג, הבאנדלים והבאנרים שמוצגים בדף הבית.", Icon: IconHome };
 const categoryTool = { title: "קטגוריות החנות", description: "הוספת קטגוריות ראשיות ותתי־קטגוריות לקטלוג.", Icon: IconGrid };
+const newProductTool = { title: "הוספת מוצר", description: "בחרו קטגוריות ומותג, קבעו מחיר ופרסמו את המוצר באתר.", Icon: IconPlus };
 const colorTool = { title: "מיפוי צבעים", description: "בחרו משפחת צבע ודוגמית לגוונים שמופיעים תחת ״צבעים נוספים״.", Icon: IconFilter };
 const quotesTool = { title: "בקשות להצעות מחיר", description: "בקשות שהתקבלו מעמוד ההזמנות לעסקים, מהחדשה לישנה.", Icon: IconBag };
+const navigationTools = {
+  "new-product": newProductTool, categories: categoryTool, colors: colorTool, quotes: quotesTool,
+  suppliers: { title: "ספקים וייבוא מוצרים", description: "סריקת קטלוגים וייבוא מוצרים מספקים.", Icon: IconPackages },
+  bundles: tabs.bundles, sets: tabs.sets, labels: tabs.labels, reviews: tabs.reviews, heroes: tabs.heroes,
+};
+type NavigationTool = keyof typeof navigationTools;
 const toolGroups = [
-  { label: "קטלוג ומכירות", tools: ["bundles", "sets", "sales", "labels"] },
-  { label: "תוכן וקישורים", tools: ["reviews", "links", "heroes"] },
-] as const satisfies ReadonlyArray<{ label: string; tools: readonly Tab[] }>;
+  { label: "מוצרים וקטגוריות", Icon: IconPackages, tools: ["new-product", "categories", "colors", "suppliers"] },
+  { label: "לקוחות ופניות", Icon: IconUser, tools: ["quotes", "reviews"] },
+  { label: "תצוגה ומבצעים", Icon: IconGrid, tools: ["heroes", "labels", "bundles", "sets"] },
+] satisfies { label: string; Icon: ComponentType; tools: NavigationTool[] }[];
 
 const loginErrors: Record<string, string> = {
   locked: "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.",
@@ -52,7 +63,7 @@ const loginErrors: Record<string, string> = {
   invalid: "כתובת האימייל או הסיסמה שגויות.",
 };
 
-function adminUrl(tab: Tab, options?: { edit?: string; manage?: string; product?: string }) {
+function adminUrl(tab: Tab | NavigationTool, options?: { edit?: string; manage?: string; product?: string }) {
   const query = new URLSearchParams({ tab });
   if (options?.edit) query.set("edit", options.edit);
   if (options?.manage) query.set("manage", options.manage);
@@ -60,7 +71,7 @@ function adminUrl(tab: Tab, options?: { edit?: string; manage?: string; product?
   return "/admin?" + query;
 }
 
-type AdminQuery = { site?:string; view?:string; cat?:string; page?:string; item?:string; status?:string; tab?: string; error?: string; product?: string; manage?: string; edit?: string; saved?: string };
+type AdminQuery = { q?: string; site?:string; view?:string; cat?:string; page?:string; item?:string; status?:string; tab?: string; error?: string; product?: string; manage?: string; edit?: string; saved?: string };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<AdminQuery> }) {
   const params=await searchParams;
@@ -72,7 +83,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const categoryView = query === "categories";
   const colorView = query === "colors";
   const quotesView = query === "quotes";
-  const overviewView = !tab && !supplierView && !categoryView && !colorView && !quotesView;
+  const newProductView = query === "new-product";
+  const overviewView = !tab && !supplierView && !categoryView && !colorView && !quotesView && !newProductView;
   const [store, catalog] = await Promise.all([readAdminStore().then(async (data) => tab === "reviews" || overviewView
     ? { ...data, reviews: await readReviews(data.reviews) } : data), supplierView || categoryView || colorView || quotesView ? {products: [], categories: []} : loadShopCatalog()]);
   const products = new Map(catalog.products.map((item) => [item.id, item]));
@@ -97,7 +109,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     ? requestedEditor : undefined;
   const editing = !!tab && tab !== "heroes" && tab !== "sets" && (create || !!editId);
   const info = supplierView ? { title: "ניהול ספקים וייבוא מוצרים", description: "סריקת קטלוגים, התאמת קטגוריות ותמחור מוצרים", Icon: IconPackages }
-    : categoryView ? categoryTool : colorView ? colorTool : quotesView ? quotesTool : tab ? tabs[tab] : overview;
+    : categoryView ? categoryTool : colorView ? colorTool : quotesView ? quotesTool : newProductView ? newProductTool : tab ? tabs[tab] : overview;
   const Icon = info.Icon;
   const title = tab === "heroes" ? "באנרים בדף הבית" : manageHref ? "עריכת באנדלים למוצר" : reviewHref ? "ביקורות למוצר"
     : tab && editing ? (create ? tabs[tab].create : tabs[tab].edit) : info.title;
@@ -114,23 +126,20 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
       <div className="admin-layout">
-        <nav aria-label="כלי ניהול" className="admin-nav">
+        <nav aria-label="כלי ניהול" className="admin-nav" key={query}>
           <Link className="admin-nav-overview" href="/admin" prefetch={false} aria-current={overviewView ? "page" : undefined}>
             <span className="admin-nav-icon" aria-hidden="true"><IconHome /></span>{overview.title}
           </Link>
-          {toolGroups.map((group) => <div className="admin-nav-group" key={group.label}>
-            <span className="admin-nav-label">{group.label}</span>
-            {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=quotes" prefetch={false} aria-current={quotesView ? "page" : undefined}><span className="admin-nav-icon" aria-hidden="true"><IconBag /></span>{quotesTool.title}</Link>}
-            {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=suppliers" prefetch={false} aria-current={supplierView ? "page" : undefined}><span className="admin-nav-icon"><IconPackages /></span>ספקים וייבוא מוצרים</Link>}
-            {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=categories" prefetch={false} aria-current={categoryView ? "page" : undefined}><span className="admin-nav-icon" aria-hidden="true"><IconGrid /></span>{categoryTool.title}</Link>}
-            {group.label === "קטלוג ומכירות" && <Link href="/admin?tab=colors" prefetch={false} aria-current={colorView ? "page" : undefined}><span className="admin-nav-icon" aria-hidden="true"><IconFilter /></span>{colorTool.title}</Link>}
-            {group.tools.map((key) => {
-              const ToolIcon = tabs[key].Icon;
-              return <Link key={key} href={adminUrl(key)} prefetch={false} aria-current={tab === key ? "page" : undefined}>
-                <span className="admin-nav-icon" aria-hidden="true"><ToolIcon /></span>{tabs[key].title}
-              </Link>;
-            })}
-          </div>)}
+          {toolGroups.map(({ label, Icon: GroupIcon, tools }) => (
+            <details key={label} name="admin-tools" className="admin-nav-group" open={tools.some(tool => tool === query)}>
+              <summary><span className="admin-nav-icon"><GroupIcon /></span>{label}<span className="admin-nav-chevron"><IconFwd /></span></summary>
+              <div className="admin-nav-children">{tools.map(key =>
+                <Link key={key} href={adminUrl(key)} prefetch={false} aria-current={query === key ? "page" : undefined}>
+                  {navigationTools[key].title}
+                </Link>
+              )}</div>
+            </details>
+          ))}
         </nav>
         <section className="admin-main" aria-labelledby="admin-title">
           <header className={categoryView ? "admin-section-heading storefront-category-heading" : "admin-section-heading"}>
@@ -163,7 +172,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             : colorView ? <Suspense key={JSON.stringify([params.status, params.page])} fallback={<p role="status">טוען צבעים והצעות…</p>}>
               <ColorReview mappings={store.colorMappings} status={params.status} requestedPage={params.page} />
             </Suspense>
-            : quotesView ? <BusinessQuotes requestedPage={params.page} />
+            : quotesView ? <BusinessQuotes requestedPage={params.page} search={params.q} />
+            : newProductView ? <NewProductForm categories={storefrontCategories(CATS, store.categoryPlacements)}
+              brands={uniqueBrandNames([...BRANDS.map(brand => brand.name), ...catalog.products.flatMap(product => product.brand ? [product.brand] : [])]).sort((a, b) => a.localeCompare(b, "he"))} />
             : !tab ? <StoreOverview store={store} products={catalog.products} />
             : tab === "sets" ? <AdminProductSets settings={store.sets.map(({ offer, ...setting }) => ({ ...setting, price: offer?.price }))} initialId={requestedProduct} />
             : tab === "heroes" ? <HeroManager store={store} categories={catalog.categories} editId={editId} create={create} />
@@ -227,17 +238,16 @@ function StoreOverview({ store, products }: { store: AdminStore; products: Produ
     {toolGroups.map(({ label, tools }) => <section key={label} className="admin-overview-group" aria-label={label}>
       <h2>{label}</h2>
       <div className="admin-tool-grid">
-        {label === "קטלוג ומכירות" && <Link className="admin-panel admin-tool-card" href="/admin?tab=quotes" prefetch={false}>
-          <span className="admin-tool-icon" aria-hidden="true"><IconBag /></span>
-          <span><strong>{quotesTool.title}</strong><small>פניות מעמוד ההזמנות לעסקים</small></span>
-          <span className="admin-tool-arrow" aria-hidden="true"><IconFwd /></span>
-        </Link>}
         {tools.map((tab) => {
-          const ToolIcon = tabs[tab].Icon;
-          const count = store[tab].length;
+          const { title, description, Icon: ToolIcon } = navigationTools[tab];
+          let detail: string = description;
+          if (tab === "sets" || tab === "bundles" || tab === "labels" || tab === "reviews" || tab === "heroes") {
+            const count = store[tab].length;
+            detail = tab === "sets" ? count ? `הגדרות אישיות ל־${count} מוצרים` : "בחירה אוטומטית לכל המוצרים" : `${count} ${count === 1 ? "פריט" : "פריטים"}`;
+          }
           return <Link className="admin-panel admin-tool-card" key={tab} href={adminUrl(tab)} prefetch={false}>
             <span className="admin-tool-icon" aria-hidden="true"><ToolIcon /></span>
-            <span><strong>{tabs[tab].title}</strong><small>{tab === "sets" ? count ? `הגדרות אישיות ל־${count} מוצרים` : "בחירה אוטומטית לכל המוצרים" : `${count} ${count === 1 ? "פריט" : "פריטים"}`}</small></span>
+            <span><strong>{title}</strong><small>{detail}</small></span>
             <span className="admin-tool-arrow" aria-hidden="true"><IconFwd /></span>
           </Link>;
         })}
@@ -305,7 +315,7 @@ function HeroImagePreview({ hero, device, label }: { hero: AdminHero; device: He
 function ToolList({ tab, store, catalog }: { tab: Exclude<Tab, "heroes" | "sets">; store: AdminStore; catalog: ProductIndex }) {
   if (tab === "bundles") return <BundleList bundles={store.bundles} catalog={catalog} />;
   if (tab === "reviews") return <ReviewProductCards reviews={store.reviews} catalog={catalog} />;
-  if (tab === "labels") return <LabelList labels={store.labels} catalog={catalog} />;
+  if (tab === "labels") return <LabelList labels={store.labels} catalog={catalog} categories={storefrontCategories(CATS, store.categoryPlacements)} />;
   const product = (id: string) => catalog.get(id)?.name ?? id;
   const rows: ListItem[] = {
     links: () => store.links.map((item) => ({ id: item.id, title: "/s/" + item.slug, note: item.destination, href: "/s/" + item.slug })),
@@ -319,13 +329,17 @@ function ToolList({ tab, store, catalog }: { tab: Exclude<Tab, "heroes" | "sets"
   </section>;
 }
 
-function LabelList({ labels, catalog }: { labels: AdminLabel[]; catalog: ProductIndex }) {
+function LabelList({ labels, catalog, categories }: { labels: AdminLabel[]; catalog: ProductIndex; categories: Category[] }) {
   return <section className="admin-records admin-labels" aria-labelledby="admin-labels-title">
-    <h2 id="admin-labels-title">מוצרים עם תווית מבצע <span>{labels.length}</span></h2>
+    <h2 id="admin-labels-title">תוויות שמורות <span>{labels.length}</span></h2>
     {labels.length ? <ul className="admin-label-list">
       {labels.map(label => {
-        const product = catalog.get(label.productId);
-        const name = product?.name ?? label.productId;
+        const product = "productId" in label ? catalog.get(label.productId) : undefined;
+        const name = label.scope === "all" ? "כל המוצרים בחנות"
+          : label.scope === "categories" ? label.paths.map(path => [
+            categories.find(category => category.id === path.parentId)?.name ?? path.parentId, path.sub,
+          ].filter(Boolean).join(" / ")).join(" · ")
+          : product?.name ?? label.productId;
         const image = product?.imgs?.find(Boolean) ?? product?.choices?.find(choice => choice.image)?.image;
         return <li key={label.id} className="admin-panel admin-label-card">
           <div className="admin-label-product">
@@ -336,11 +350,11 @@ function LabelList({ labels, catalog }: { labels: AdminLabel[]; catalog: Product
             <Link href={adminUrl("labels", { edit: label.id })} className="btn btn-line" aria-label={`עריכת התווית של ${name}`}>
               <IconPencil/>עריכה
             </Link>
-            <AdminRemoveButton section="labels" id={label.id} title={`התווית ${label.text} מהמוצר ${name}`}/>
+            <AdminRemoveButton section="labels" id={label.id} title={`התווית ״${label.text}״ עבור ${name}`}/>
           </div>
         </li>;
       })}
-    </ul> : <p className="admin-panel admin-empty">עדיין אין מוצרים עם תווית מבצע.</p>}
+    </ul> : <p className="admin-panel admin-empty">עדיין אין תוויות מבצע שמורות.</p>}
   </section>;
 }
 
@@ -498,7 +512,7 @@ function ToolEditor({ tab, store, id, productId }: { tab: Exclude<Tab, "heroes" 
     case "reviews": return <ReviewEditor item={store.reviews.find((item) => item.id === id)} />;
     case "links": return <LinkEditor item={store.links.find((item) => item.id === id)} />;
     case "sales": return <SaleEditor item={store.sales.find((item) => item.id === id)} />;
-    case "labels": return <AdminLabelEditor item={store.labels.find((item) => item.id === id)} />;
+    case "labels": return <AdminLabelEditor item={store.labels.find((item) => item.id === id)} categories={storefrontCategories(CATS, store.categoryPlacements)} />;
   }
 }
 

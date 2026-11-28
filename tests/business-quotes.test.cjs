@@ -84,3 +84,29 @@ test("a failed attachment upload never publishes an incomplete quote", async () 
   assert.equal(attempted.length, 1);
   assert.match(attempted[0], /\/logos\//);
 });
+
+test("contact search paginates matching quotes across storage pages in their original order", async () => {
+  const { repo, storage, input } = setup();
+  const files = Array.from({ length: 35 }, (_, i) => ({ name: i.toString(16).padStart(64, "0") + ".json" }));
+  storage.adminRequest = async (path, options) => {
+    if (options) {
+      const { offset, limit } = JSON.parse(options.body);
+      return Response.json(files.slice(offset, offset + limit));
+    }
+    const index = files.findIndex(file => path.endsWith("/" + file.name));
+    assert.notEqual(index, -1);
+    const contact = { ...input.contact, org: index % 2 ? "עסק אחר" : "האחים כהן", name: "עדי " + index,
+      phone: "050-123-4567", email: "Manager@Example.org" };
+    return Response.json({ ...input, contact });
+  };
+  const first = await repo.listBusinessQuotes(1, "כהן");
+  const second = await repo.listBusinessQuotes(2, "כהן");
+  assert.equal(first.hasNext, true);
+  assert.equal(second.hasNext, false);
+  assert.deepEqual([...first.quotes, ...second.quotes].map(q => q.id + ".json"), files.filter((_, i) => i % 2 === 0).map(f => f.name));
+  for (const query of ["0501234567", "(050) 123 4567", "MANAGER@example"]) {
+    assert.equal((await repo.listBusinessQuotes(1, query)).quotes.length, 15);
+  }
+  assert.equal((await repo.listBusinessQuotes(1, "עדי 34")).quotes.length, 1);
+  assert.deepEqual(await repo.listBusinessQuotes(1, "חברה אחרת"), { quotes: [], hasNext: false });
+});

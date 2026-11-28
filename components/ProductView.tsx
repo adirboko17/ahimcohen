@@ -2,7 +2,6 @@
 
 import { ProductImage } from "./ProductImage";
 import { ProductBrand } from "./ProductBrand";
-import { brandByName } from "@/lib/brands";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,7 +39,7 @@ export function ProductView(props: ProductViewProps) {
 }
 
 function ProductDetails({ id, setSetting, initialColor, initialSize, initialBundle, fromQuantityOffer = false, bundles = [], reviews = [] }: ProductViewProps) {
-  const { product, category, products, colorMappings } = useCatalog();
+  const { product, category, products, colorMappings, brand: brandByName } = useCatalog();
   const base = product(id);
   const [reviewInteraction, setReviewInteraction] = useState<ReviewInteraction>(null);
   const [managedId, setManagedId] = useState(() => bundles.find((bundle) => bundle.cartProductId && bundle.id === initialBundle)?.id);
@@ -314,7 +313,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
               ) : <span>{p.brand || "האחים כהן"}</span>}
               <span dir="ltr">{p.sku ? `מק״ט ${p.sku}` : ""}</span>
             </div>
-            {p.promoLabel && <span className="badge y product-promo-label">{p.promoLabel}</span>}
+            {base.promoLabel && <span className="badge y product-promo-label">{base.promoLabel}</span>}
             <h1>{p.name}</h1>
             <ProductReviewsLink summary={ratings} interaction={reviewInteraction} onReviewInteraction={setReviewInteraction} />
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>

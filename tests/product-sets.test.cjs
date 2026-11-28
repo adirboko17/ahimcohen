@@ -28,6 +28,11 @@ function command(mode, revision = "", extra, price) {
 test("the admin overview shows saved set overrides newest first with edit links and their price or visibility", () => {
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
+  const { AdminRemoveButton } = load("components/AdminControls.tsx", {
+    "next/navigation": { useRouter: () => ({}) }, "@/lib/admin/models": {}, "@/lib/catalog": {},
+    "@/lib/catalog-context": {}, "@/lib/store": {}, "@/lib/pricing": {}, "./icons": { IconTrash: () => null },
+    "./ProductImage": {}, "./AdminBackLink": {},
+  });
   const { AdminProductSets } = load("components/AdminProductSets.tsx", {
     "next/link": { default: ({ href, children }) => React.createElement("a", { href }, children) },
     "next/navigation": { useRouter: () => ({}) },
@@ -36,7 +41,7 @@ test("the admin overview shows saved set overrides newest first with edit links 
       return item && { ...item, imgs: ["/" + id + ".jpg"] };
     } }) },
     "@/lib/pricing": { fmt: price => price + " ₪" }, "@/lib/product-sets": sets,
-    "./AdminControls": { AdminProductField: () => null, AdminProductSummary: ({ item }) => item.name },
+    "./AdminControls": { AdminProductField: () => null, AdminProductSummary: ({ item }) => item.name, AdminRemoveButton },
     "./ProductImage": { ProductImage: ({ src, alt }) => React.createElement("img", { src, alt }) },
     "./icons": { IconBag: () => null, IconPencil: () => null },
   });
@@ -46,6 +51,36 @@ test("the admin overview shows saved set overrides newest first with edit links 
   assert.match(html, /class="admin-set-previews"><img src="\/belt.jpg"/);
   assert.match(html, /shirt[\s\S]*מחיר הסט[\s\S]*80 ₪[\s\S]*product=shirt#set-editor[\s\S]*belt[\s\S]*מוסתר/);
   assert.match(render([]), /עדיין אין סטים בעריכה אישית/);
+  assert.equal((html.match(/>מחיקת סט<\/button>/g) ?? []).length, 2);
+  const orphan = render([{ id: "absent", mode: "custom", price: 255, extras: [] }]);
+  assert.match(orphan, /המוצר אינו בקטלוג/);
+  assert.match(orphan, /aria-label="מחיקת הסט של absent"/);
+});
+
+test("deleting a saved set works without its catalog product, and retires only its own offer", async () => {
+  const other = { id: "other", mode: "hidden", revision: "untouched", extras: [] };
+  for (const status of ["ACTIVE", "ARCHIVED", undefined]) {
+    const store = { sets: [other, { id: "absent", mode: "custom", extras: [], revision: "current", offer: { shopifyId: "parent" } }] };
+    const writes = [];
+    const { saveProductSet } = load("lib/admin/product-sets.ts", {
+      "server-only": {}, "next/cache": { revalidatePath() {} }, "./storage": { changeAdminStore: fn => fn(store) },
+      "@/lib/shopify/load-catalog": { loadShopCatalog: () => assert.fail("Deleting must work without the catalog") },
+      "@/lib/shopify/product-set-offer": {
+        readSetOfferStatus: async id => { assert.equal(id, "parent"); return status; },
+        setOfferStatus: async (...args) => writes.push(args),
+      },
+    });
+    const form = new FormData();
+    form.set("operation", "delete"); form.set("id", "absent"); form.set("revision", "stale");
+    assert.equal((await saveProductSet(form)).ok, false);
+    assert.equal(store.sets.length, 2);
+    assert.deepEqual(writes, []);
+    form.set("revision", "current");
+    assert.equal((await saveProductSet(form)).ok, true);
+    assert.equal((await saveProductSet(form)).ok, true);
+    assert.deepEqual(store.sets, [other]);
+    assert.deepEqual(writes, status === "ACTIVE" ? [["parent", "ARCHIVED"]] : []);
+  }
 });
 
 test("an administrator can replace, hide and reset a set without overwriting another product or a newer edit", async () => {

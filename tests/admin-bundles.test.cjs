@@ -27,6 +27,7 @@ function harness(syncManagedBundle, bundles = []) {
   const store = { bundles, offers: [], hiddenQuantityOffers: [] };
   const deps = {
     "server-only": {},
+    "@/lib/catalog": {}, "@/lib/category-placement": {}, "./labels": {},
     "@/lib/admin/commerce": {},
     "@/lib/admin/hero-images": { InvalidHeroImage: class extends Error {} },
     "@/lib/admin/models": models.exports,

@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { CATS, PRODUCTS, productsInCategory as staticProductsInCategory, type Category, type Product } from "./catalog";
 import { unpackCatalog, type CatalogWire } from "./catalog-wire";
+import { canonicalBrandName, catalogBrands, type Brand } from "./brands";
 import { emptyColorMappings, type ColorMappings } from "./color-families";
 
 export type CatalogSnapshot = {
@@ -11,6 +12,8 @@ export type CatalogSnapshot = {
 };
 
 type CatalogView = {
+  brands: Brand[];
+  brand: (name?: string) => Brand | undefined;
   categories: Category[];
   products: Product[];
   colorMappings: ColorMappings;
@@ -39,7 +42,10 @@ function makeView(categories: Category[], allProducts: Product[], legacy: boolea
   const byProduct = Object.fromEntries(allProducts.map((product) => [product.id, product]));
   const products = allProducts.filter((product) => !product.bundleSourceId);
   const byCategory = Object.fromEntries(categories.map((category) => [category.id, category]));
+  const brands = catalogBrands(products);
+  const byBrand = new Map(brands.map(brand => [brand.name.toLowerCase(), brand]));
   return {
+    brands, brand: name => byBrand.get(canonicalBrandName(name)?.toLowerCase() ?? ""),
     categories,
     products,
     colorMappings,

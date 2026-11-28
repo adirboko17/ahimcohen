@@ -2,20 +2,24 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { loadShopCatalog } from "@/lib/shopify/load-catalog";
-import { prepareSetOffer, restoreSetOffer, setOfferStatus } from "@/lib/shopify/product-set-offer";
+import { prepareSetOffer, readSetOfferStatus, restoreSetOffer, setOfferStatus } from "@/lib/shopify/product-set-offer";
+import type { Product } from "@/lib/catalog";
 import type { ProductSet } from "@/lib/product-sets";
 import { changeAdminStore } from "./storage";
 
 export async function saveProductSet(data: FormData) {
-  const id = String(data.get("productId") ?? "");
-  const mode = data.get("mode");
-  const { products } = await loadShopCatalog();
-  const base = products.find(p => p.id === id);
-  if (!base || (mode !== "auto" && mode !== "hidden" && mode !== "custom")) return { ok: false, message: "בחרו מוצר ואופן תצוגה." };
+  const deleting = data.get("operation") === "delete";
+  const id = data.get(deleting ? "id" : "productId");
+  const mode = deleting ? "auto" : data.get("mode");
+  if (typeof id !== "string" || !id || (mode !== "auto" && mode !== "hidden" && mode !== "custom")) return { ok: false, message: "בחרו מוצר ואופן תצוגה." };
   const extras = mode === "custom" ? data.getAll("extra").map(String) : [];
-  const items = [base];
-  if (mode === "custom") {
-    if (!extras.length || new Set([id, ...extras]).size !== extras.length + 1) return { ok: false, message: "בחרו פריטים משלימים שונים ממוצר הבסיס וזה מזה." };
+  const items: Product[] = [];
+  if (!deleting) {
+    const { products } = await loadShopCatalog();
+    const base = products.find(p => p.id === id);
+    if (!base) return { ok: false, message: "בחרו מוצר שקיים בקטלוג." };
+    items.push(base);
+    if (mode === "custom" && (!extras.length || new Set([id, ...extras]).size !== extras.length + 1)) return { ok: false, message: "בחרו פריטים משלימים שונים ממוצר הבסיס וזה מזה." };
     for (const extra of extras) {
       const item = products.find(p => p.id === extra);
       if (!item) return { ok: false, message: "בחרו מוצר מהקטלוג לכל פריט משלים." };
@@ -31,14 +35,20 @@ export async function saveProductSet(data: FormData) {
   if (rawPrice && items.length > 30) return { ok: false, message: "סט במחיר מיוחד יכול להכיל עד 30 פריטים." };
   let publishing: string | undefined;
   let retiring: string | undefined;
+  let priorStatus: Awaited<ReturnType<typeof readSetOfferStatus>> = "ACTIVE";
   try {
     await changeAdminStore(async store => {
       const previous = store.sets.find(s => s.id === id);
+      if (deleting && !previous) return;
       if ((previous?.revision ?? "") !== data.get("revision")) throw new Error("הסט השתנה מאז פתיחת המסך. רעננו את העמוד לפני שמירה.");
       const offer = rawPrice ? await prepareSetOffer(items, price, target => { publishing = target; }) : undefined;
       if (previous?.offer && previous.offer.shopifyId !== offer?.shopifyId) {
-        retiring = previous.offer.shopifyId;
-        await setOfferStatus(retiring, "ARCHIVED");
+        const offerId = previous.offer.shopifyId;
+        if (deleting) priorStatus = await readSetOfferStatus(offerId);
+        if (priorStatus && priorStatus !== "ARCHIVED") {
+          retiring = offerId;
+          await setOfferStatus(offerId, "ARCHIVED");
+        }
       }
       store.sets = store.sets.filter(s => s.id !== id);
       if (mode !== "auto") {
@@ -54,7 +64,10 @@ export async function saveProductSet(data: FormData) {
       try {
         await changeAdminStore(async store => {
           const current = store.sets.find(s => s.id === id)?.offer?.shopifyId;
-          if (retiring && current === retiring) await restoreSetOffer(retiring);
+          if (retiring && current === retiring && priorStatus) {
+            if (priorStatus === "ACTIVE") await restoreSetOffer(retiring);
+            else await setOfferStatus(retiring, priorStatus);
+          }
           if (publishing && current !== publishing) await setOfferStatus(publishing, "ARCHIVED");
         });
       } catch {
@@ -65,5 +78,5 @@ export async function saveProductSet(data: FormData) {
   }
   revalidatePath("/admin");
   revalidatePath("/p/" + encodeURIComponent(id));
-  return { ok: true, message: "הסט נשמר." };
+  return { ok: true, message: deleting ? "הסט נמחק." : "הסט נשמר." };
 }
