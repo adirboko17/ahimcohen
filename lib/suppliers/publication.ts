@@ -84,24 +84,32 @@ export async function unpublishLinkedProduct(row: Preview) {
 export function stockPlan(product: SupplierShopifyProduct, fresh: SupplierProduct) {
   const source = new Map(fresh.variants.map(v => [v.id, v]));
   const variants = product.variants.nodes;
-  if (source.size !== variants.length || new Set(variants.map(v => v.source?.value)).size !== variants.length) {
+  const linked = new Set(variants.map(variant => variant.source?.value));
+  if (!source.size || source.size !== fresh.variants.length || linked.size !== variants.length ||
+    [...source.keys()].some(id => !linked.has(id))) {
     throw new Error("רשימת הווריאציות השתנתה. יש לבדוק את ההתאמה לפני עדכון המלאי.");
   }
   return variants.map(variant => {
     const match = source.get(variant.source?.value ?? "");
-    if (!match || variant.selectedOptions.length !== Object.keys(match.options).length ||
-      variant.selectedOptions.some(option => match.options[option.name] !== option.value)) {
+    // Older imports may contain zero-priced, disabled sizes that the supplier has since removed.
+    if (!match && (!variant.source?.value || !variant.price || Number(variant.price) !== 0 ||
+      variant.inventoryPolicy !== "DENY" || variant.sellableOnlineQuantity !== 0)) {
+      throw new Error("רשימת הווריאציות השתנתה. יש לבדוק את ההתאמה לפני עדכון המלאי.");
+    }
+    if (match && (variant.selectedOptions.length !== Object.keys(match.options).length ||
+      variant.selectedOptions.some(option => match.options[option.name] !== option.value))) {
       throw new Error("מידה או צבע אינם תואמים לווריאציה המקושרת.");
     }
     if (!variant.inventoryItem.tracked) throw new Error("מעקב המלאי כבוי בווריאציה המקושרת.");
-    const policy = match.available ? "CONTINUE" : "DENY";
-    const value = match.available ? "in_stock" : "out_of_stock";
+    const available = match?.available ?? false;
+    const policy = available ? "CONTINUE" : "DENY";
+    const value = available ? "in_stock" : "out_of_stock";
     const before = variant.availability?.value === "in_stock" ? true : variant.availability?.value === "out_of_stock" ? false : null;
     return {
       id: variant.id, policy, value,
-      options: match.options, before, after: match.available,
+      options: match?.options ?? Object.fromEntries(variant.selectedOptions.map(option => [option.name, option.value])), before, after: available,
       changed: variant.inventoryPolicy !== policy || variant.availability?.value !== value,
-      sellable: match.available || variant.sellableOnlineQuantity > 0,
+      sellable: available || variant.sellableOnlineQuantity > 0,
     };
   });
 }

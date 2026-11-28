@@ -128,6 +128,18 @@ test("incomplete source mappings or other selected sales channels stop publicati
   assert.equal(f.state.status,"DRAFT");
 });
 
+test("a removed zero-priced size remains unavailable during publication", async () => {
+  const f = fixture();
+  f.fresh.variants.splice(1,1);
+  const retired = f.product.variants.nodes[1];
+  retired.price = "0.00";
+  retired.inventoryPolicy = "DENY";
+  retired.availability.value = "out_of_stock";
+  assert.equal(f.api.stockPlan(f.product, f.fresh)[1].sellable, false);
+  retired.sellableOnlineQuantity = 1;
+  assert.throws(() => f.api.stockPlan(f.product, f.fresh), /רשימת הווריאציות/);
+});
+
 test("removing a supplier product from the site preserves its Shopify link and permits publishing it again", async () => {
   const f = fixture();
   f.state.status = "ACTIVE";
