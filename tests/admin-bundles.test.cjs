@@ -205,6 +205,22 @@ test("catalog quantity offer visibility is reversible without a Shopify write", 
   assert.deepEqual(store.offers, []);
 });
 
+test("removing a whole bundle with a missing catalog product clears its live and draft tiers only", async () => {
+  const pair = { id: "pair", name: "Pair", items: [["old-shirt", 2]], active: true, total: 80, sourceVariantIds: [sourceVariant] };
+  const draft = { ...pair, id: "draft", items: [["old-shirt", 3]], active: false };
+  const unrelated = { ...pair, id: "keep", items: [["shirt", 2]] };
+  const calls = [];
+  const { saveAdmin, store } = harness(async (id, source, tiers) => calls.push({ id, tiers }), [pair, draft, unrelated]);
+  const form = new FormData();
+  form.set("section", "bundles");
+  form.set("operation", "save-group");
+  form.set("productId", "old-shirt");
+  form.set("snapshot", models.exports.bundleGroupSnapshot([pair, draft]));
+  assert.equal((await saveAdmin(form)).ok, true);
+  assert.deepEqual(store.bundles, [unrelated]);
+  assert.deepEqual(calls, [{ id: "old-shirt", tiers: [] }]);
+});
+
 test("the bundle dialog saves edits, additions and removals in one Shopify sync", async () => {
   const pair = { id: "pair", name: "Pair", items: [["shirt", 2]], active: true, total: 89, sourceVariantIds: [sourceVariant, otherVariant] };
   const triple = { ...pair, id: "triple", name: "Triple", items: [["shirt", 3]], total: 120 };

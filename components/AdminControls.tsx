@@ -115,16 +115,25 @@ export function AdminForm({ section, id, children, returnTo = `/admin?tab=${sect
   );
 }
 
-export function AdminRemoveButton({ section, id, title }: { section: string; id: string; title: string }) {
+export function AdminRemoveButton({ section, id, title, wholeBundle }: {
+  section: string; id: string; title: string; wholeBundle?: { productId?: string; snapshot: string };
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const remove = async () => {
-    if (pending || !window.confirm(`להסיר את ״${title}״?`)) return;
+    const prompt = wholeBundle ? `למחוק את הבאנדל של ״${title}״ ואת כל מדרגות הכמות שלו? מוצרי הבסיס יישארו בחנות.` : `להסיר את ״${title}״?`;
+    if (pending || !window.confirm(prompt)) return;
     const data = new FormData();
     data.set("section", section);
-    data.set("id", id);
-    data.set("operation", "delete");
+    if (wholeBundle?.productId) {
+      data.set("operation", "save-group");
+      data.set("productId", wholeBundle.productId);
+      data.set("snapshot", wholeBundle.snapshot);
+    } else {
+      data.set("id", id);
+      data.set("operation", "delete");
+    }
     setPending(true);
     setError("");
     try {
@@ -138,9 +147,11 @@ export function AdminRemoveButton({ section, id, title }: { section: string; id:
     }
   };
   return <div className="admin-row-remove">
-    <button type="button" className="admin-remove" onClick={remove} disabled={pending} aria-label={`הסרת ${title}`}>
+    <button type="button" className={wholeBundle ? "admin-remove admin-remove-bundle" : "admin-remove"} onClick={remove}
+      disabled={pending} aria-label={wholeBundle ? `מחיקת הבאנדל של ${title}` : `הסרת ${title}`}
+      title={wholeBundle ? "מחיקת הבאנדל כולו" : undefined}>
       {(section === "bundles" || section === "offers" || section === "labels") && <IconTrash />}
-      {pending ? "מסירים…" : section === "labels" ? "הסר תווית" : "הסרה"}
+      {!wholeBundle && (pending ? "מסירים…" : section === "labels" ? "הסר תווית" : "הסרה")}
     </button>
     {error && <span className="admin-feedback" role="alert">{error}</span>}
   </div>;

@@ -102,12 +102,12 @@ async function saveBundleGroup(store: AdminStore, data: FormData) {
   }
   const { products } = await loadShopCatalog();
   const product = products.find((item) => item.id === productId);
-  if (!product) throw new InvalidInput("מוצר הבסיס אינו מופיע בקטלוג.");
   const previous = new Map(existing.map((tier) => [tier.id, tier]));
   const claimed = new Set<string>(), usedQuantities = new Set<number>();
   const bestValue = text(data, "bestValue", 3);
   const bestIndex = bestValue ? number(bestValue, 0, ids.length - 1) : -1;
   const next = ids.map((entry, index): AdminBundle => {
+    if (!product) throw new InvalidInput("מוצר הבסיס אינו מופיע בקטלוג.");
     const id = textEntry(entry, 40);
     if (id && (!previous.has(id) || claimed.has(id))) throw new InvalidInput("אחת המדרגות כבר אינה זמינה.");
     if (id) claimed.add(id);
