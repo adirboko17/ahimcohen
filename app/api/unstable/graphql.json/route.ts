@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     .filter(s => /^(?:_shopify_[\w]+|_tracking_consent|localization)=/.test(s)).join("; ");
   if (cookies) headers.set("cookie", cookies);
   const buyerIp = buyerIpFrom(request);
-  const incoming = new Request(request, { headers });
+  const incoming = new Request(request.url, { method: "POST", headers, body: await request.text(), signal: request.signal });
   const input = { request: incoming, i18n: defineShopifyI18n({ defaultLocale: { country: "IL", language: "HE" } }) };
   const requestContext = buyerIp ? createShopifyRequestContext({ ...input, buyerIp }) : createShopifyRequestContext(input);
   const storefrontClient = createStorefrontClient({ type: "public", requestContext, config: { storeDomain: shopDomain() } });
