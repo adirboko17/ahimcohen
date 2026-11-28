@@ -8,6 +8,7 @@ import { phOf, swatchColor, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { uniqueColors } from "@/lib/colors";
 import { fmt, saleBadge } from "@/lib/pricing";
+import { fullPhotoProductIds } from "@/lib/product-tile-photos";
 import { useStore } from "@/lib/store";
 import { IconPlus } from "./icons";
 
@@ -24,7 +25,7 @@ export function ProductTile({ p, imageSrc, selectedColor, selectedSize, priority
   const cols = uniqueColors(p.colors || []);
   return (
     <article className="pt">
-      <Link href={href} className="pt-media" aria-label={p.name}>
+      <Link href={href} className="pt-media" aria-label={p.name} data-image-fit={fullPhotoProductIds.has(p.id) ? "contain" : undefined}>
         {img ? <ProductImage src={img} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} alt={p.name} /> : <div className="pt-ph k">{p.std ? p.std.join(" · ") : p.sku || catName}</div>}
         <div className="pt-badges">
           {p.deal && <span className="badge y">{p.deal[0]} ב-{p.deal[1]} ₪</span>}

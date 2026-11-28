@@ -1181,6 +1181,8 @@ select.plain, .plain {
 .product-grid.pdp-recommendation-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 20px; }
 .pdp-recommendation-grid .pt-media > img { object-fit: cover; object-position: center; }
 .pdp-recommendation-grid .pt:hover .pt-media > img { transform: scale(1.025); }
+.pt-media[data-image-fit="contain"] > img { object-fit: contain; object-position: center; padding: 6%; }
+.pt:hover .pt-media[data-image-fit="contain"] > img { transform: none; }
 .pdp-recommendation-grid .pt h3 { min-height: 2.7em; overflow-wrap: anywhere; }
 .pdp-recommendation-grid .quick { bottom: 10px; left: 10px; width: 44px; height: 44px; border: 1px solid var(--line); }
 @media (max-width: 767px) {

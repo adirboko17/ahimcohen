@@ -43,6 +43,7 @@ const sizes = load("lib/sizes.ts");
 const variantFilters = load("lib/category-filters.ts", { "./colors": colors, "./sizes": sizes });
 const productSelection = load("lib/product-selection.ts", { "./colors": colors, "./sizes": sizes, "./category-filters": variantFilters });
 const { ProductTile } = load("components/ProductTile.tsx", {
+  "@/lib/product-tile-photos": load("lib/product-tile-photos.ts"),
   "next/link": ({ children, ...props }) => React.createElement("a", props, children),
   "@/lib/catalog": { ...colors, phOf: () => "" },
   "@/lib/catalog-context": { useCatalog: () => ({ category: () => ({ name: "Work" }) }) },
@@ -260,6 +261,15 @@ test("category cards show the chosen color photo and restore the default after c
   assert.match(cleared, /<img[^>]* src="\/default.jpg"/);
   // Product tiles elsewhere retain their default image without filter props.
   assert.match(renderToStaticMarkup(React.createElement(ProductTile, { p: picturedCatalog[0] })), /<img[^>]* src="\/default.jpg"/);
+});
+
+test("only product cards with reviewed cropping opt in to full photos", () => {
+  const shoe = { ...picturedCatalog[0], cat: "shoes", id: "ahim-88aed4bee3453b51-6627" };
+  const html = renderToStaticMarkup(React.createElement(ProductTile, { p: shoe, imageSrc: "/variant.jpg" }));
+  assert.match(html, /class="pt-media"[^>]* data-image-fit="contain"/);
+  assert.match(html, /<img[^>]* src="\/variant.jpg"/);
+  const other = renderToStaticMarkup(React.createElement(ProductTile, { p: { ...shoe, id: "other-shoe" } }));
+  assert.doesNotMatch(other, /data-image-fit/);
 });
 
 test("multiple selected colors choose a photo of a color matching size and stock filters", () => {
