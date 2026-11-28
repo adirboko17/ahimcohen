@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pickVariant } from "./catalog";
+import { useCartAnalytics } from "@/components/StorefrontAnalytics";
 import { useCatalog } from "./catalog-context";
 import { productSizeOptions, sizeLabel } from "./sizes";
 import { productColorIndex } from "./product-selection";
@@ -77,6 +78,7 @@ export function StoreProvider({ children, customerAuth }: { children: React.Reac
     setExtraLockCount((count) => Math.max(0, count + (on ? 1 : -1)));
   }, []);
   const [ready, setReady] = useState(false);
+  useCartAnalytics(ready, cart, cartQuote.quote?.analytics);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {

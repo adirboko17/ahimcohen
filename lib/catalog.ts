@@ -46,6 +46,8 @@ export const ONE = ["מידה אחת"];
 
 export type Product = {
   id: string;
+  shopifyProductId?: string;
+  shopifyVendor?: string;
   name: string;
   publishedAt?: string;
   cat: string;

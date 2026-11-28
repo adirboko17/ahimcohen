@@ -58,7 +58,7 @@ export function setCartProducts(products: Product[], settings: ProductSet[]): Pr
       return [{ id: row.id, size, color: "", available: true, price: offer.price }];
     });
     return [{ ...base, id: setCartId(offer), name: `סט ${base.name}`, bundleSourceId: base.id,
-      setContents: { productIds: [base.id, ...setting.extras], variants: offer.variants },
+      shopifyProductId: offer.shopifyId, setContents: { productIds: [base.id, ...setting.extras], variants: offer.variants },
       colors: [], sizes: choices.map(v => v.size), choices, price: offer.price, deal: undefined, was: undefined, sku: undefined }];
   });
 }

@@ -38,7 +38,7 @@ const readCachedCatalog = unstable_cache(
     inFlight.set(key, request);
     return request;
   },
-  ["shop-catalog-v21-refresh-window"],
+  ["shop-catalog-v22-product-ids"],
   { revalidate: 300, tags: ["shop-catalog"] },
 );
 

@@ -3,6 +3,8 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Assistant, Karantina } from "next/font/google";
 import { Shell } from "@/components/Shell";
+import { StorefrontScripts, StorefrontViews } from "@/components/StorefrontAnalytics";
+import { shopDomain } from "@/lib/shopify/config";
 import { PageLoading } from "@/components/PageLoading";
 import { CatalogProvider } from "@/lib/catalog-context";
 import { packCatalog } from "@/lib/catalog-wire";
@@ -45,6 +47,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   await connection();
   return (
     <html lang="he" dir="rtl" className={`${assistant.variable} ${karantina.variable}`}>
+      <head>
+        <StorefrontScripts domain={shopDomain()} shopId={process.env.SHOPIFY_ANALYTICS_SHOP_ID || "86340174130"} />
+      </head>
       <body>
         <Suspense fallback={<PageLoading />}>
           <ShopLayout>{children}</ShopLayout>
@@ -61,6 +66,7 @@ async function ShopLayout({ children }: { children: React.ReactNode }) {
     <CatalogProvider colorMappings={admin.colorMappings}
       catalog={packCatalog({ categories: catalog.categories, products: [...applyAdminProducts(catalog.products, admin), ...bundleProducts, ...setCartProducts(catalog.products, admin.sets)] })}>
       <StoreProvider customerAuth={customerAuthConfig()}>
+        <StorefrontViews />
         <Shell>{children}</Shell>
       </StoreProvider>
     </CatalogProvider>

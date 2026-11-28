@@ -1,6 +1,7 @@
 import type { CartLineDraft, ShopifyCart, ShopifyMoney } from "./shopify/types";
 
 export type CartQuote = {
+  analytics?: import("@shopify/hydrogen").AnalyticsCart;
   regular: number;
   total: number;
   savings: number;
@@ -31,5 +32,5 @@ export function cartQuote(cart: ShopifyCart, requested: CartLineDraft[]): CartQu
   }
   const regular = round(Object.values(lines).reduce((sum, line) => sum + line.regular, 0));
   const total = round(Object.values(lines).reduce((sum, line) => sum + line.total, 0));
-  return { regular, total, savings: round(Math.max(0, regular - total)), lines };
+  return { regular, total, savings: round(Math.max(0, regular - total)), lines, ...(cart.analytics && { analytics: cart.analytics }) };
 }

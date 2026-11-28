@@ -252,6 +252,8 @@ function toProduct(product: ShopifyProduct, collectionHandle: string): Product {
   if (!images.length && product.featuredImage) images.push(product.featuredImage.url);
   return {
     id: product.handle,
+    shopifyProductId: product.id,
+    shopifyVendor: product.vendor,
     name: product.title,
     publishedAt: product.publishedAt,
     cat: collectionHandle,

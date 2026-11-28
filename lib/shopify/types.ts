@@ -81,6 +81,7 @@ export type ShopifyCartLine = {
 };
 
 export type ShopifyCart = {
+  analytics?: import("@shopify/hydrogen").AnalyticsCart;
   id: string;
   checkoutUrl: string;
   totalQuantity: number;

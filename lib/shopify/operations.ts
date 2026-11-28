@@ -109,6 +109,7 @@ export const VARIANTS_BY_SKU_QUERY = `query VariantsBySku($query: String!) {
 
 const CART_FIELDS = `
   id
+  updatedAt
   checkoutUrl
   totalQuantity
   cost {
@@ -127,7 +128,9 @@ const CART_FIELDS = `
         ... on ProductVariant {
           id
           title
-          product { title }
+          sku
+          price { ${MONEY} }
+          product { id title vendor handle }
         }
       }
     }

@@ -10,6 +10,7 @@ const LINE_ID = /^gid:\/\/shopify\/CartLine\/[A-Za-z0-9_-]{4,}$/;
 
 type RawCart = {
   id: string;
+  updatedAt?: string;
   checkoutUrl: string;
   totalQuantity: number;
   cost?: {
@@ -21,7 +22,7 @@ type RawCart = {
       id: string;
       quantity: number;
       cost?: RawCart["cost"];
-      merchandise?: { id?: string; title?: string; product?: { title?: string } | null } | null;
+      merchandise?: import("@shopify/hydrogen").AnalyticsCartLine["merchandise"] | null;
     }[];
   };
 };
@@ -89,6 +90,14 @@ function readCart(payload: CartPayload): ShopifyCart {
   if (checkoutUrl.protocol !== "https:") throw new ShopifyError("Shopify returned an invalid checkout URL.");
   return {
     id: payload.cart.id,
+    ...(payload.cart.updatedAt && { analytics: {
+      // The Shopify cart key and checkout URL must never enter analytics.
+      id: payload.cart.id.split("?")[0],
+      updatedAt: payload.cart.updatedAt,
+      cost: { totalAmount: { currencyCode: payload.cart.cost?.totalAmount?.currencyCode ?? "ILS" } },
+      lines: { nodes: (payload.cart.lines?.nodes ?? []).flatMap(line => line.merchandise?.product?.id
+        ? [{ id: line.id.split("?")[0], quantity: line.quantity, merchandise: line.merchandise }] : []) },
+    } }),
     checkoutUrl: checkoutUrl.toString(),
     totalQuantity: payload.cart.totalQuantity,
     subtotal: money(payload.cart.cost?.subtotalAmount),

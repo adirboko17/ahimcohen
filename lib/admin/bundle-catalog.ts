@@ -18,7 +18,7 @@ export async function managedBundleProducts(products: Product[], bundles: AdminB
   if (!promotions.size) return [];
   const mappings = await readBundleMappings().catch(() => []);
   const productsById = new Map(products.map((product) => [product.id, product]));
-  return mappings.flatMap(({ source_product_id: mappingKey, variants, revision }): Product[] => {
+  return mappings.flatMap(({ source_product_id: mappingKey, shopify_product_id, variants, revision }): Product[] => {
     const tiers = promotions.get(mappingKey);
     if (!tiers || revision !== bundleRevision(tiers)) return [];
     const source = productsById.get(tiers[0].items[0][0]);
@@ -33,7 +33,7 @@ export async function managedBundleProducts(products: Product[], bundles: AdminB
       if (!choices.length || tier.total === undefined) return [];
       return [{
         ...source, id: bundleCartProductId(tier.id), name: `${source.name} — ${quantityOffer ? `${tier.items[0][1]} יחידות` : tier.name}`, bundleSourceId: source.id,
-        price: tier.total, choices, deal: undefined, was: undefined, promoLabel: undefined, sku: undefined,
+        shopifyProductId: shopify_product_id, price: tier.total, choices, deal: undefined, was: undefined, promoLabel: undefined, sku: undefined,
       }];
     });
   });
