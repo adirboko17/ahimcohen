@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { InvalidHeroImage, uploadedHero, uploadHero } from "@/lib/admin/hero-images";
 import type { Product } from "@/lib/catalog";
-import { bundleGroupSnapshot, bundleTierName, quantityOfferTier, type AdminBundle, type AdminHero, type AdminImage, type AdminOffer, type AdminSaveResult, type AdminStore, type HeroDevice, type HeroTarget } from "@/lib/admin/models";
+import { activeManagedBundleTiers, bundleGroupSnapshot, bundleTierName, quantityOfferTier, type AdminBundle, type AdminHero, type AdminImage, type AdminOffer, type AdminSaveResult, type AdminStore, type HeroDevice, type HeroTarget } from "@/lib/admin/models";
 import { bundleRevision } from "@/lib/admin/bundle-mapping";
 import { AdminEditBusy, changeAdminStore, upsert } from "@/lib/admin/storage";
 import { quantityOffer } from "@/lib/quantity-offers";
@@ -52,10 +52,6 @@ function link(value: string, allowShortLink = false) {
   throw new InvalidInput("הזינו כתובת HTTPS תקינה או נתיב ישיר באתר.");
 }
 
-function activeManagedTiers(bundles: AdminBundle[], productId: string) {
-  return bundles.filter((bundle) => bundle.active && bundle.sourceVariantIds?.length && bundle.items[0]?.[0] === productId);
-}
-
 function sourceVariants(product: Product) {
   const ids = [...new Set(product.choices?.map(({ id }) => id).filter((id) => /^gid:\/\/shopify\/ProductVariant\/\d+$/.test(id)))];
   if (!ids.length) throw new InvalidInput("אין למוצר הבסיס וריאציות לסנכרון ב־Shopify.");
@@ -99,7 +95,9 @@ async function saveBundleGroup(store: AdminStore, data: FormData) {
   const ids = data.getAll("tierId");
   const names = data.getAll("title"), quantities = data.getAll("quantity"), totals = data.getAll("total");
   const active = data.getAll("tierActive"), featured = data.getAll("showInQuantityOffers");
-  if (ids.length > 249 || [names, quantities, totals, active, featured].some((values) => values.length !== ids.length)) {
+  const mixed = data.getAll("mixedUnits");
+  if (ids.length > 249 || [names, quantities, totals, active].some((values) => values.length !== ids.length) ||
+    [featured, mixed].some((values) => values.length > 0 && values.length !== ids.length)) {
     throw new InvalidInput("מלאו כמות ומחיר לכל מדרגה.");
   }
   const { products } = await loadShopCatalog();
@@ -119,13 +117,16 @@ async function saveBundleGroup(store: AdminStore, data: FormData) {
     usedQuantities.add(quantity);
     const total = Math.round(number(totals[index], .01, 100000, false) * 100) / 100;
     const linkedPrice = prior?.bundleProductId ? products.find((item) => item.id === prior.bundleProductId)?.price : undefined;
-    const preserveLegacy = prior && !prior.sourceVariantIds?.length && prior.items[0][1] === quantity && (prior.total ?? linkedPrice) === total;
+    const showInQuantityOffers = featured.length ? featured[index] === "yes" : prior?.showInQuantityOffers;
+    const mixedUnits = mixed.length ? mixed[index] === "yes" : prior?.mixedUnits;
+    const preserveLegacy = prior && !mixedUnits && !prior.sourceVariantIds?.length && prior.items[0][1] === quantity && (prior.total ?? linkedPrice) === total;
     return { id: id || randomUUID(), name: textEntry(names[index]) || bundleTierName(quantity), items: [[productId, quantity]],
       ...(preserveLegacy ? { total: prior.total, bundleProductId: prior.bundleProductId, code: prior.code } : { total, sourceVariantIds: sourceVariants(product) }),
-      active: active[index] === "yes", ...(index === bestIndex && { bestValue: true }), ...(featured[index] === "yes" && { showInQuantityOffers: true }) };
+      active: active[index] === "yes", ...(index === bestIndex && { bestValue: true }), ...(showInQuantityOffers && { showInQuantityOffers: true }),
+      ...(mixedUnits && { mixedUnits: true }) };
   });
-  const before = activeManagedTiers(existing, productId);
-  const after = activeManagedTiers(next, productId);
+  const before = activeManagedBundleTiers(existing, productId);
+  const after = activeManagedBundleTiers(next, productId);
   if (after.reduce((count, tier) => count + (tier.sourceVariantIds?.length ?? 0), 0) > 250) {
     throw new InvalidInput("אפשר לסנכרן עד 250 שילובים של כמות ווריאציה למוצר אחד.");
   }
@@ -194,7 +195,7 @@ export async function saveAdmin(data: FormData): Promise<AdminSaveResult> {
           const bundle = store.bundles[index];
           if (bundle.active && bundle.sourceVariantIds?.length) {
             const sourceId = bundle.items[0][0];
-            const remaining = activeManagedTiers(store.bundles.filter((item) => item.id !== id), sourceId);
+            const remaining = activeManagedBundleTiers(store.bundles.filter((item) => item.id !== id), sourceId);
             const source = remaining.length ? (await loadShopCatalog()).products.find((item) => item.id === sourceId) : undefined;
             try {
               await syncManagedBundle(sourceId, source, remaining);
@@ -248,8 +249,10 @@ async function saveSection(store: AdminStore, section: Section, id: string, data
   if (section === "bundles") {
     const names = data.getAll("title"), quantities = data.getAll("quantity"), totals = data.getAll("total");
     const featuredOnPage = data.getAll("showInQuantityOffers");
+    const mixed = data.getAll("mixedUnits");
     const previous = store.bundles.find((item) => item.id === id);
-    if (!names.length || names.length > 249 || names.length !== quantities.length || names.length !== totals.length) {
+    if (!names.length || names.length > 249 || names.length !== quantities.length || names.length !== totals.length ||
+      (mixed.length > 0 && mixed.length !== names.length)) {
       throw new InvalidInput("מלאו כמות ומחיר לכל מדרגה.");
     }
     const sourceVariantIds = sourceVariants(product);
@@ -265,8 +268,9 @@ async function saveSection(store: AdminStore, section: Section, id: string, data
       usedQuantities.add(quantity);
       const total = Math.round(number(totals[i], .01, 100000, false) * 100) / 100;
       const showInQuantityOffers = featuredOnPage.length ? featuredOnPage[i] === "yes" : i === 0 && previous?.showInQuantityOffers;
+      const mixedUnits = mixed.length ? mixed[i] === "yes" : i === 0 && previous?.mixedUnits;
       return { id: i === 0 ? id : randomUUID(), name, items: [[productId, quantity]], total, sourceVariantIds, active,
-        ...(i === featuredIndex && { bestValue: true }), ...(showInQuantityOffers && { showInQuantityOffers: true }) };
+        ...(i === featuredIndex && { bestValue: true }), ...(showInQuantityOffers && { showInQuantityOffers: true }), ...(mixedUnits && { mixedUnits: true }) };
     });
     const previousSource = previous?.active && previous.sourceVariantIds?.length ? previous.items[0][0] : undefined;
     const affected = new Set<string>(active ? [productId] : []);
@@ -275,12 +279,12 @@ async function saveSection(store: AdminStore, section: Section, id: string, data
     const completed: string[] = [];
     try {
       for (const sourceId of affected) {
-        await syncManagedBundle(sourceId, byId.get(sourceId), activeManagedTiers(next, sourceId));
+        await syncManagedBundle(sourceId, byId.get(sourceId), activeManagedBundleTiers(next, sourceId));
         completed.push(sourceId);
       }
     } catch (error) {
       for (const sourceId of completed.reverse()) {
-        await syncManagedBundle(sourceId, byId.get(sourceId), activeManagedTiers(store.bundles, sourceId)).catch(() => {});
+        await syncManagedBundle(sourceId, byId.get(sourceId), activeManagedBundleTiers(store.bundles, sourceId)).catch(() => {});
       }
       const reason = error instanceof Error ? error.message : "סנכרון הבאנדל נכשל.";
       if (previous?.active) throw new InvalidInput(reason);

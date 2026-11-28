@@ -17,8 +17,10 @@ function reader(contents) {
   new Function('require', 'module', 'exports', source)(name => dependencies[name], module, module.exports);
   return { read: module.exports.readCatalogBootstrap, reads: () => reads };
 }
-const catalog = { categories: [{ id: 'work' }], products: [{ id: 'shirt', choices: [{ color: 'navy', size: 'M', available: true, price: 100 }] }] };
-const seed = { version: 3, scope: 'store-a', createdAt: new Date().toISOString(), encoded: zlib.gzipSync(JSON.stringify(catalog)).toString('base64') };
+const catalog = { categories: [{ id: 'work' }], products: [{ id: 'shirt', choices: [{ color: 'navy', size: 'M', available: true, price: 100 }] }],
+  categorySources: { shirt: { id: 'gid://shopify/Product/1', direct: ['work'] } } };
+const encode = value => zlib.gzipSync(JSON.stringify(value)).toString('base64');
+const seed = { version: 4, productCount: 1, categoryCount: 1, scope: 'store-a', createdAt: new Date().toISOString(), encoded: encode(catalog) };
 
 test('packaged catalog is validated and read only once per process, preserving variants', async () => {
   const h = reader(JSON.stringify(seed));
@@ -32,5 +34,15 @@ test('packaged catalog is validated and read only once per process, preserving v
 test('missing, corrupt, incompatible and empty artifacts fall back to live loading', async () => {
   for (const contents of [null, '{', JSON.stringify({ ...seed, version: 1 }), JSON.stringify({ ...seed, createdAt: 'bad' }), JSON.stringify({ ...seed, encoded: 'broken' }), JSON.stringify({ ...seed, encoded: zlib.gzipSync('{"products":[],"categories":[]}').toString('base64') })]) {
     assert.equal(await reader(contents).read('store-a'), null);
+  }
+});
+
+test('incomplete snapshots with valid compressed data fall back to live loading', async () => {
+  for (const change of [
+    { version: 3 }, { productCount: 2 }, { categoryCount: 2 },
+    { encoded: encode({ ...catalog, categorySources: undefined }) },
+    { encoded: encode({ ...catalog, categorySources: {} }) },
+  ]) {
+    assert.equal(await reader(JSON.stringify({ ...seed, ...change })).read('store-a'), null);
   }
 });

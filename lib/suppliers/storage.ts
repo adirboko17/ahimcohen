@@ -64,6 +64,15 @@ export async function pendingCount(domain: string) {
   }, undefined, "count=exact");
   return Number(res.headers.get("content-range")?.split("/").pop()) || 0;
 }
+export async function countCatalogPreviews(domain: string, categories: string[]) {
+  const response = await supplierResponse("ahim_supplier_previews", "HEAD", {
+    ...scope(supplierKey(domain)), review_state: "eq.known", select: "source_id", limit: "1",
+    ...(categories.length ? { category_ids: "ov.{" + categories.join(",") + "}" } : {}),
+  }, undefined, "count=exact");
+  const total = response.headers.get("content-range")?.split("/").pop();
+  if (!total || !/^\d+$/.test(total)) throw new Error("לא ניתן היה לספור את מוצרי הקטלוג.");
+  return Number(total);
+}
 export async function ignoreReview(domain: string, id: string) {
   const rows = await request("PATCH", { ...scope(supplierKey(domain)), source_id: "eq." + id, review_state: "eq.pending",
     shopify_product_id: "is.null", import_token: "is.null" }, { review_state: "ignored" });
@@ -71,6 +80,14 @@ export async function ignoreReview(domain: string, id: string) {
 }
 export function previews(domain = "redback.co.il", params: Record<string, string> = {}) {
   return request("GET", { order: "source_id", ...params, ...scope(supplierKey(domain)) });
+}
+export async function excludeSupplierPreview(row: Preview, token?: string) {
+  const saved = await request("PATCH", {
+    ...scope(row.supplier), source_id: "eq." + row.source_id, revision: "eq." + row.revision,
+    review_state: "in.(known,pending)", shopify_product_id: row.shopify_product_id ? "eq." + row.shopify_product_id : "is.null",
+    import_token: token ? "eq." + token : "is.null", select: "source_id",
+  }, { review_state: "ignored" });
+  if (saved.length !== 1) throw new Error("המוצר השתנה או שהייבוא כבר התחיל. רעננו את הדוח ונסו שוב.");
 }
 export async function getPreview(domain: string, id: string) {
   return (await previews(domain, { source_id: "eq." + id, limit: "1" }))[0];
@@ -183,6 +200,7 @@ export async function saveDraftId(
       ...scope(row.supplier),
       source_id: "eq." + row.source_id,
       shopify_product_id: "is.null",
+      review_state: "eq." + row.review_state,
       import_token: token ? "eq." + token : "is.null",
     },
     {
@@ -243,6 +261,7 @@ export async function withLinkedProductLock<T>(row: Preview, run: (token: string
     {
       ...filter,
       revision: "eq." + row.revision,
+      review_state: "eq." + row.review_state,
       or: `(import_token.is.null,import_started_at.lt.${expired})`,
     },
     { import_token: token, import_started_at: new Date().toISOString() },

@@ -162,6 +162,33 @@ test("a managed tier selects its own variant and adds one bundle instead of two 
   assert.deepEqual(app.added, [[[pack.id, 1, "L", 1]]]);
 });
 
+test("a mixed tier selects independently for each unit and uses exact Shopify variant mappings", () => {
+  const base = { ...product, deal: undefined, choices: [
+    { ...product.choices[0], id: "cotton", optionsLabel: "בד כותנה" },
+    { ...product.choices[0], id: "linen", optionsLabel: "בד פשתן" },
+    { ...product.choices[4], id: "silk", optionsLabel: "בד משי" },
+  ] };
+  const pack = { ...base, id: "bundle-cart-pair", bundleSourceId: base.id, price: 70,
+    choices: base.choices.slice(0, 2).map((choice, index) => ({ ...choice, id: `pack-${index}`, sourceVariantId: choice.id, price: 70 })).reverse() };
+  const app = productHarness(base, { fromQuantityOffer: false, bundles: [{ id: "pair", name: "זוג", quantity: 2, total: 70, cartProductId: pack.id, mixedUnits: true }] }, pack);
+  let tree = app.render();
+  findElement(tree, (node) => node.type === "input" && node.props.value === "pair").props.onChange();
+  tree = app.render();
+  assert.equal(pickerOf(tree).props.rows.length, 2);
+  assert.equal(pickerOf(tree).props.selectByVariant, true);
+  assert.equal(pickerOf(tree).props.product.choices.find(({ id }) => id === "silk").available, false);
+  pickerOf(tree).props.onChange(0, { color: 0, size: "M", variantId: "linen" });
+  tree = app.render();
+  addButton(tree).props.onClick();
+  assert.equal(app.added.length, 0);
+  pickerOf(tree).props.onChange(1, { color: 0, size: "M", variantId: "cotton" });
+  tree = app.render();
+  const packUnits = [{ variantId: "cotton", quantity: 1 }, { variantId: "linen", quantity: 1 }];
+  assert.deepEqual(app.quote(), [{ pid: pack.id, color: "blue", size: "M", qty: 1, variantId: "pack-0", packUnits }]);
+  addButton(tree).props.onClick();
+  assert.deepEqual(app.added, [[[pack.id, 0, "M", 1, packUnits]]]);
+});
+
 test("admin bundle options set the displayed total and the number of independently selected units", () => {
   const app = productHarness({ ...product, deal: undefined }, { fromQuantityOffer: false, bundles: [
     { id: "two", name: "זוג", quantity: 2, total: 120 },

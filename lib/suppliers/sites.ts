@@ -247,10 +247,10 @@ async function runPage(domain: string, onStockApplied: () => void) {
     );
     if (!page.more && saved.length && site.pull_started_at) {
       try {
-        const { readSupplierCategoryAudit } = await import("./category-audit");
-        await readSupplierCategoryAudit(site);
+        const { readSupplierCategoryReport } = await import("./category-review-cache");
+        await readSupplierCategoryReport(site);
       } catch (error) {
-        console.error("Supplier category audit failed after pull", site.domain, message(error));
+        console.error("Supplier category report failed after pull", site.domain, message(error));
       }
     }
     return page.more;

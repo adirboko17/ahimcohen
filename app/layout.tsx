@@ -6,7 +6,7 @@ import { Shell } from "@/components/Shell";
 import { PageLoading } from "@/components/PageLoading";
 import { CatalogProvider } from "@/lib/catalog-context";
 import { packCatalog } from "@/lib/catalog-wire";
-import { loadShopCatalog } from "@/lib/shopify/load-catalog";
+import { loadStorefrontCatalog } from "@/lib/shopify/storefront-catalog";
 import { StoreProvider } from "@/lib/store";
 import { applyAdminProducts } from "@/lib/admin/commerce";
 import { managedBundleProducts } from "@/lib/admin/bundle-catalog";
@@ -55,10 +55,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 }
 
 async function ShopLayout({ children }: { children: React.ReactNode }) {
-  const [catalog, admin] = await Promise.all([loadShopCatalog(), readAdminStore()]);
+  const [catalog, admin] = await Promise.all([loadStorefrontCatalog(), readAdminStore()]);
   const bundleProducts = await managedBundleProducts(catalog.products, admin.bundles, visibleQuantityOffers(admin));
   return (
-    <CatalogProvider catalog={packCatalog({ ...catalog, products: [...applyAdminProducts(catalog.products, admin), ...bundleProducts, ...setCartProducts(catalog.products, admin.sets)] })}>
+    <CatalogProvider colorMappings={admin.colorMappings}
+      catalog={packCatalog({ categories: catalog.categories, products: [...applyAdminProducts(catalog.products, admin), ...bundleProducts, ...setCartProducts(catalog.products, admin.sets)] })}>
       <StoreProvider customerAuth={customerAuthConfig()}>
         <Shell>{children}</Shell>
       </StoreProvider>

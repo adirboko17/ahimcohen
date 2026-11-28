@@ -5,41 +5,18 @@ import { SERVICES, colorLabel, type Product } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductImage } from "@/lib/category-filters";
 import { productSizeOptions } from "@/lib/sizes";
+import { brandingOptions, businessProductOptions, logoError, logoExtensions, maxQuantity, maxQuoteItems, type ProductOption } from "@/lib/business-quotes";
 import { IconBack, IconBag, IconCheck, IconFwd, IconUpload } from "./icons";
 import { ProductImage } from "./ProductImage";
 
 type Row = { id: number; pid: string; sku: string; color: string; sizes: Record<string, string> };
-type ProductOption = { sku: string; product: Product };
-const BUSINESS_SKUS = ["108", "101", "104", "135-4", "115", "211", "528", "097", "1045", "141", "004"] as const;
-const CATALOG_SKU_ALIASES: Partial<Record<(typeof BUSINESS_SKUS)[number], string>> = {
-  "115": "115-6",
-  "528": "528N-5",
-  "097": "097N",
-  "004": "004-1",
-};
 const LABELS = ["פריטים וכמויות", "מיתוג", "פרטי התקשרות", "סיכום ושליחה"];
 const TITLES = [
   ["אילו פריטים צריך?", "בחרו פריט מהתמונות, ואז הגדירו צבע וכמות לכל מידה."],
-  ["איך ממתגים?", "בחרו שיטת מיתוג והעלו את קובץ הלוגו. אם הקובץ לא זמין כרגע, אפשר לשלוח אותו גם אחר כך."],
+  ["איך ממתגים?", "אפשר לבחור הדפס כיס, הדפס גב או את שניהם. אם הלוגו עדיין לא מוכן, אפשר לשלוח אותו בהמשך."],
   ["למי לשלוח את ההצעה?", "הצעת המחיר תישלח לפרטים האלה."],
   ["בדיקה אחרונה", "עברו על הפרטים לפני השליחה. אפשר לחזור לכל שלב ולערוך."],
 ];
-const BRAND_DESC: Record<string, string> = { רקמה: "לוגו רקום על הבגד", הדפסה: "לוגו מודפס על הבגד", "ללא מיתוג": "פריטים ללא לוגו" };
-
-function businessProductOptions(products: Product[]): ProductOption[] {
-  const bySku = new Map<string, Product>();
-  for (const product of products) {
-    if (!product.sizes.length) continue;
-    for (const sku of [product.sku, ...(product.choices?.map((choice) => choice.sku) ?? [])]) {
-      const key = sku?.trim().toUpperCase();
-      if (key && !bySku.has(key)) bySku.set(key, product);
-    }
-  }
-  return BUSINESS_SKUS.flatMap((sku) => {
-    const product = bySku.get(sku) ?? bySku.get(CATALOG_SKU_ALIASES[sku] ?? "");
-    return product ? [{ sku, product }] : [];
-  });
-}
 
 function sizedOptions(product: Product, color: string) {
   return productSizeOptions(product, color).filter((option) => option.value);
@@ -53,8 +30,11 @@ export function BusinessView() {
   const pendingFocus = useRef<number | "picker" | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [pickerOpen, setPickerOpen] = useState(true);
-  const [brand, setBrand] = useState<string[]>(["רקמה"]);
-  const [logo, setLogo] = useState("");
+  const [brand, setBrand] = useState<string[]>(["הדפס כיס"]);
+  const [logo, setLogo] = useState<File | null>(null);
+  const activeLogo = brand.includes("ללא מיתוג") ? null : logo;
+  const [sending, setSending] = useState(false);
+  const submission = useRef("");
   const [step, setStep] = useState(0);
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
@@ -95,9 +75,17 @@ export function BusinessView() {
     const el = formRef.current;
     el?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
-  const valid = (i: number) => (i === 0 ? units > 0 : i === 2 ? !!(ct.org && ct.name && ct.phone) : true);
-  const errs = [rows.length ? "הזינו כמות לפחות במידה אחת" : "בחרו פריט כדי להתחיל", "", "מלאו שם עסק, איש קשר וטלפון", ""];
+  const valid = (i: number) => {
+    if (i === 0) return rows.length > 0 && rows.every(row => {
+      const quantities = Object.values(row.sizes).map(Number);
+      return quantities.some(q => q > 0) && quantities.every(q => Number.isInteger(q) && q >= 0 && q <= maxQuantity);
+    });
+    if (i === 1) return brand.length > 0;
+    return i !== 2 || !!(ct.org.trim() && ct.name.trim() && ct.phone.trim());
+  };
+  const errs = [rows.length ? "הזינו כמויות שלמות ולפחות יחידה אחת בכל פריט" : "בחרו פריט כדי להתחיל", "בחרו מיקום הדפס או ללא מיתוג", "מלאו שם עסק, איש קשר וטלפון", ""];
   const go = (i: number) => {
+    if (sending) return;
     for (let j = 0; j < i; j++) {
       if (!valid(j)) {
         setStep(j);
@@ -108,6 +96,32 @@ export function BusinessView() {
     setStep(i);
     setErr("");
     scrollForm();
+  };
+
+  const submit = async () => {
+    if (sending) return;
+    for (let j = 0; j < 3; j++) if (!valid(j)) { setStep(j); setErr(errs[j]); return; }
+    setErr("");
+    setSending(true);
+    try {
+      submission.current ||= crypto.randomUUID();
+      const form = new FormData();
+      form.set("submission", submission.current);
+      const items = rows.map(({ pid, sku, color, sizes }) => ({ pid, sku, color,
+        sizes: Object.fromEntries(Object.entries(sizes).filter(([, q]) => +q > 0).map(([size, q]) => [size, Number(q)])),
+      }));
+      form.set("quote", JSON.stringify({ contact: ct, branding: brand, items }));
+      if (activeLogo) form.set("logo", activeLogo);
+      const response = await fetch("/api/business-quotes", { method: "POST", body: form });
+      const result = await response.json();
+      if (!response.ok || !result.id) { setErr(result.message || "שליחת הבקשה נכשלה. נסו שוב."); return; }
+      setSent(true);
+      scrollForm();
+    } catch {
+      setErr("לא התקבל אישור שליחה. הפרטים נשמרו בטופס ואפשר לנסות שוב.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -146,11 +160,11 @@ export function BusinessView() {
         {sent ? (
           <div style={{ background: "#F4F4F2", padding: "clamp(28px, 5vw, 56px)", display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
             <span style={{ width: 48, height: 48, background: "#FFD100", display: "flex", alignItems: "center", justifyContent: "center" }}><IconCheck size={22} /></span>
-            <span style={{ fontSize: 28, fontWeight: 800 }}>הבקשה מוכנה לשליחה</span>
+            <span role="status" style={{ fontSize: 28, fontWeight: 800 }}>הבקשה להצעת מחיר התקבלה</span>
             <span className="muted" style={{ fontSize: 16, lineHeight: 1.6, maxWidth: "52ch" }}>
-              {units} יחידות ב-{rows.length} פריטים{brand.length ? " · " + brand.join(" + ") : ""}{logo ? " · לוגו: " + logo : ""}. בסביבת ההדגמה הטופס אינו נשלח בפועל - בגרסה החיה הוא יועבר לצוות ההזמנות ב-Hazmanot@ahim-cohen.co.il.
+              {ct.name}, קיבלנו את הבקשה של {ct.org} עבור {units} יחידות. צוות ההזמנות יחזור אליכם עם הצעת מחיר.
             </span>
-            <button className="btn btn-line" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={() => { setSent(false); setStep(3); }}>עריכת הבקשה</button>
+            <a className="btn btn-line" href="/business">בקשה חדשה</a>
           </div>
         ) : (
           <div className="business-layout">
@@ -236,7 +250,7 @@ export function BusinessView() {
                                 {sizes.map(({ label }) => (
                                   <label key={label}>
                                     <bdi>{label}</bdi>
-                                    <input className="inp" type="number" min={0} inputMode="numeric" placeholder="0" value={r.sizes[label] || ""} onChange={(e) => {
+                                    <input className="inp" type="number" min={0} max={maxQuantity} inputMode="numeric" placeholder="0" value={r.sizes[label] || ""} onChange={(e) => {
                                       const value = e.target.value;
                                       updateRow(r.id, (row) => ({ ...row, sizes: { ...row.sizes, [label]: value } }));
                                     }} />
@@ -249,7 +263,7 @@ export function BusinessView() {
                         </div>
                       );
                     })}
-                    {!pickerOpen && <button className="business-add-product btn btn-line" type="button" onClick={() => {
+                    {!pickerOpen && rows.length < maxQuoteItems && <button className="business-add-product btn btn-line" type="button" onClick={() => {
                       pendingFocus.current = "picker";
                       setPickerOpen(true);
                     }}>+ הוספת פריט</button>}
@@ -258,10 +272,10 @@ export function BusinessView() {
                 {step === 1 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 8 }}>
-                      {["רקמה", "הדפסה", "ללא מיתוג"].map((b) => {
+                      {Object.entries(brandingOptions).map(([b, description]) => {
                         const on = brand.includes(b);
                         return (
-                          <button key={b} className={`choice ${on ? "on" : ""}`} onClick={() => setBrand((cur) => {
+                          <button key={b} aria-pressed={on} className={`choice ${on ? "on" : ""}`} onClick={() => setBrand((cur) => {
                             if (b === "ללא מיתוג") return cur.includes(b) ? [] : [b];
                             const without = cur.filter((x) => x !== "ללא מיתוג");
                             return without.includes(b) ? without.filter((x) => x !== b) : without.concat(b);
@@ -269,31 +283,39 @@ export function BusinessView() {
                             <span className={`tick ${on ? "on" : ""}`} style={{ width: 24, height: 24 }}>{on && <IconCheck />}</span>
                             <span>
                               <b style={{ display: "block", fontSize: 18 }}>{b}</b>
-                              <span className="muted" style={{ fontSize: 14 }}>{BRAND_DESC[b]}</span>
+                              <span className="muted" style={{ fontSize: 14 }}>{description}</span>
                             </span>
                           </button>
                         );
                       })}
                     </div>
-                    <label style={{ display: "flex", alignItems: "center", gap: 16, background: "#fff", padding: 22, cursor: "pointer", boxShadow: "inset 0 0 0 1px #CFCFCA" }}>
+                    {!brand.includes("ללא מיתוג") && <label style={{ display: "flex", alignItems: "center", gap: 16, background: "#fff", padding: 22, cursor: "pointer", boxShadow: "inset 0 0 0 1px #CFCFCA", position: "relative" }}>
                       <span style={{ width: 52, height: 52, background: "#FFD100", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><IconUpload /></span>
                       <span>
-                        <b style={{ display: "block", fontSize: 16 }}>{logo || "העלאת קובץ לוגו"}</b>
-                        <span className="muted" style={{ fontSize: 13 }}>PNG, JPG, PDF, AI או SVG · לא חובה בשלב זה</span>
+                        <b style={{ display: "block", fontSize: 16 }}>{logo?.name || "העלאת קובץ לוגו"}</b>
+                        <span className="muted" style={{ fontSize: 13 }}>PNG, JPG, PDF, AI, SVG או EPS · עד 4 MB · לא חובה</span>
                       </span>
-                      <input type="file" accept=".png,.jpg,.jpeg,.pdf,.ai,.svg,.eps" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) setLogo(f.name); }} />
-                    </label>
+                      <input type="file" accept={logoExtensions.join(",")} style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", cursor: "pointer" }} onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const message = logoError(file);
+                        setErr(message);
+                        if (!message) setLogo(file);
+                        e.target.value = "";
+                      }} />
+                    </label>}
+                    {activeLogo && <button className="business-row-link" onClick={() => { setLogo(null); setErr(""); }}>הסרת הלוגו</button>}
                   </div>
                 )}
                 {step === 2 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))", gap: 14 }}>
-                      <label className="field">שם העסק / הארגון *<input value={ct.org} onChange={(e) => setCt({ ...ct, org: e.target.value })} /></label>
-                      <label className="field">איש קשר *<input value={ct.name} onChange={(e) => setCt({ ...ct, name: e.target.value })} /></label>
-                      <label className="field">טלפון *<input value={ct.phone} onChange={(e) => setCt({ ...ct, phone: e.target.value })} dir="ltr" style={{ textAlign: "right" }} /></label>
-                      <label className="field">אימייל<input value={ct.email} onChange={(e) => setCt({ ...ct, email: e.target.value })} dir="ltr" style={{ textAlign: "right" }} /></label>
+                      <label className="field">שם העסק / הארגון *<input maxLength={200} value={ct.org} onChange={(e) => setCt({ ...ct, org: e.target.value })} /></label>
+                      <label className="field">איש קשר *<input maxLength={200} value={ct.name} onChange={(e) => setCt({ ...ct, name: e.target.value })} /></label>
+                      <label className="field">טלפון *<input type="tel" maxLength={40} value={ct.phone} onChange={(e) => setCt({ ...ct, phone: e.target.value })} dir="ltr" style={{ textAlign: "right" }} /></label>
+                      <label className="field">אימייל<input type="email" maxLength={254} value={ct.email} onChange={(e) => setCt({ ...ct, email: e.target.value })} dir="ltr" style={{ textAlign: "right" }} /></label>
                     </div>
-                    <label className="field">הערות - מועד אספקה רצוי, מיקום הלוגו<textarea rows={4} value={ct.notes} onChange={(e) => setCt({ ...ct, notes: e.target.value })} /></label>
+                    <label className="field">הערות - מועד אספקה רצוי, מיקום הלוגו<textarea rows={4} maxLength={4000} value={ct.notes} onChange={(e) => setCt({ ...ct, notes: e.target.value })} /></label>
                   </div>
                 )}
                 {step === 3 && (
@@ -318,7 +340,7 @@ export function BusinessView() {
                       })}
                     </div>
                     <div className="b-card" style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <span><b style={{ display: "block" }}>מיתוג</b><span className="muted">{brandLabel}{logo ? " · לוגו: " + logo : " · לוגו יישלח בהמשך"}</span></span>
+                      <span><b style={{ display: "block" }}>מיתוג</b><span className="muted">{brandLabel}{activeLogo ? " · " + activeLogo.name : brand.includes("ללא מיתוג") ? "" : " · טרם צורף לוגו"}</span></span>
                       <button onClick={() => go(1)} style={{ background: "none", border: 0, fontWeight: 700, textDecoration: "underline" }}>עריכה</button>
                     </div>
                     <div className="b-card" style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -329,14 +351,9 @@ export function BusinessView() {
                 )}
                 {err && <span className="err" role="alert">{err}</span>}
                 <div className="business-form-actions">
-                  {step > 0 && <button className="btn btn-line" style={{ padding: "0 24px" }} onClick={() => { setStep(step - 1); setErr(""); scrollForm(); }}><IconBack /> חזרה</button>}
-                  <button className="btn" style={{ flex: 1, fontSize: 16 }} onClick={() => {
-                    if (step < 3) { go(step + 1); return; }
-                    for (let j = 0; j < 3; j++) if (!valid(j)) { setStep(j); setErr(errs[j]); return; }
-                    setSent(true);
-                    scrollForm();
-                  }}>
-                    {step < 3 ? `המשך · ${LABELS[step + 1]}` : "שליחת בקשה להצעת מחיר"}
+                  {step > 0 && <button disabled={sending} className="btn btn-line" style={{ padding: "0 24px" }} onClick={() => go(step - 1)}><IconBack /> חזרה</button>}
+                  <button disabled={sending} className="btn" style={{ flex: 1, fontSize: 16 }} onClick={() => step < 3 ? go(step + 1) : void submit()}>
+                    {step < 3 ? `המשך · ${LABELS[step + 1]}` : sending ? "שולחים את הבקשה…" : "שליחת בקשה להצעת מחיר"}
                     <IconFwd />
                   </button>
                 </div>
@@ -352,7 +369,7 @@ export function BusinessView() {
                 <div style={{ borderTop: "1px solid #333" }}>
                   <Row k="פריטים" v={String(rows.length)} />
                   <Row k="מיתוג" v={brandLabel} />
-                  <Row k="לוגו" v={logo || "טרם הועלה"} />
+                  {!brand.includes("ללא מיתוג") && <Row k="לוגו" v={activeLogo?.name || "טרם צורף"} />}
                 </div>
               </div>
               <a href="tel:08-6233803" style={{ background: "#F4F4F2", padding: "18px 20px", display: "flex", justifyContent: "space-between", fontWeight: 700 }}>

@@ -103,8 +103,19 @@ export const supplierKey = (domain: string) => (domain === "redback.co.il" ? "re
 export const productDomain = (p: SupplierProduct) => p.domain || "redback.co.il";
 export const productBrand = (p: SupplierProduct) => p.brand ?? (!p.domain ? "Redback" : "");
 
+export const supplierCategoryReviewTag = "supplier-category-review";
+export const supplierImportExcluded = "המוצר הוסר מהייבוא.";
+
 export function categoryPath(id: string, categories: SourceCategory[]) {
-  const byId = new Map(categories.map((c) => [c.id, c]));
+  return traceCategoryPath(id, new Map(categories.map(category => [category.id, category])));
+}
+
+export function supplierCategoryPaths(categories: SourceCategory[]) {
+  const byId = new Map(categories.map(category => [category.id, category]));
+  return new Map(categories.map(category => [category.id, traceCategoryPath(category.id, byId)]));
+}
+
+function traceCategoryPath(id: string, byId: ReadonlyMap<string, SourceCategory>) {
   const path: SourceCategory[] = [];
   let current = byId.get(id);
   while (current && !path.some((c) => c.id === current!.id)) {
@@ -115,14 +126,15 @@ export function categoryPath(id: string, categories: SourceCategory[]) {
 }
 export function descendants(ids: string[], categories: SourceCategory[]) {
   const selected = new Set(ids);
+  const paths = supplierCategoryPaths(categories);
   return categories
-    .filter((c) => categoryPath(c.id, categories).some((parent) => selected.has(parent.id)))
+    .filter((c) => paths.get(c.id)?.some((parent) => selected.has(parent.id)))
     .map((c) => c.id);
 }
-export function mappedCollections(ids: string[], site: Pick<Site, "categories" | "mappings">) {
+export function mappedCollections(ids: string[], site: Pick<Site, "categories" | "mappings">, paths?: ReturnType<typeof supplierCategoryPaths>) {
   const mapped = ids
     .flatMap((id) =>
-      categoryPath(id, site.categories)
+      [...(paths ? paths.get(id) ?? [] : categoryPath(id, site.categories))]
         .reverse()
         .find((c) => site.mappings[c.id]?.length),
     )
@@ -147,9 +159,9 @@ export function pricedProduct(p: SupplierProduct, percent: number, manual: numbe
   const adjust = (n: number) => Math.round(n * (100 + percent)) / 100;
   return {
     ...p,
-    variants: p.variants.map((v) => {
-      const original = adjust(catalogPrice(v.price, v.regular));
-      return { ...v, price: manual ?? original, regular: manual ?? original };
+    variants: p.variants.map((variant) => {
+      const price = manual ?? adjust(catalogPrice(variant.price, variant.regular));
+      return { ...variant, price, regular: price };
     }),
   };
 }

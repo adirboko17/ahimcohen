@@ -14,11 +14,11 @@ import {
   wakeCatalogWorker,
 } from "@/lib/suppliers/sites";
 import { manualCollections } from "@/lib/suppliers/shopify";
-import { pricedProduct } from "@/lib/suppliers/catalog-model";
-import { readCatalogBatch } from "@/lib/suppliers/catalog-batch";
+import { pricedProduct, supplierCategoryReviewTag } from "@/lib/suppliers/catalog-model";
+import { readCatalogBatch, readCatalogCount } from "@/lib/suppliers/catalog-batch";
 import { normalizeDomain, sourceReader } from "@/lib/suppliers/public-source";
 import { scanWooProduct, wooReviewImages } from "@/lib/suppliers/woocommerce";
-import { queueImports } from "@/lib/suppliers/import-queue";
+import { excludeFromSupplierImport, queueImports, readPublicationProgress } from "@/lib/suppliers/import-queue";
 import { readMonitorReport } from "@/lib/suppliers/monitor-report";
 import { after } from "next/server";
 import { importDraft } from "@/lib/suppliers/shopify";
@@ -70,11 +70,22 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const id = String(form.get("id") ?? "");
     const action = form.get("action");
-    if (action === "create-category") return Response.json(await createCategory(form));
+    if (action === "create-category") {
+      const result = await createCategory(form);
+      revalidateTag(supplierCategoryReviewTag);
+      return Response.json(result);
+    }
     if (["monitor","pull","batch","monitor-import"].includes(String(action))) await registerCloudWorker();
     if (action === "remove" && !String(form.get("domain") ?? "").trim())
       throw new Error("חסר דומיין להסרה.");
     const domain = normalizeDomain(String(form.get("domain") || "redback.co.il"));
+    if (action === "publication-progress") {
+      const raw = form.get("items");
+      const ids: unknown = raw === null ? undefined : JSON.parse(String(raw));
+      if (ids !== undefined && (!Array.isArray(ids) || ids.some(id => typeof id !== "string" || !/^\d+$/.test(id))))
+        throw new Error("בקשת התקדמות הפרסום אינה תקינה.");
+      return Response.json(await readPublicationProgress(domain, ids as string[] | undefined, form.get("active") === "true"));
+    }
     if (action === "discover") {
       const savedDomain = await discoverSite(domain);
       return Response.json({ domain: savedDomain, message: "הקטגוריות מוכנות לבחירה." });
@@ -91,6 +102,7 @@ export async function POST(request: Request) {
       if (!requested.size || (single && !/^\d+$/.test(id)) || (mode !== "add" && mode !== "replace"))
         throw new Error("בחרו מוצרים ואופן שיוך.");
       const result = await assignSupplierCategories(site, requested, String(form.get("collection") ?? ""), mode, await supplierStorefrontCollections());
+      revalidateTag(supplierCategoryReviewTag);
       if (single && result.failed.length) throw new Error(result.failed[0].message);
       return Response.json(single ? { message: "השיוך נשמר למוצר." } : result);
     }
@@ -99,7 +111,9 @@ export async function POST(request: Request) {
       return Response.json({ message: name ? `מותג ברירת המחדל נשמר · ${name}` : "מותג ברירת המחדל הוסר." });
     }
     if (action === "approve-category") {
-      return Response.json(await approveSupplierCategory(site, form));
+      const result = await approveSupplierCategory(site, form);
+      revalidateTag(supplierCategoryReviewTag);
+      return Response.json(result);
     }
     if (action === "monitor-report") {
       const kind = form.get("kind"), page = Number(form.get("page"));
@@ -147,6 +161,7 @@ export async function POST(request: Request) {
       }
       if (action === "map") {
         await saveMappings(site, mappings);
+        revalidateTag(supplierCategoryReviewTag);
         return Response.json({ message: "התאמות הקטגוריות נשמרו." });
       }
       await queuePull(site, form.get("all") === "true", form.getAll("category").map(String), mappings);
@@ -157,18 +172,32 @@ export async function POST(request: Request) {
       await setPercent(domain, Number(form.get("value")));
       return Response.json({ message: "כלל התמחור נשמר." });
     }
+    if (action === "batch-count") {
+      if (site.state === "queued" || site.state === "running") throw new Error("המתינו לסיום משיכת הקטלוג.");
+      return Response.json({ count: await readCatalogCount(site, String(form.get("category") ?? "")) });
+    }
     if (action === "batch") {
+      if (form.get("scope") === "all" && (site.state === "queued" || site.state === "running"))
+        throw new Error("המתינו לסיום משיכת הקטלוג.");
       const intent = form.get("intent") || "draft";
       if (intent !== "publish" && intent !== "draft") throw new Error("פעולה לא מוכרת.");
-      const {queued, skipped} = await queueImports(site, form.getAll("item").map(String),
+      const {queued, queuedIds, skipped} = await queueImports(site, form.getAll("item").map(String),
         form.get("scope")==="all"?String(form.get("category")||""):undefined, intent);
       after(wakeCatalogWorker);
-      return Response.json({ message: `${queued} מוצרים נוספו לתור ${intent === "publish" ? "הפרסום באתר" : "הייבוא כטיוטות"}.` +
+      return Response.json({ ...(intent === "publish" ? { publicationIds: queuedIds } : {}), message: `${queued} מוצרים נוספו לתור ${intent === "publish" ? "הפרסום באתר" : "הייבוא כטיוטות"}.` +
         (skipped.length ? " דילוגים: " + skipped.join(" · ") : "") });
     }
     if (!/^\d+$/.test(id)) throw new Error("מזהה המוצר אינו תקין.");
+    if (action === "exclude-import") {
+      const revision = String(form.get("revision") ?? "");
+      if (!/^[a-f0-9]{64}$/.test(revision)) throw new Error("נתוני המוצר התעדכנו. רעננו את הדוח ונסו שוב.");
+      await excludeFromSupplierImport(domain, id, revision);
+      revalidateTag(supplierCategoryReviewTag);
+      return Response.json({ message: "המוצר הוסר מהייבוא." });
+    }
     if (action === "ignore") {
       await ignoreReview(domain, id);
+      revalidateTag(supplierCategoryReviewTag);
       return Response.json({message:"המוצר הוסר מרשימת ההצעות."});
     }
     const row = await getPreview(domain, id);
@@ -191,6 +220,7 @@ export async function POST(request: Request) {
         }
       }
       await resolveScanIssue(domain,id,site.pull_started_at,snapshot);
+      revalidateTag(supplierCategoryReviewTag);
       return Response.json({message:snapshot ? "הסריקה הצליחה והמוצר זמין בקטלוג." : "המוצר הוסר מקטלוג הספק."});
     }
     if (action === "scan" && !row?.shopify_product_id) {
@@ -199,8 +229,10 @@ export async function POST(request: Request) {
         await savePreview(row.snapshot.platform === "shopify" ? await rescanShopify(row.snapshot) : await scanWooProduct(domain, id));
       } catch (e) {
         await markScanError(domain, id, e instanceof Error ? e.message : "סריקת המוצר נכשלה.");
+        revalidateTag(supplierCategoryReviewTag);
         throw e;
       }
+      revalidateTag(supplierCategoryReviewTag);
       return Response.json({ message: "הסריקה הושלמה." });
     }
     if (!row || row.revision !== form.get("revision")) throw new Error("נתוני הסריקה השתנו. רעננו את התצוגה.");
@@ -234,6 +266,7 @@ export async function POST(request: Request) {
         product = linked;
       }
       const { live } = await refreshLinkedProduct(product, action === "publish");
+      revalidateTag(supplierCategoryReviewTag);
       if (live) revalidateTag("shop-catalog");
       if (action === "publish" && !live) throw new Error("פרסום המוצר באתר טרם אומת.");
       const message = live
@@ -243,7 +276,7 @@ export async function POST(request: Request) {
         : "הסריקה הושלמה.";
       return Response.json({ message });
     }
-    if (action !== "import" && action !== "publish-import") throw new Error("פעולה לא מזוהה.");
+    if (action !== "import") throw new Error("פעולה לא מזוהה.");
     const overrideBrand = form.has("brand") ? String(form.get("brand")).trim() :
       row.shopify_product_id ? row.snapshot.brand : detectSupplierBrand(row.snapshot, await readSupplierDefaultBrand(site.domain)).name;
     if (overrideBrand && overrideBrand.length > 150) throw new Error("שם המותג ארוך מדי.");
@@ -253,17 +286,7 @@ export async function POST(request: Request) {
       (row.shopify_product_id && row.draft_snapshot) ||
         pricedProduct({ ...row.snapshot, brand: overrideBrand }, site.percent, row.manual_price),
     );
-    if (action === "publish-import") {
-      const linked = await getPreview(domain, id);
-      if (!linked?.shopify_product_id) throw new Error("הטיוטה נוצרה, אבל אי אפשר לפרסם אותה עדיין.");
-      const { live } = await refreshLinkedProduct(linked, true);
-      if (!live) throw new Error("הפרסום באתר טרם אומת.");
-      revalidateTag("shop-catalog");
-      return Response.json({
-        message: "המוצר פורסם באתר וזמינות הווריאציות אומתה.",
-        url: result.url,
-      });
-    }
+    revalidateTag(supplierCategoryReviewTag);
     return Response.json({
       message: `הטיוטה אומתה בשופיפיי · ${result.variants} וריאציות · ${result.images} תמונות`,
       url: result.url,

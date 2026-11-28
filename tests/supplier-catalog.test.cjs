@@ -15,7 +15,7 @@ function moduleFor(name, deps = {}) {
 const categoryPlacement = moduleFor("../category-placement");
 const categoryMatching = moduleFor("category-matching", { "@/lib/category-placement": categoryPlacement });
 const { outdoorFootwear } = categoryPlacement;
-const categoryAuditStub = { categoryOpportunityMinimum: 15, readSupplierCategoryAudit: async () => [] };
+const categoryAuditStub = { categoryOpportunityMinimum: 15, categoryOpportunities: () => [] };
 const supplierBrand = moduleFor("brand", { "@/lib/brands": moduleFor("../brands") });
 const testBrandSettings = { readSupplierDefaultBrand: async domain => supplierBrand.supplierDefaultBrand(domain) };
 const { pricedProduct, descendants, mappedCollections, formatMonitorCountdown } = moduleFor("catalog-model");
@@ -325,7 +325,7 @@ test("category review distinguishes inherited mappings, proposed groups and veri
   collections.push({ id: "kitchen", title: "אביזרים למטבח", manual: true, published: true,
     paths: [{ parentId: "acc", parent: "אביזרים", sub: "אביזרים למטבח" }] });
   const row = (source_id, title, category, shopify_product_id = null) => ({
-    source_id, title, category_ids: [category], shopify_product_id, productType: null, brand: null, description: null,
+    source_id, title, category_ids: [category], shopify_product_id, productType: null, brand: null, description: null, scanned_at: site.pull_started_at,
   });
   const rows = [
     row("1", "מגן קרסול אלסטי", "2"), row("2", "מגן קרסול מבד", "2"),
@@ -337,6 +337,12 @@ test("category review distinguishes inherited mappings, proposed groups and veri
     row("12", "נעל בטיחות עם מגן", "4", "linked-reviewed"),
     { ...row("13", "נעלי טיולים Vidden Hybrid לנשים", "9"), collection_ids: ["safety"] },
   ];
+  const old = "2026-11-20T12:00:00Z";
+  rows.push({ ...row("14", "ערכת קפה ממשיכה מוקדמת", "7"), scanned_at: old },
+    { ...row("15", "שרוכים באוסף ללא קטגוריה", "5"), scanned_at: old, collection_ids: ["laces"] },
+    { ...row("16", "מוצר מקושר ללא קטגוריה", "7", "linked-empty"), scanned_at: old },
+    { ...row("17", "מוצר מקושר שלא אומת", "7", "linked-missing"), scanned_at: old });
+  let scanned = rows;
   const review = moduleFor("category-review", {
     "server-only": {}, "@/lib/catalog": catalog, "./catalog-model": moduleFor("catalog-model"),
     "@/lib/category-placement": categoryPlacement, "./category-matching": categoryMatching,
@@ -344,22 +350,29 @@ test("category review distinguishes inherited mappings, proposed groups and veri
     "./storefront-collections": { supplierStorefrontCollections: async () => collections },
     "./shopify": {
       supplierCollectionMemberships: async (ids, reviewed) => {
-        assert.deepEqual(ids, ["linked-a", "linked-b", "linked-reviewed"]);
+        if (!ids.length) return new Map();
+        assert.deepEqual(ids, ["linked-a", "linked-b", "linked-reviewed", "linked-empty", "linked-missing"]);
         reviewed.set("linked-reviewed", "boots");
-        return new Map([["linked-a", ["boots"]], ["linked-b", ["boots"]], ["linked-reviewed", ["boots"]]]);
+        return new Map([["linked-a", ["boots"]], ["linked-b", ["boots"]], ["linked-reviewed", ["boots"]], ["linked-empty", ["laces"]]]);
       },
     },
     "./storage": {
       shopFilter: () => ({ shop_domain: "eq.test" }),
       supplierRequest: async (_, method, params) => {
         assert.equal(method, "GET");
-        assert.equal(params.scanned_at, "gte." + site.pull_started_at);
+        assert.match(params.select, /scanned_at/);
+        assert.equal(params.scanned_at, undefined);
         assert.equal(params.review_state, "in.(known,pending)");
-        return rows;
+        return scanned;
       },
     },
   });
-  const suggestions = [...(await review.readCategoryReview(site)).values()];
+  const report = await review.readCategoryReview(site);
+  const unassigned = report.get(review.unassignedCategoryReviewKey);
+  assert.deepEqual(unassigned.products.map(product => product.id), ["3", "6", "7", "8", "9", "10", "14", "15", "16"]);
+  assert.deepEqual(unassigned.products.find(product => product.id === "10")?.recommendation?.id, "kitchen");
+  assert.ok(unassigned.products.every(product => product.current.length === 0));
+  const suggestions = [...report].filter(([key]) => key !== review.unassignedCategoryReviewKey).map(([,group]) => group);
   assert.deepEqual(suggestions.map(group => [group.kind, group.products.map(product => product.id)]), [
     ["new", ["1", "2"]], ["existing", ["3", "9"]], ["change", ["4"]], ["place", ["6"]], ["new", ["7"]], ["review", ["8", "10"]], ["new", ["13"]],
   ]);
@@ -382,8 +395,8 @@ test("category review distinguishes inherited mappings, proposed groups and veri
   assert.deepEqual(review.suggestedProductCategoryIds(rows[2], ["3"], site, collections), ["safety"]);
   assert.equal(suggestions[6].parent, outdoorFootwear.parent);
   assert.equal(suggestions[6].title, outdoorFootwear.sub);
-  assert.deepEqual(review.suggestedProductCategoryIds(rows.at(-1), ["9"], site, collections), []);
-  assert.deepEqual(review.suggestedProductCategoryIds(rows.at(-1), ["9"], site, [...collections, {
+  assert.deepEqual(review.suggestedProductCategoryIds(rows.find(row => row.source_id === "13"), ["9"], site, collections), []);
+  assert.deepEqual(review.suggestedProductCategoryIds(rows.find(row => row.source_id === "13"), ["9"], site, [...collections, {
     id: "outdoor", title: outdoorFootwear.sub, manual: true, published: true,
     paths: [{ parentId: outdoorFootwear.id, parent: outdoorFootwear.parent, sub: outdoorFootwear.sub }],
   }]), ["outdoor"]);
@@ -391,6 +404,10 @@ test("category review distinguishes inherited mappings, proposed groups and veri
   assert.equal(categoryMatching.supplierCategoryLabel("sibling-c-1417"), "");
   assert.equal(categoryMatching.supplierCategoryLabel("כל מוצרי האתר - לא לגעת להנחות"), "");
   assert.equal(categoryMatching.canonicalCategoryLabel("נעליים והנעלה"), "נעליים");
+  scanned = [];
+  const empty = await review.readCategoryReview({ ...site, pull_started_at: null });
+  assert.equal(empty.size, 1);
+  assert.equal(empty.get(review.unassignedCategoryReviewKey).products.length, 0);
 });
 
 test("category audits count distinct products with matching evidence and exclude apparel and protected footwear", () => {
@@ -716,7 +733,7 @@ test("a full pull already past product indexing starts saving products in the sa
   const audits = [];
   const worker = moduleFor("sites", {
     "server-only": {}, "@/lib/shopify/config": {}, "./import-queue": { processNextImport: async () => {} },
-    "./category-audit": { readSupplierCategoryAudit: async () => audits.push(site.state) },
+    "./category-review-cache": { readSupplierCategoryReport: async () => audits.push(site.state) },
     "./catalog-model": model, "./woocommerce": {}, "./public-source": { sourceReader: async () => async () => assert.fail("legacy full pull must skip extra collection requests") },
     "./shopify-source": { ...source, readShopifyProduct: async (_, domain, id, currency, seeded, all) => {
       assert.equal(domain, site.domain);
@@ -986,6 +1003,41 @@ test("catalog scrolling requests the next filtered batch and checks one extra ro
     ["0","13","ov.{1,2}","eq.known"],["12","13","ov.{1,2}","eq.known"],
   ]);
 });
+test("bulk publication confirmation counts the full catalog or a category including its descendants", async () => {
+  const net = global.fetch;
+  const base = process.env.SUPABASE_URL, key = process.env.SUPABASE_SECRET_KEY;
+  process.env.SUPABASE_URL = "https://db.example";
+  process.env.SUPABASE_SECRET_KEY = "fake";
+  const calls = [];
+  try {
+    global.fetch = async (url, init) => {
+      assert.equal(init.method, "HEAD");
+      assert.equal(init.headers.Prefer, "count=exact");
+      assert.equal(url.pathname, "/rest/v1/ahim_supplier_previews");
+      const fields = Object.fromEntries(url.searchParams);
+      assert.equal(fields.shop_domain, "eq.shop.example");
+      assert.equal(fields.supplier, "eq.example.com");
+      assert.equal(fields.review_state, "eq.known");
+      calls.push(fields.category_ids);
+      const count = fields.category_ids === "ov.{3}" ? "*/0" : fields.category_ids ? "0-0/15" : "0-0/1707";
+      return new Response(null, {headers: {"content-range": count}});
+    };
+    const model = moduleFor("catalog-model");
+    const storage = moduleFor("storage", {"server-only":{}, "@/lib/shopify/config": {shopDomain:()=>"shop.example"}, "./catalog-model":model});
+    const {readCatalogCount} = moduleFor("catalog-batch", {"server-only":{}, "./catalog-model":model, "./storage":storage,
+      "./publication":{}, "./import-queue":{}, "./brand":supplierBrand});
+    const site = {domain:"example.com", categories:[{id:"1",parent:"0"},{id:"2",parent:"1"},{id:"3",parent:"0"}]};
+    assert.equal(await readCatalogCount(site,""),1707);
+    assert.equal(await readCatalogCount(site,"1"),15);
+    assert.equal(await readCatalogCount(site,"3"),0);
+    assert.throws(() => readCatalogCount(site,"invalid"), /קטגוריה לא מוכרת/);
+    assert.deepEqual(calls,[undefined,"ov.{1,2}","ov.{3}"]);
+  } finally {
+    global.fetch = net;
+    if (base === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = base;
+    if (key === undefined) delete process.env.SUPABASE_SECRET_KEY; else process.env.SUPABASE_SECRET_KEY = key;
+  }
+});
 test("imported catalog filters before pagination and reports Shopify draft and storefront states", async () => {
   const model = moduleFor("catalog-model");
   const site = { domain: "example.com", percent: 0, categories: [{ id: "1", parent: "0" }] };
@@ -1074,6 +1126,87 @@ test("monitor imports an individual discovery or the full pending list across pa
   assert.deepEqual(queried, ["in.(9)",undefined,"gt." + ids[299]]);
   assert.deepEqual(tasks.map(task => task.source_id), ids);
   assert.ok(tasks.every(task => task.intent === "draft"));
+});
+test("publication progress counts only confirmed publications, includes retries, and ignores draft jobs", async () => {
+  const ids = Array.from({ length: 506 }, (_, i) => String(1000 + i));
+  let rows = ids.map((source_id, i) => ({ source_id, state: i < 2 ? "failed" : i < 501 ? "done" : i === 501 ? "running" : "queued",
+    error: i === 1 ? moduleFor("catalog-model").supplierImportExcluded : null }));
+  let calls = 0;
+  const { readPublicationProgress } = moduleFor("import-queue", {
+    "server-only": {}, "@/lib/shopify/config": {}, "./catalog-model":moduleFor("catalog-model"),
+    "./shopify":{}, "./brand":supplierBrand, "./category-matching":categoryMatching,
+    "./storage": { shopFilter:()=>({shop_domain:"eq.shop.example"}), supplierRequest:async (table, method, filters)=>{
+      calls++;
+      assert.equal(table,"ahim_supplier_imports");
+      assert.equal(method,"GET");
+      assert.equal(filters.intent,"eq.publish");
+      assert.equal(filters.domain,"eq.worker.example");
+      if (filters.state) return rows.filter(row => row.state === "queued" || row.state === "running").slice(0,1);
+      if (filters.source_id?.startsWith("in.")) {
+        const ids = filters.source_id.slice(4,-1).split(",");
+        return rows.filter(row => ids.includes(row.source_id));
+      }
+      const after = filters.source_id?.slice(3);
+      return rows.filter(row => !after || row.source_id > after).slice(0, Number(filters.limit));
+    } },
+  });
+  assert.deepEqual(await readPublicationProgress("worker.example"),{total:506,published:499,pending:5,failed:1,excluded:1});
+  assert.equal(calls,3);
+  assert.deepEqual(await readPublicationProgress("worker.example",[ids[0],ids[500],ids[501],ids[501]]),
+    {total:3,published:1,pending:1,failed:1,excluded:0});
+  rows = rows.map(row => row.state === "failed" ? row : {...row,state:"done"});
+  assert.deepEqual(await readPublicationProgress("worker.example"),{total:0,published:0,pending:0,failed:0,excluded:0});
+  assert.deepEqual(await readPublicationProgress("worker.example",undefined,true),{total:506,published:504,pending:0,failed:1,excluded:1});
+});
+test("excluding a product stops a queued job and blocks exclusion of a live or currently importing product", async () => {
+  const model = moduleFor("catalog-model");
+  const row = { source_id:"4", revision:"r", review_state:"known", shopify_product_id:null };
+  const calls = [];
+  let task = "queued", published = false;
+  const { excludeFromSupplierImport } = moduleFor("import-queue", {
+    "server-only":{}, "@/lib/shopify/config":{}, "./catalog-model":model, "./shopify":{}, "./brand":supplierBrand, "./category-matching":categoryMatching,
+    "./publication":{catalogPublicationStates:async ids=>{
+      assert.deepEqual(ids,["draft"]);calls.push("verify");return [{id:"draft",status:published?"ACTIVE":"DRAFT",onSite:published}];
+    }},
+    "./storage":{
+      getPreview:async ()=>row, shopFilter:()=>({shop_domain:"eq.store"}),
+      excludeSupplierPreview:async (current,token)=>{calls.push(["exclude",current.source_id,token]);row.review_state="ignored";},
+      withLinkedProductLock:async (_,fn)=>{calls.push("lock");return fn("held-token");},
+      supplierRequest:async (table,method,filters,values)=>{
+        assert.equal(table,"ahim_supplier_imports");assert.equal(filters.domain,"eq.worker.example");
+        if (method==="GET") return [{state:task}];
+        assert.equal(filters.state,"eq.queued");
+        if (task!=="queued") return [];
+        task=values.state;calls.push(["cancel",values.error]);return [{source_id:"4"}];
+      },
+    },
+  });
+  await excludeFromSupplierImport("worker.example","4","r");
+  assert.deepEqual(calls,[["cancel",model.supplierImportExcluded],["exclude","4",undefined]]);
+  assert.equal(row.review_state,"ignored");
+  calls.length=0;row.review_state="known";task="running";
+  await assert.rejects(excludeFromSupplierImport("worker.example","4","r"), /כבר מתבצע/);
+  assert.deepEqual(calls,[]);
+  row.shopify_product_id="draft";published=true;
+  await assert.rejects(excludeFromSupplierImport("worker.example","4","r"), /כבר פורסם/);
+  assert.deepEqual(calls,["lock","verify"]);
+  calls.length=0;published=false;task="queued";
+  await excludeFromSupplierImport("worker.example","4","r");
+  assert.deepEqual(calls,["lock","verify",["cancel",model.supplierImportExcluded],["exclude","4","held-token"]]);
+});
+
+test("a previously excluded product never reaches Shopify even if a job was enqueued concurrently", async () => {
+  const model = moduleFor("catalog-model");
+  const task = { domain:"worker.example", source_id:"4", state:"queued", intent:"publish" };
+  const { processNextImport } = moduleFor("import-queue", {
+    "server-only":{}, "@/lib/shopify/config":{}, "./catalog-model":model, "./brand":supplierBrand, "./category-matching":categoryMatching,
+    "./shopify":{importDraft:()=>assert.fail("Ignored product reached Shopify")},
+    "./storage":{shopFilter:()=>({}),getPreview:async()=>({review_state:"ignored"}),
+      supplierRequest:async (_,method,filters,values)=>{if(method==="PATCH") Object.assign(task,values);return [{...task}];}},
+  });
+  await processNextImport();
+  assert.equal(task.state,"failed");
+  assert.equal(task.error,model.supplierImportExcluded);
 });
 test("publishing a selection uses the latest saved category and resumes from the linked draft after a failure", async () => {
   const task = {domain:"example.com",source_id:"1",revision:"r",manual_price:null,percent:10,

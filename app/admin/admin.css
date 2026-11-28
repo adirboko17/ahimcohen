@@ -26,6 +26,29 @@
 .admin-store-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .admin-store-link svg, .admin-primary svg { display: block; }
 
+.admin-color-review, .admin-color-list { display: grid; gap: 12px; }
+.admin-color-tabs, .admin-color-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.admin-color-tabs .btn, .admin-color-pagination .btn { min-height: 42px; padding-inline: 13px; }
+.admin-color-tabs .admin-color-tab-current { background: var(--ink); color: #fff; }
+.admin-color-empty { padding: 20px; }
+.admin-color-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 16px; }
+.admin-color-example { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.admin-color-example img { width: 96px; flex: 0 0 96px; aspect-ratio: 1; object-fit: contain; background: var(--admin-soft); border: 1px solid var(--admin-border); }
+.admin-color-example h2 { margin: 0 0 3px; font-size: 20px; overflow-wrap: anywhere; }
+.admin-color-example p { margin: 0; color: var(--muted); }
+.admin-color-example a { display: block; margin-block: 5px 2px; text-decoration: underline; }
+.admin-color-example small { color: var(--muted); }
+.admin-color-editor { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.admin-color-suggestion { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 14px; }
+.admin-color-suggestion span { width: 16px; height: 16px; border: 1px solid #83837e; border-radius: 50%; flex: none; }
+.admin-color-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.admin-color-swatch-field { display: flex; gap: 5px; align-items: center; min-height: 42px; font-size: 13px; }
+.admin-color-fields .admin-color-swatch-field input[type="color"] { width: 44px; height: 42px; padding: 3px; cursor: pointer; }
+.admin-color-row .admin-form-footer { margin-block-start: 0; }
+@media (max-width: 900px) {
+  .admin-color-row { grid-template-columns: minmax(0, 1fr); }
+}
+
 .admin-layout {
   max-width: 1320px; margin-inline: auto; padding: clamp(24px, 4vw, 48px) var(--gutter) 56px;
   display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(18px, 3vw, 36px); align-items: start;
@@ -590,6 +613,7 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .supplier-category-approval {display:grid;gap:12px;padding:16px;border:1px solid var(--admin-border);border-radius:12px}
 .supplier-category-approval label {display:grid;gap:6px;max-width:440px}
 .supplier-category-review-row {display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:14px 0;border-top:1px solid var(--admin-border)}
+.supplier-category-review-row.supplier-unassigned-card {padding:12px 16px;border:1px solid #ead48f;border-radius:10px;background:#fff9e4}
 .supplier-category-review-product {display:flex;align-items:center;gap:14px;flex:1 1 260px;min-width:0}
 .supplier-category-review-product strong {overflow-wrap:anywhere}
 .supplier-category-review-image {display:grid;place-items:center;flex:0 0 84px;width:84px;height:84px;overflow:hidden;
@@ -837,9 +861,16 @@ div.admin-product-suggestions { padding: 14px; color: var(--muted); }
 .catalog-status-filter {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .catalog-status-filter [aria-current=page] {background:var(--admin-soft);border-color:#9e8000;font-weight:700}
 .catalog-import-progress {margin:0;color:var(--muted);font-size:14px}
+.supplier-publication-progress {display:grid;gap:8px;padding:12px 15px;border:1px solid #ead48f;border-radius:10px;background:#fff9e4}
+.supplier-publication-progress p {display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 16px;margin:0}
+.supplier-publication-progress small {color:var(--muted)}
+.supplier-publication-progress progress {width:100%;height:9px;accent-color:#866400}
 .catalog-workspace .supplier-batch-bar {padding:9px 12px;gap:8px 14px;background:white}
 .catalog-workspace .supplier-batch-bar>label {margin:0;width:auto}
 .catalog-workspace .supplier-batch-buttons {margin-inline-start:auto}
+.catalog-workspace .supplier-batch-drafts {width:100%;padding-block-start:2px;font-size:13px}
+.supplier-batch-drafts summary {width:fit-content;cursor:pointer;color:var(--muted)}
+.supplier-batch-drafts > div {display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-block-start:6px}
 .catalog-workspace button:disabled {opacity:.55;cursor:not-allowed}
 .catalog-workspace input[type=checkbox] {accent-color:var(--ink);width:17px;height:17px;cursor:pointer}
 .catalog-product-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,235px),1fr));gap:14px}

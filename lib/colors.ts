@@ -16,6 +16,8 @@ function colorKey(value: string): string {
     .replace(/\s+/g, " ").trim();
 }
 
+export const colorNameKey = colorKey;
+
 const definitions: [string, string[]][] = [
   ["#FFFFFF", ["לבן", "white"]],
   ["#1A1A1A", ["שחור", "black"]],
@@ -87,6 +89,8 @@ function colorIdentity(value: string): string {
   return colorLabel(value).split(/\s*[/+&]\s*/).map(colorKey).sort().join("/");
 }
 
+export const colorMappingKey = colorIdentity;
+
 export function uniqueColors(values: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -124,24 +128,29 @@ function nearestSwatch(key: string): string | null {
   return null;
 }
 
-export function resolveSwatch(name: string): string | null {
+export function resolveSwatch(name: string, inferFromWords = true): string | null {
   const key = colorKey(packColors(name) ?? name);
   const listed = listedSwatch(key);
   if (listed) return listed;
   const parts = key.split(/\s*[/+&]\s*/);
   if (parts.length > 1) {
-    const swatches = parts.map(part => listedSwatch(part) ?? nearestSwatch(part));
+    const swatches = parts.map(part => listedSwatch(part) ?? (inferFromWords ? nearestSwatch(part) : null));
     if (swatches.every(swatch => swatch?.startsWith("#"))) {
       const stops = swatches.map((swatch, index) => `${swatch} ${index * 100 / parts.length}% ${(index + 1) * 100 / parts.length}%`);
       return `linear-gradient(135deg, ${stops.join(", ")})`;
     }
     return null;
   }
-  return nearestSwatch(key);
+  return inferFromWords ? nearestSwatch(key) : null;
 }
 
 // An unmapped label gets a neutral pattern, never an invented color.
 export const UNKNOWN_SWATCH = "repeating-linear-gradient(135deg, #FFFFFF 0 5px, #C8C8C8 5px 7px)";
-export function swatchColor(name: string): string {
+export function swatchColor(name: string, mappings?: Readonly<Record<string, { family: string; swatch: string }>>): string {
+  const key = colorMappingKey(name);
+  const mapping = mappings && Object.hasOwn(mappings, key) ? mappings[key] : undefined;
+  if (mapping && !resolveSwatch(name, false)) {
+    return mapping.family === "multicolor" ? resolveSwatch("צבעוני") ?? UNKNOWN_SWATCH : mapping.swatch;
+  }
   return resolveSwatch(name) ?? UNKNOWN_SWATCH;
 }

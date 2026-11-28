@@ -1,8 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { shopDomain } from "@/lib/shopify/config";
-import { descendants, mappedCollections, pricedProduct, supplierKey, type Site } from "./catalog-model";
-import { getPreview, shopFilter, supplierRequest } from "./storage";
+import { descendants, mappedCollections, pricedProduct, supplierImportExcluded, supplierKey, type Site } from "./catalog-model";
+import { excludeSupplierPreview, getPreview, shopFilter, supplierRequest, withLinkedProductLock } from "./storage";
 import { importDraft } from "./shopify";
 import { detectSupplierBrand } from "./brand";
 import { isOutdoorFootwear, outdoorFootwearCollection } from "./category-matching";
@@ -21,6 +21,44 @@ type Task = {
   error: string | null;
 };
 const table = "ahim_supplier_imports";
+
+export type SupplierPublicationProgress = { total: number; published: number; pending: number; failed: number; excluded: number };
+
+export async function readPublicationProgress(domain: string, ids?: string[], includeFinished = false): Promise<SupplierPublicationProgress> {
+  const scope = { ...shopFilter(), domain: "eq." + domain, intent: "eq.publish" };
+  const progress = { total: 0, published: 0, pending: 0, failed: 0, excluded: 0 };
+  const selected = ids && new Set(ids);
+  if (selected?.size === 0) return progress;
+  if (!selected && !includeFinished) {
+    const active = await supplierRequest<Pick<Task, "source_id">>(table, "GET", {
+      ...scope, state: "in.(queued,running)", select: "source_id", limit: "1",
+    });
+    if (!active.length) return progress;
+  }
+
+  const smallSelection = selected && selected.size <= 100 ? [...selected] : undefined;
+  const pageSize = 500;
+  let cursor: string | undefined;
+  for (;;) {
+    const rows: Pick<Task, "source_id" | "state" | "error">[] = await supplierRequest(table, "GET", {
+      ...scope, select: "source_id,state,error", order: "source_id.asc", limit: String(pageSize),
+      ...(smallSelection ? { source_id: "in.(" + smallSelection.join(",") + ")" } :
+        cursor ? { source_id: "gt." + cursor } : {}),
+    });
+    for (const row of rows) {
+      if (selected && !selected.has(row.source_id)) continue;
+      progress.total++;
+      if (row.state === "done") progress.published++;
+      else if (row.state === "failed") {
+        if (row.error === supplierImportExcluded) progress.excluded++;
+        else progress.failed++;
+      }
+      else progress.pending++;
+    }
+    if (rows.length < pageSize) return progress;
+    cursor = rows.at(-1)!.source_id;
+  }
+}
 export async function hasActiveImports(domain: string) {
   const rows = await supplierRequest<Pick<Task, "source_id">>(table, "GET", {
     ...shopFilter(),
@@ -41,6 +79,31 @@ export function importStatuses(domain: string, ids: string[]) {
       })
     : Promise.resolve([]);
 }
+export async function excludeFromSupplierImport(domain: string, id: string, revision: string) {
+  const row = await getPreview(domain, id);
+  if (!row || row.revision !== revision) throw new Error("המוצר התעדכן. רעננו את הדוח ונסו שוב.");
+  if (row.review_state === "ignored") return;
+  async function exclude(current: NonNullable<typeof row>, token?: string) {
+    const cancelled = await supplierRequest(table, "PATCH", {
+      ...shopFilter(), domain: "eq." + domain, source_id: "eq." + id, state: "eq.queued", select: "source_id",
+    }, { state: "failed", error: supplierImportExcluded, token: null });
+    if (!cancelled.length && (await importStatuses(domain, [id])).some(task => task.state === "running"))
+      throw new Error("הייבוא של המוצר כבר מתבצע. אפשר לבדוק שוב את מצבו בקטלוג.");
+    await excludeSupplierPreview(current, token);
+  }
+  const shopifyId = row.shopify_product_id;
+  if (shopifyId) {
+    await withLinkedProductLock(row, async token => {
+      const { catalogPublicationStates } = await import("./publication");
+      const [state] = await catalogPublicationStates([shopifyId]);
+      if (!state) throw new Error("לא הצלחנו לאמת את מצב המוצר ב־Shopify.");
+      if (state.status === "ACTIVE" && state.onSite)
+        throw new Error("המוצר כבר פורסם. כדי להסיר אותו מהאתר, השתמשו בכפתור ״הסר מהאתר״ בקטלוג.");
+      await exclude(row, token);
+    });
+  } else await exclude(row);
+}
+
 type Candidate = {
   source_id: string; revision: string; manual_price: number | null; category_ids: string[];
   title: string; currency: string | null; shopify_product_id: string | null; scan_error: string | null; collection_ids: string[];
@@ -87,7 +150,7 @@ export async function queueImports(
   const outdoors = new Set(rows.filter(row => !row.shopify_product_id && !row.collection_ids?.length && isOutdoorFootwear(row))
     .map(row => row.source_id));
   const outdoorTarget = outdoors.size ? outdoorFootwearCollection(await (await import("./storefront-collections")).supplierStorefrontCollections()) : undefined;
-  let queued = 0;
+  const queuedIds: string[] = [];
   for (let offset = 0; offset < rows.length; offset += 80) {
     const chunk = rows.slice(offset,offset+80);
     const linked = chunk.flatMap(r => r.shopify_product_id ? [r.shopify_product_id] : []);
@@ -114,19 +177,19 @@ export async function queueImports(
       const changed = await supplierRequest(table,"PATCH",{...shopFilter(),domain:"eq."+site.domain,
         source_id:"eq."+row.source_id,state:"eq."+old.state,available_at:"eq."+old.available_at},
         {...task,state:"queued",attempts:0,error:null,token:null,available_at:new Date().toISOString()});
-      queued += changed.length;
-      if (!changed.length) skip("התור התעדכן");
+      if (changed.length) queuedIds.push(row.source_id);
+      else skip("התור התעדכן");
     }
     if (additions.length) {
-      const inserted = await supplierRequest(table,"POST",{on_conflict:"shop_domain,domain,source_id"},
+      const inserted = await supplierRequest<Pick<Task, "source_id">>(table,"POST",{on_conflict:"shop_domain,domain,source_id",select:"source_id"},
         additions,"resolution=ignore-duplicates,return=representation");
-      queued += inserted.length;
+      queuedIds.push(...inserted.map(row => row.source_id));
       if (inserted.length < additions.length)
         skipped.set("כבר בתור",(skipped.get("כבר בתור") || 0)+additions.length-inserted.length);
     }
   }
   if (!rows.length) throw new Error("אין מוצרים מתאימים לפעולה.");
-  return {queued,skipped:Array.from(skipped,([reason,n])=>reason+" ("+n+")")};
+  return {queued:queuedIds.length,queuedIds,skipped:Array.from(skipped,([reason,n])=>reason+" ("+n+")")};
 }
 export async function processNextImport(selection?: Pick<Task, "domain" | "source_id">) {
   const now = new Date().toISOString();
@@ -148,6 +211,10 @@ export async function processNextImport(selection?: Pick<Task, "domain" | "sourc
     supplierRequest(table, "PATCH", { ...target, token: "eq." + token }, { ...values, token: null });
   try {
     let row = await getPreview(claimed.domain, claimed.source_id);
+    if (row?.review_state === "ignored") {
+      await finish({ state: "failed", error: supplierImportExcluded });
+      return;
+    }
     if (
       !row || (row.review_state !== "known" && row.review_state !== "pending") || row.scan_error ||
       (!row.shopify_product_id && (row.revision !== claimed.revision || row.manual_price !== claimed.manual_price))

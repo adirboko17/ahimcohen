@@ -56,9 +56,9 @@ export async function sendAdminCommand(data: FormData): Promise<AdminSaveResult>
   return await response.json() as AdminSaveResult;
 }
 
-export function AdminForm({ section, id, children, returnTo = `/admin?tab=${section}`, operation = "save", onSaved, onPendingChange, footerActions }: {
+export function AdminForm({ section, id, children, returnTo = `/admin?tab=${section}`, operation = "save", submitLabel, onSaved, onPendingChange, footerActions }: {
   section: string; id?: string; children: ReactNode; returnTo?: string; operation?: string;
-  onSaved?: () => void; onPendingChange?: (pending: boolean) => void; footerActions?: ReactNode;
+  submitLabel?: string; onSaved?: () => void; onPendingChange?: (pending: boolean) => void; footerActions?: ReactNode;
 }) {
   const router = useRouter();
   const [result, setResult] = useState(initial);
@@ -106,7 +106,7 @@ export function AdminForm({ section, id, children, returnTo = `/admin?tab=${sect
         {result.message && <p className="admin-feedback" data-ok={result.ok} data-warning={result.warning} role={result.ok ? "status" : "alert"}>{result.message}</p>}
         <div className="admin-form-buttons">
           <button type="submit" name="operation" value={operation} className="btn admin-primary" disabled={disabled}>
-            <span aria-hidden="true"><IconCheck size={16} /></span>{pending ? "שומרים…" : onSaved ? "שמירת שינויים" : "שמירה"}
+            <span aria-hidden="true"><IconCheck size={16} /></span>{pending ? "שומרים…" : submitLabel ?? (onSaved ? "שמירת שינויים" : "שמירה")}
           </button>
           {footerActions}
         </div>
@@ -382,7 +382,7 @@ export function AdminProductList({ section, entries }: {
   </section>;
 }
 
-type BundleTierValues = { id?: string; quantity: number; total?: number; title: string; bestValue?: boolean; showInQuantityOffers?: boolean; active?: boolean };
+type BundleTierValues = { id?: string; quantity: number; total?: number; title: string; bestValue?: boolean; mixedUnits?: boolean; active?: boolean };
 type BundleTierRow = { id: number; quantity: string; initial?: BundleTierValues };
 
 function nextTierQuantity(reserved: number[], rows: BundleTierRow[] = []) {
@@ -491,7 +491,7 @@ function AdminBundleTier({ index, initial, quantity, unitPrice, varies, bestValu
 }) {
   const [price, setPrice] = useState(initial?.total === undefined ? "" : String(initial.total));
   const [active, setActive] = useState(initial?.active ?? true);
-  const [showInQuantityOffers, setShowInQuantityOffers] = useState(!!initial?.showInQuantityOffers);
+  const [mixedUnits, setMixedUnits] = useState(!!initial?.mixedUnits);
   const units = Number(quantity);
   const validQuantity = Number.isInteger(units) && units >= 2 && units <= 250;
   const regularTotal = validQuantity && unitPrice !== undefined ? Math.round(unitPrice * 100) * units / 100 : undefined;
@@ -514,10 +514,10 @@ function AdminBundleTier({ index, initial, quantity, unitPrice, varies, bestValu
     <BundlePriceReference unitPrice={unitPrice} quantity={units} price={price ? Number(price) : undefined} varies={varies} />
     <div className="admin-bundle-tier-visibility">
       {group && <label className="admin-check"><span>פעיל באתר</span><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} /></label>}
-      <input type="hidden" name="showInQuantityOffers" value={showInQuantityOffers ? "yes" : "no"} />
+      <input type="hidden" name="mixedUnits" value={mixedUnits ? "yes" : "no"} />
       <label className="admin-check">
-        <span>הצגה גם בעמוד מבצעי כמות</span>
-        <input type="checkbox" checked={showInQuantityOffers} onChange={(event) => setShowInQuantityOffers(event.target.checked)} />
+        <span>באנדל עם וריאציות שונות</span>
+        <input type="checkbox" checked={mixedUnits} onChange={(event) => setMixedUnits(event.target.checked)} />
       </label>
     </div>
   </fieldset>;

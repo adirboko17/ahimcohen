@@ -1,5 +1,5 @@
 import type { OrderLine } from "./types";
-import { outdoorFootwear, workCoatsAndRobes } from "./category-placement";
+import { bagsAndWallets, outdoorFootwear, reflectiveVests, socksAndUnderwear, winterOuterwear, workCoatsAndRobes, workShorts } from "./category-placement";
 
 export const FREE_SHIPPING = 299;
 
@@ -25,17 +25,19 @@ export type VariantChoice = {
   available: boolean;
   image?: string;
   sku?: string;
+  optionsLabel?: string;
+  sourceVariantId?: string;
 };
 
 export const CATS: Category[] = [
   { id: outdoorFootwear.id, name: outdoorFootwear.parent, subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן", "מגפי עבודה ובטיחות", "נעלי מלונאות ומטבחים", "אביזרי הנעלה ורפידות", outdoorFootwear.sub] },
-  { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "חליפות גשם", "חרמוניות", "סווטשירטים וקפוצ'ונים", "ביגוד תרמי", "חולצות ארוכות"] },
-  { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", workCoatsAndRobes.sub, "אפודים זוהרים", "סרבלים"] },
-  { id: "safety", name: "מוצרי בטיחות", subs: ["הגנת ראש", "כפפות עבודה", "הגנת ראייה ופנים", "הגנת נשימה", "הגנת שמיעה", "ציוד לעבודה בגובה", "הגנת גוף", "ציוד בטיחות נלווה", "משטפות עינים ומקלחות חירום", "ציוד להגנת הסביבה", "בטיחות בדרכים", "נראות גבוהה"] },
+  { id: "winter", name: "ביגוד חורף", subs: [winterOuterwear.sub, "חליפות גשם", "חרמוניות", "ביגוד תרמי", "חולצות ארוכות"] },
+  { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", workShorts, workCoatsAndRobes.sub, "סרבלים"] },
+  { id: "safety", name: "מוצרי בטיחות", subs: ["הגנת ראש", "כפפות עבודה", "הגנת ראייה ופנים", "הגנת נשימה", "הגנת שמיעה", "ציוד לעבודה בגובה", "הגנת גוף", "ציוד בטיחות נלווה", "משטפות עינים ומקלחות חירום", "ציוד להגנת הסביבה", "בטיחות בדרכים", "נראות גבוהה", reflectiveVests.sub] },
   { id: "rep", name: "ביגוד ייצוגי", subs: ["חולצות ייצוגיות", "מכנסיים ייצוגיים", "ג'קטים", "חצאיות", "אקססוריז"] },
   { id: "kitchen", name: "מטבח ומזון", subs: ["ג'קט שף", "כובעי שף", "מכנסי שף | מכנסי טבחים", "סינרים"] },
   { id: "disp", name: "חד פעמי", subs: ["ביגוד מקצועי חד פעמי", "אביזרים חד פעמי"] },
-  { id: "acc", name: "אביזרים", subs: ["מוצרי ניקיון", "תיקים", "אביזרים למטבח", "הלבשה תחתונה", "גרביים", "חגורות", "כובעים", "מגבות", "סרטי הדבקה וסימון", "אביזרים נלווים"] },
+  { id: "acc", name: "אביזרים", subs: ["מוצרי ניקיון", bagsAndWallets.sub, "אביזרים למטבח", socksAndUnderwear.sub, "חגורות", "כובעים", "מגבות", "סרטי הדבקה וסימון", "אביזרים נלווים"] },
 ];
 
 export const SZ = ["S", "M", "L", "XL", "2XL", "3XL", "4XL"];
@@ -64,6 +66,7 @@ export type Product = {
   cats?: string[];
   subs?: string[];
   categorySubs?: Record<string, string[]>;
+  originalSubcategories?: string[];
   choices?: VariantChoice[];
   bundleSourceId?: string;
   setContents?: { productIds: string[]; variants: { id: string; components: string[] }[] };
@@ -80,14 +83,14 @@ function sh(id: string, name: string, price: number, color: string, std: string[
 
 export const PRODUCTS: Product[] = [
   { id: "p1", name: "חולצת דרייפיט מנדפת זיעה", cat: "pro", sub: "חולצות", price: 29, deal: [6, 100], colors: ["אפור עכבר", "כחול כהה", "לבן", "שחור", "ירוק כהה", "ירוק זוהר", "כתום"], sizes: SZ, sku: "135-4", brand: "worker.co.il", imgs: [IM.dry], best: 1, desc: ["בד 100% פוליאסטר נעים במיוחד ללבישה", "גזרה נוחה לעבודה", "יכולת נידוף זיעה גבוהה המתאימה לאקלים הישראלי"], specs: [["תקן", "נידוף זיעה · מעבדת שנקר"], ["הרכב בד", "100% פוליאסטר"], ["משקל בד", "140 גרם למ״ר"]] },
-  { id: "p7", name: "זקט פליז", cat: "winter", sub: "מעילים", price: 69, was: 85, deal: [10, 490], colors: ["שחור", "אפור עכבר", "כחול כהה"], sizes: SZ, imgs: [IM.fleece], best: 1 },
-  { id: "p8", name: "מעיל סופטשל טקטי עם כובע נשלף", cat: "winter", sub: "מעילים", price: 119, was: 150, colors: ["שחור"], sizes: ["S", "M", "L", "XL", "2XL", "3XL"], sku: "15741", brand: "Ahim Cohen", imgs: [IM.soft1, IM.soft2], best: 1, desc: ["מעיל סופטשל עם עמידות למים ורוחות", "בטנת פרווה מחממת", "כובע מתפרק"], specs: [["הרכב בד", "100% פוליאסטר"], ["עמידות", "מים ורוחות"], ["בטנה", "פרווה מחממת"]] },
-  { id: "p3", name: "סווטשירט", cat: "winter", sub: "סווטשירטים וקפוצ'ונים", price: 49, deal: [3, 120], colors: ["אדום", "אפור עכבר", "ירוק בקבוק", "כחול כהה", "לבן", "מלאנז'", "צהוב", "רויאל", "שחור"], sizes: SZ, best: 1 },
+  { id: "p7", name: "זקט פליז", cat: "winter", sub: winterOuterwear.sub, price: 69, was: 85, deal: [10, 490], colors: ["שחור", "אפור עכבר", "כחול כהה"], sizes: SZ, imgs: [IM.fleece], best: 1 },
+  { id: "p8", name: "מעיל סופטשל טקטי עם כובע נשלף", cat: "winter", sub: winterOuterwear.sub, price: 119, was: 150, colors: ["שחור"], sizes: ["S", "M", "L", "XL", "2XL", "3XL"], sku: "15741", brand: "Ahim Cohen", imgs: [IM.soft1, IM.soft2], best: 1, desc: ["מעיל סופטשל עם עמידות למים ורוחות", "בטנת פרווה מחממת", "כובע מתפרק"], specs: [["הרכב בד", "100% פוליאסטר"], ["עמידות", "מים ורוחות"], ["בטנה", "פרווה מחממת"]] },
+  { id: "p3", name: "סווטשירט", cat: "winter", sub: winterOuterwear.sub, price: 49, deal: [3, 120], colors: ["אדום", "אפור עכבר", "ירוק בקבוק", "כחול כהה", "לבן", "מלאנז'", "צהוב", "רויאל", "שחור"], sizes: SZ, best: 1 },
   { id: "p2", name: "חולצת טריקו שרוול ארוך", cat: "winter", sub: "חולצות ארוכות", price: 35, deal: [4, 99], colors: ["אפור עכבר", "ירוק בקבוק", "כחול כהה", "לבן", "מלאנז'", "רויאל", "שחור"], sizes: SZ },
-  { id: "p6", name: "קפוצ'ון קנגורו", cat: "winter", sub: "סווטשירטים וקפוצ'ונים", price: 65, deal: [3, 150], colors: ["כחול כהה", "מלאנז'", "שחור"], sizes: SZ },
-  { id: "p5", name: "קפוצ'ון טריקו ש.א. עם כיס", cat: "winter", sub: "סווטשירטים וקפוצ'ונים", price: 45, deal: [3, 99], colors: ["אפור עכבר", "כחול כהה", "מלאנז'", "רויאל"], sizes: SZ },
+  { id: "p6", name: "קפוצ'ון קנגורו", cat: "winter", sub: winterOuterwear.sub, price: 65, deal: [3, 150], colors: ["כחול כהה", "מלאנז'", "שחור"], sizes: SZ },
+  { id: "p5", name: "קפוצ'ון טריקו ש.א. עם כיס", cat: "winter", sub: winterOuterwear.sub, price: 45, deal: [3, 99], colors: ["אפור עכבר", "כחול כהה", "מלאנז'", "רויאל"], sizes: SZ },
   { id: "p4", name: "טישירט FORCE® עם כיס ולוגו", cat: "pro", sub: "חולצות", price: 129, deal: [2, 220], colors: ["בז׳", "לבן", "ירוק", "שחור", "חום", "כחול כהה", "ברונזה", "כחול"], sizes: SZ, sku: "106652", brand: "FORCE" },
-  { id: "p9", name: "מעיל דובון", cat: "winter", sub: "מעילים", price: 140, colors: ["כחול כהה"], sizes: SZ },
+  { id: "p9", name: "מעיל דובון", cat: "winter", sub: winterOuterwear.sub, price: 140, colors: ["כחול כהה"], sizes: SZ },
   { id: "p10", name: "חליפת גשם ניילון", cat: "winter", sub: "חליפות גשם", price: 99, colors: ["ירוק בקבוק", "כחול כהה", "צהוב"], sizes: SZ },
   { id: "p11", name: "חולצת טי עם כיס לעבודה K87", cat: "rep", sub: "חולצות ייצוגיות", price: 95, colors: ["כחול"], sizes: SZ, sku: "103296.412", imgs: [IM.k87] },
   { id: "p12", name: "מכנסי FORCE BROXTON CARGO", cat: "pro", sub: "מכנסיים", price: 295, colors: ["Shadow"], sizes: ["W30/L30"], sku: "104200.029", brand: "FORCE" },
@@ -136,8 +139,8 @@ export const PROFESSIONS = [
 ];
 
 export const SERVICES = [
-  { t: "הדפסה", d: "הדפסת לוגו על חולצות, סווטשירטים ופליזים.", bg: "#111", fg: "#fff" },
-  { t: "רקמה", d: "רקמת לוגו על חולצות, מעילים וכובעים.", bg: "#F4F4F2", fg: "#111" },
+  { t: "הדפס כיס", d: "הדפסת הלוגו בחזית הבגד, באזור הכיס.", bg: "#111", fg: "#fff" },
+  { t: "הדפס גב", d: "הדפסת הלוגו על גב הבגד.", bg: "#F4F4F2", fg: "#111" },
   { t: "ייצוגי", d: "מראה אחיד לצוותי שירות, מכירות ומשרד.", bg: "#FFD100", fg: "#111" },
   { t: "כמויות", d: "שילוב פריטים, צבעים ומידות בהזמנה אחת.", bg: "#F4F4F2", fg: "#111" },
 ];

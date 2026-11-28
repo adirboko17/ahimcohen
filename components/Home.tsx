@@ -20,32 +20,16 @@ import { useScrollLock, useStore } from "@/lib/store";
 import { IconBag, IconCheck, IconLock, IconPhone, IconPin, IconTruck } from "./icons";
 import { ProductTile } from "./ProductTile";
 
-const parkesId = "parkes-zip-מגף-בטיחות-s3-אוסטרלי-עם-שרוך-ורוכסן";
-const softshellId = "מעיל-סופטשל-טקטי-עם-כובע-נשלף";
-const productScenes: Record<string, string | undefined> = {
-  [parkesId]: "parkes-workshop",
-  [softshellId]: "softshell-yard",
-};
+const winterBannerProductId = "ahim-16d0c6eb9436254a-15407763554491";
 
-function bannerProduct(products: Product[], categoryId: string, subcategory: string, preferredId: string) {
-  const candidates = products.filter((item) =>
-    item.cat === categoryId && (item.sub === subcategory || item.subs?.includes(subcategory))
-    && item.imgs?.[0] && item.choices?.some((choice) => choice.available)
-  );
-  return candidates.find((item) => item.id === preferredId) ?? candidates[0];
-}
-
-function BannerProductPhoto({ item }: { item: Product }) {
-  const scene = productScenes[item.id];
+function BannerScene({ scene }: { scene: string }) {
   return (
-    <Link href={`/p/${encodeURIComponent(item.id)}`} className="banner-product-photo" data-scene={scene}>
-      {scene ? (
-        <picture>
-          <source media="(max-width: 767px)" srcSet={`/images/hero/${scene}-mobile.webp?v=2`} />
-          <img src={`/images/hero/${scene}.webp`} alt={item.name} loading="lazy" decoding="async" />
-        </picture>
-      ) : <ProductImage src={item.imgs?.[0]} alt={item.name} sizes="(max-width: 767px) 100vw, 50vw" maxWidth={1280} />}
-    </Link>
+    <div className="banner-scene">
+      <picture>
+        <source media="(max-width: 767px)" srcSet={`/images/hero/${scene}-mobile.webp?v=2`} />
+        <img src={`/images/hero/${scene}.webp`} alt="" loading="lazy" decoding="async" />
+      </picture>
+    </div>
   );
 }
 
@@ -228,7 +212,8 @@ function DealsCarousel({ products }: { products: Product[] }) {
 
 type Kit = Pick<AdminBundle, "id" | "name" | "items" | "total" | "bundleProductId"> & { cartProductId?: string };
 
-export function Home({ heroPreview, promotions = [], bundles = [], showNewArrivals = false }: {
+export function Home({ heroPreview, promotions = [], bundles = [], showNewArrivals = false, budgetSeed = 0 }: {
+  budgetSeed?: number;
   heroPreview?: "wide" | "fade";
   promotions?: AdminHero[];
   bundles?: Kit[];
@@ -242,8 +227,7 @@ export function Home({ heroPreview, promotions = [], bundles = [], showNewArriva
   const shop = categories[0];
   const footwear = categories.find((category) => category.id === "shoes");
   const winter = categories.find((category) => category.id === "winter");
-  const boot = bannerProduct(products, "shoes", "נעלי בטיחות", parkesId);
-  const jacket = bannerProduct(products, "winter", "מעילים", softshellId);
+  const winterBannerProduct = product(winterBannerProductId);
   const winterLinks = (winter?.subs ?? []).slice(0, 3).map((name) => ({
     name,
     image: products.find((item) => item.cat === winter?.id && item.sub === name && item.imgs?.[0])?.imgs?.[0],
@@ -351,14 +335,14 @@ export function Home({ heroPreview, promotions = [], bundles = [], showNewArriva
         <BrandGrid featured />
       </section>
 
-      {footwear && boot && (
+      {footwear && (
         <section className="footwear-banner" aria-labelledby="footwear-title">
-          <BannerProductPhoto item={boot} />
+          <BannerScene scene="parkes-workshop" />
           <div className="footwear-banner-copy">
             <p className="footwear-category">{footwear.name}</p>
             <h2 id="footwear-title" className="k">יום עבודה מתחיל<br /> <em>בצעד הנכון.</em></h2>
-            <Link href="/c/shoes" className="btn btn-yellow">
-              לכל נעלי העבודה <span aria-hidden="true">←</span>
+            <Link href={`/c/${footwear.id}`} className="btn btn-yellow">
+              לכל נעלי העבודה
             </Link>
           </div>
         </section>
@@ -380,15 +364,19 @@ export function Home({ heroPreview, promotions = [], bundles = [], showNewArriva
         </div>
       </section>
 
-      {winter && jacket && (
+      {winter && (
         <section className="winter-banner" aria-labelledby="winter-banner-title">
           <div className="winter-banner-hero">
-            <BannerProductPhoto item={jacket} />
+            <BannerScene scene="north-face-winter-yard" />
+            {winterBannerProduct && (
+              <Link href={`/p/${encodeURIComponent(winterBannerProduct.id)}`} className="winter-banner-product-link"
+                aria-label={`${winterBannerProduct.name} – The North Face`} />
+            )}
             <div className="winter-banner-copy">
               <span className="kicker"><span className="sq" />{winter.name}</span>
               <h2 id="winter-banner-title" className="k">קר בחוץ.<br /><em>ממשיכים לעבוד.</em></h2>
               <Link href={`/c/${winter.id}`} className="btn btn-yellow">
-                לכל ביגוד החורף <span aria-hidden="true">←</span>
+                לכל ביגוד החורף
               </Link>
             </div>
           </div>
@@ -403,7 +391,7 @@ export function Home({ heroPreview, promotions = [], bundles = [], showNewArriva
         </section>
       )}
 
-      <Under100Section />
+      <Under100Section seed={budgetSeed} />
 
       {kits.length > 0 && <section className="wrap sec">
         <div className="sec-head">

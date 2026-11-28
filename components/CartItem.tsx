@@ -80,7 +80,7 @@ export function CartItem({ line, product, disabled = false, unitNumber }: { line
         {set ? <CartSetParts product={product} variantId={editing ? editVariant : savedVariant} editing={editing} disabled={disabled} onVariant={setEditVariant} />
           : line.packUnits ? <span className="muted cart-item-meta">{line.packUnits.map(({ variantId, quantity }) => {
           const choice = source?.choices?.find(({ id }) => id === variantId);
-          return choice ? `${quantity} × ${[colorLabel(choice.color), sizeLabel(choice.size) || "מידה אחת"].filter(Boolean).join(" · ")}` : `${quantity} × מק״ט ${variantId.split("/").pop()}`;
+          return choice ? `${quantity} × ${choice.optionsLabel || [colorLabel(choice.color), sizeLabel(choice.size) || "מידה אחת"].filter(Boolean).join(" · ")}` : `${quantity} × מק״ט ${variantId.split("/").pop()}`;
         }).join(" / ")}</span> : <span className="muted cart-item-meta">{[colorLabel(line.color), sizeLabel(line.size) || "מידה אחת"].filter(Boolean).join(" · ")}</span>}
         {!editing && !line.packUnits && (!set || (product.choices?.length ?? 0) > 1) && <button type="button" className="cart-edit-link" disabled={disabled} onClick={edit}>{set ? "עריכת בחירות בסט" : "שינוי צבע ומידה"}</button>}
         {editing && (

@@ -58,7 +58,7 @@ async function prepareCart(lines: CheckoutLine[]) {
       if (line.packUnits !== undefined) {
         resolveQuantityOffer ??= await (await import("@/lib/admin/quantity-offer-cart")).quantityOfferCartResolver();
         const configured = resolveQuantityOffer(line.pid, directId, qty, line.packUnits);
-        if (!configured) return { ok: false as const, error: "הרכב המארז השתנה. בחרו שוב צבע ומידה לכל יחידה." };
+        if (!configured) return { ok: false as const, error: "הרכב המארז השתנה. בחרו שוב את הווריאציה של כל יחידה." };
         drafts.push(configured);
         continue;
       }

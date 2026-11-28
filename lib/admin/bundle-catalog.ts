@@ -28,7 +28,7 @@ export async function managedBundleProducts(products: Product[], bundles: AdminB
     return tiers.flatMap((tier): Product[] => {
       const choices = variants.filter((variant) => variant.tierId === tier.id).flatMap((mapping) => {
         const original = sourceChoices.get(mapping.sourceVariantId);
-        return original ? [{ ...original, id: mapping.variantId, price: mapping.price, available: true }] : [];
+        return original ? [{ ...original, id: mapping.variantId, sourceVariantId: original.id, price: mapping.price, available: true }] : [];
       });
       if (!choices.length || tier.total === undefined) return [];
       return [{

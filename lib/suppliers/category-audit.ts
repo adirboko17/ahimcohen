@@ -1,10 +1,6 @@
 import "server-only";
-import { unstable_cache } from "next/cache";
 import { CATS } from "@/lib/catalog";
-import { shopDomain } from "@/lib/shopify/config";
-import { supplierKey, type Site } from "./catalog-model";
 import { canonicalCategoryLabel, categoryNames, categoryText, productSupportsCategory, supplierCategoryLabel } from "./category-matching";
-import { shopFilter, supplierRequest } from "./storage";
 
 export const categoryOpportunityMinimum = 15;
 type CategoryEvidence = { source_id: string; title: string; category?: string | null; productType?: string | null; brand?: string | null };
@@ -40,24 +36,4 @@ export function categoryOpportunities(products: CategoryEvidence[]): CategoryOpp
       for (const id of ids) claimed.add(id);
       return [{ label: group.label, ids }];
     });
-}
-
-const auditPull = unstable_cache(async (_shop: string, supplier: string, run: string) => {
-  const evidence: CategoryEvidence[] = [];
-  let cursor: string | undefined;
-  for (;;) {
-    const rows: CategoryEvidence[] = await supplierRequest<CategoryEvidence>("ahim_supplier_previews", "GET", {
-      ...shopFilter(), supplier: "eq." + supplier, review_state: "in.(known,pending)",
-      scan_error: "is.null", scanned_at: "gte." + run, order: "source_id.asc", limit: "200",
-      select: "source_id,title:snapshot->>title,category:snapshot->>category,productType:snapshot->>productType,brand:snapshot->>brand",
-      ...(cursor ? { source_id: "gt." + cursor } : {}),
-    });
-    evidence.push(...rows);
-    if (rows.length < 200) return categoryOpportunities(evidence);
-    cursor = rows.at(-1)!.source_id;
-  }
-}, ["supplier-category-opportunities-v1"], { revalidate: 300 });
-
-export function readSupplierCategoryAudit(site: Pick<Site, "domain" | "pull_started_at">) {
-  return site.pull_started_at ? auditPull(shopDomain(), supplierKey(site.domain), site.pull_started_at) : Promise.resolve([]);
 }

@@ -168,7 +168,8 @@ export function StoreProvider({ children, customerAuth }: { children: React.Reac
           const p = catalog.product(pid);
           if (!p || qty <= 0) return;
           const color = p.colors[ci] || "";
-          const variant = packUnits ? p.choices?.find((choice) => choice.available && choice.color === color && choice.size === size)
+          const variant = packUnits ? p.choices?.find((choice) => choice.available && (choice.sourceVariantId
+            ? choice.sourceVariantId === packUnits[0]?.variantId : choice.color === color && choice.size === size))
             : pickVariant(p, color, size);
           if (packUnits && !variant) return;
           const key = packUnits ? JSON.stringify([pid, variant?.id, packUnits]) : `${pid}|${color}|${size}`;

@@ -96,6 +96,48 @@ test("mixed pack compositions are separate Shopify lines even when they share a 
   assert.deepEqual(calls[1].lines.map(({ attributes }) => attributes[0].value), ["blue-m, white-l", "blue-m, black-xl"]);
 });
 
+test("a mixed bundle keeps its fixed price and sends the validated unit choices to Shopify", async () => {
+  const load = (file, imports = {}) => {
+    const code = ts.transpileModule(readFileSync(resolve(__dirname, "../lib", file + ".ts"), "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const loaded = { exports: {} };
+    new Function("require", "module", "exports", code)((name) => imports[name] ?? require(name), loaded, loaded.exports);
+    return loaded.exports;
+  };
+  const choices = [
+    { id: "gray-s", color: "אפור", size: "S", available: true },
+    { id: "black-l", color: "שחור", size: "L", available: true, optionsLabel: "צבע שחור · מידה L · בד כותנה" },
+  ];
+  const bundle = { id: "pair", name: "Pair", items: [["shirt", 2]], active: true, total: 70, mixedUnits: true, sourceVariantIds: choices.map(({ id }) => id) };
+  const store = { bundles: [bundle, { ...bundle, id: "triple", items: [["shirt", 3]], mixedUnits: false }], hiddenQuantityOffers: [], offers: [] };
+  const { bundleRevision } = load("admin/bundle-mapping", { "server-only": {}, "@/lib/shopify/config": {} });
+  const variantId = "gid://shopify/ProductVariant/123";
+  const mapping = { source_product_id: "shirt", revision: bundleRevision(store.bundles), variants: [
+    { tierId: "pair", sourceVariantId: "gray-s", variantId: "gid://shopify/ProductVariant/124", price: 70 },
+    { tierId: "pair", sourceVariantId: "black-l", variantId, price: 70 },
+  ] };
+  const { quantityOfferCartResolver } = load("admin/quantity-offer-cart", {
+    "server-only": {}, "@/lib/catalog": { colorLabel: String }, "@/lib/sizes": load("sizes"),
+    "@/lib/quantity-offers": load("quantity-offers"), "./models": load("admin/models"),
+    "./bundle-mapping": { bundleRevision, readBundleMappings: async () => [mapping] },
+    "./storage": { readAdminStore: async () => store },
+    "@/lib/shopify/load-catalog": { loadShopCatalog: async () => ({ products: [{ id: "shirt", choices }] }) },
+  });
+  const money = { amount: "70", currencyCode: "ILS" };
+  const { checkout, quote, calls } = harness(false, { lines: [{ merchandiseId: variantId, quantity: 1, subtotal: money, total: money }] }, [], await quantityOfferCartResolver());
+  const line = { pid: "bundle-cart-pair", qty: 1, variantId, packUnits: choices.map(({ id }) => ({ variantId: id, quantity: 1 })) };
+  assert.equal((await quote([line])).quote.total, 70);
+  assert.equal((await checkout([line], 70)).ok, true);
+  assert.equal(calls[1].lines[0].quantity, 1);
+  assert.deepEqual(calls[1].lines[0].attributes.map(({ value }) => value), ["1 × צבע שחור · מידה L · בד כותנה", "1 × אפור · S"]);
+  assert.equal((await quote([{ ...line, pid: "bundle-cart-triple" }])).ok, false);
+  assert.equal((await quote([{ ...line, packUnits: line.packUnits.slice(0, 1) }])).ok, false);
+  choices[0].available = false;
+  assert.equal((await quote([line])).ok, false);
+  assert.equal(calls.length, 2);
+});
+
 test("managed quantity discount codes are sent to both the quote and checkout", async () => {
   const variantId = "gid://shopify/ProductVariant/123";
   const money = (amount) => ({ amount: String(amount), currencyCode: "ILS" });

@@ -28,7 +28,8 @@ function accessoryKind(product: Product): AccessoryKind | null {
   if (inCategory(product, "safety") || inCategory(product, "disp")) return null;
   if (/בטיחות|נשק|קשירה|תפסן|רתמ|ריתמ|לכלי|חגורת גב|תמיכה|הרמה|מגן|קוולאר|החלקה|בירקי|birki/.test(name)) return null;
 
-  if (hasSub(product, /^גרביים$/) || /(?:^|\s|\/)גרב(?:יים|ים|י|ית)?(?:\s|$)|\bsocks?\b/.test(name)) return "socks";
+  if (hasSub(product, /^גרביים$/) || product.originalSubcategories?.includes("גרביים") ||
+    /(?:^|\s|\/)גרב(?:יים|ים|י|ית)?(?:\s|$)|\bsocks?\b/.test(name)) return "socks";
   if ((hasSub(product, /^חגורות$/) || /חגור(?:ה|ת)|\bbelts?\b/.test(name)) && !/זוהר|מחזיר אור|reflective/.test(name)) return "belt";
   if ((inCategory(product, "shoes") && /רפיד(?:ה|ת|ות)/.test(name)) || /מדרס|\binsoles?\b/.test(name)) return "insole";
   if (hasSub(product, /^כובעי שף$/) || /כובע.*(?:שף|טבח)|\bchef.*hat\b/.test(name)) return "chef-hat";
@@ -66,13 +67,14 @@ function brand(value: string | undefined) {
 const BROAD_SUBCATEGORIES = new Set([
   "אקססוריז", "אביזרים נלווים", "אביזרים למטבח", "אביזרי הנעלה ורפידות",
   "אביזרים חד פעמי", "ביגוד מקצועי חד פעמי", "ציוד בטיחות נלווה",
-  "מוצרי ניקיון", "מבצעים", "מומלצים", "חדש",
+  "מוצרי ניקיון", "מבצעים", "מומלצים", "חדש", "גרביים והלבשה תחתונה",
 ]);
 
 function similarityKeys(product: Product): string[] {
   const accessory = accessoryKind(product);
   if (accessory) return [`accessory:${accessory}`];
-  return [...new Set([product.sub, ...(product.subs ?? [])].map(normalize))]
+  const underwear = product.originalSubcategories?.includes("הלבשה תחתונה") ? ["הלבשה תחתונה"] : [];
+  return [...new Set([product.sub, ...(product.subs ?? []), ...underwear].map(normalize))]
     .filter((sub) => sub && !BROAD_SUBCATEGORIES.has(sub))
     .map((sub) => `subcategory:${sub}`);
 }

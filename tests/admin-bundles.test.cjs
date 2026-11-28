@@ -52,13 +52,14 @@ function harness(syncManagedBundle, bundles = []) {
   };
   const module = { exports: {} };
   new Function("require", "module", "exports", compiled)((name) => deps[name] ?? require(name), module, module.exports);
-  const publish = (tiers, id, variantIds = [], { bestValue, active = true, featured } = {}) => {
+  const publish = (tiers, id, variantIds = [], { bestValue, active = true, featured, mixed } = {}) => {
     const data = new FormData();
     for (const [key, value] of Object.entries({ section: "bundles", operation: "save", productId: "shirt" })) data.set(key, value);
     if (active) data.set("active", "on");
     if (id) data.set("id", id);
     if (bestValue !== undefined) data.set("bestValue", bestValue);
     for (const option of featured ?? []) data.append("showInQuantityOffers", option);
+    for (const option of mixed ?? []) data.append("mixedUnits", option);
     for (const variantId of variantIds) data.append("sourceVariantId", variantId);
     for (const [title, quantity, total] of tiers) {
       data.append("title", title);
@@ -87,8 +88,10 @@ function harness(syncManagedBundle, bundles = []) {
   const saveGroup = (tiers, snapshot = models.exports.bundleGroupSnapshot(store.bundles)) => {
     const data = new FormData();
     for (const [key, value] of Object.entries({ section: "bundles", operation: "save-group", productId: "shirt", snapshot })) data.set(key, value);
-    for (const [tierId, title, quantity, total, tierActive, showInQuantityOffers] of tiers) {
-      for (const [key, value] of Object.entries({ tierId, title, quantity, total, tierActive, showInQuantityOffers })) data.append(key, value);
+    for (const [tierId, title, quantity, total, tierActive, showInQuantityOffers, mixedUnits] of tiers) {
+      for (const [key, value] of Object.entries({ tierId, title, quantity, total, tierActive })) data.append(key, value);
+      if (showInQuantityOffers !== undefined) data.append("showInQuantityOffers", showInQuantityOffers);
+      if (mixedUnits !== undefined) data.append("mixedUnits", mixedUnits);
     }
     return module.exports.saveAdmin(data);
   };
@@ -230,4 +233,21 @@ test("the bundle dialog preserves public tiers when synchronization fails", asyn
   assert.equal((await saveGroup([["pair", "Pair", "2", "88", "yes", "no"]])).ok, false);
   assert.deepEqual(store.bundles, [pair]);
   assert.deepEqual(calls, [[88], [89]]);
+});
+
+test("mixed variation choices are configurable per tier without recreating Shopify variants", async () => {
+  const calls = [];
+  const { publish, store, saveGroup } = harness(async (_, __, tiers) => calls.push(tiers));
+  assert.equal((await publish([["Pair", "2", "89"], ["Triple", "3", "120"]], undefined, [], { featured: ["yes", "no"], mixed: ["yes", "no"] })).ok, true);
+  const pair = store.bundles.find(({ name }) => name === "Pair");
+  const triple = store.bundles.find(({ name }) => name === "Triple");
+  assert.equal(pair.mixedUnits, true);
+  assert.equal(triple.mixedUnits, undefined);
+  const snapshot = models.exports.bundleGroupSnapshot(store.bundles);
+  const edit = [[pair.id, "Pair", "2", "89", "yes", undefined, "no"], [triple.id, "Triple", "3", "120", "yes", undefined, "yes"]];
+  assert.equal((await saveGroup(edit, snapshot)).ok, true);
+  assert.deepEqual(store.bundles.map(({ mixedUnits }) => mixedUnits), [undefined, true]);
+  assert.equal(store.bundles[0].showInQuantityOffers, true);
+  assert.equal(calls.length, 1);
+  assert.equal((await saveGroup(edit, snapshot)).ok, false);
 });

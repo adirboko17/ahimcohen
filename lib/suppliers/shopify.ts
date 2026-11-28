@@ -6,7 +6,7 @@ import { shopDomain } from "@/lib/shopify/config";
 import { type SupplierProduct } from "./redback";
 import { reserveDraft, saveCorrectedDraftBrand, saveCorrectedDraftPrices, saveDraftId, saveVerification, type Preview } from "./storage";
 
-import { originalPriceSnapshot, productBrand, productDomain, supplierKey } from "./catalog-model";
+import { originalPriceSnapshot, productBrand, productDomain, supplierImportExcluded, supplierKey } from "./catalog-model";
 import { publicBytes } from "./public-source";
 import { detectSupplierBrand } from "./brand";
 
@@ -275,6 +275,7 @@ async function completeDraftConnection<T>(
 }
 
 export async function importDraft(row: Preview, collectionIds: string[], preview = row.snapshot) {
+  if (row.review_state === "ignored") throw new Error(supplierImportExcluded);
   if (row.scan_error && !row.shopify_product_id) throw new Error(row.scan_error);
   let p = preview;
   const collections = await manualCollections();

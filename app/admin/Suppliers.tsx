@@ -23,7 +23,7 @@ import { detectSupplierBrand, supplierBrandName } from "@/lib/suppliers/brand";
 import { readSupplierDefaultBrand } from "@/lib/suppliers/brand-settings";
 import { readLocatedCatalogBatch } from "@/lib/suppliers/located-catalog";
 import { supplierCollectionMemberships } from "@/lib/suppliers/shopify";
-import { supplierStorefrontCollections } from "@/lib/suppliers/storefront-collections";
+import { readSupplierReviewCollections } from "@/lib/suppliers/category-review-cache";
 import { suggestedProductCategoryIds } from "@/lib/suppliers/category-review";
 import { outdoorFootwear } from "@/lib/category-placement";
 import { isOutdoorFootwear, outdoorFootwearCollection } from "@/lib/suppliers/category-matching";
@@ -115,10 +115,12 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
       </>
     );
   }
-  const [site, defaultBrand] = await Promise.all([getSite(domain), readSupplierDefaultBrand(domain)]);
+  const [site, defaultBrand] = await Promise.all([
+    getSite(domain), view === "category-review" || view === "review" || view === "setup" ? "" : readSupplierDefaultBrand(domain),
+  ]);
   const heading = <h2><bdi>{site.domain}</bdi></h2>;
   const importedOnly = status === "imported";
-  if (view === "category-review") return <SupplierCategoryReview site={site} groupKey={cat} pageParam={pageParam} />;
+  if (view === "category-review") return SupplierCategoryReview({ site, groupKey: cat, pageParam });
   if (view === "review") {
     const page = Math.max(1, Math.floor(Number(pageParam) || 1));
     const rows = await previews(domain,{review_state:"eq.pending",shopify_product_id:"is.null",order:"source_id",limit:"13",offset:String((page-1)*12)});
@@ -135,7 +137,7 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
     </section>;
   }
   if (view === "setup") {
-    const collections = (await supplierStorefrontCollections()).filter(collection => collection.manual);
+    const collections = (await readSupplierReviewCollections()).filter(collection => collection.manual);
     return (
       <>
         <div className="admin-section-heading">{home}{heading}</div>
@@ -149,8 +151,9 @@ async function content({ site: domain, view, cat = "", page: pageParam, item, st
     );
   }
   if (view === "product" && item && /^\d+$/.test(item)) {
-    const [row, collections] = await Promise.all([getPreview(domain, item), supplierStorefrontCollections()]);
+    const [row, collections] = await Promise.all([getPreview(domain, item), readSupplierReviewCollections()]);
     if (!row) throw new Error("המוצר לא נמצא בקטלוג הספק.");
+    if (row.review_state === "ignored") throw new Error("המוצר הוסר מהייבוא.");
     const gid = row.shopify_product_id;
     const [[state], memberships] = gid ? await Promise.all([publicationStates([gid]), supplierCollectionMemberships([gid])]) : [[], undefined];
     const storedBrand = supplierBrandName(state?.vendor ?? row.draft_snapshot?.brand);

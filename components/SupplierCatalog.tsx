@@ -6,6 +6,7 @@ import { IconCheck, IconFilter, IconFwd, IconPencil, IconTrash } from "./icons";
 import { AdminBackLink } from "./AdminBackLink";
 import { useSupplierFeed } from "./useSupplierFeed";
 import { SupplierLocatedCatalog } from "./SupplierLocatedCatalog";
+import { SupplierPublicationStatus, useSupplierPublicationProgress } from "./SupplierPublicationStatus";
 import { sourceMappingSuggestion, supplierCategoryLabel, technicalSupplierCategory } from "@/lib/suppliers/category-matching";
 import {
   categoryPath,
@@ -28,7 +29,7 @@ function useAction(domain?: string) {
   const router = useRouter(),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState<{ message: string; ok: boolean } | null>(null);
-  async function run(action: string, data = new FormData(), next?: (reply: { domain?: string }) => void) {
+  async function run(action: string, data = new FormData(), next?: (reply: { domain?: string; publicationIds?: string[] }) => void) {
     if (busy) return;
     setBusy(true);
     setNotice(null);
@@ -421,7 +422,7 @@ function ReviewIssue({site,issue,image,loading,disabled}:{
   const [failedImage,setFailedImage]=useState("");
   const explanations: Record<string,string> = {
     "ערך צבע או מידה אינו חד־משמעי.": "הספק מציג וריאציה בלי צבע או מידה ברורים. אי אפשר לקבוע לאיזה שילוב שייך המלאי.",
-    "אפשרויות המוצר אינן יוצרות שילובים ייחודיים.": "הספק רשם את אותו צבע ואותה מידה יותר מפעם אחת.",
+    "אפשרויות המוצר אינן יוצרות שילובים ייחודיים.": "רשימת הצבעים והמידות כוללת שילובים כפולים או חסרים. נדרש פירוט תקין מהספק כדי לשייך את המלאי.",
     "סוג המוצר אינו מוצר רגיל או מוצר עם וריאציות.": "סוג המוצר הזה דורש טיפול נפרד. הייבוא האוטומטי תומך במוצרים רגילים ובמוצרים עם וריאציות.",
   };
   function decide(choice:"add"|"remove") {
@@ -566,6 +567,10 @@ function CatalogProductActions({ domain, item, href }: { domain: string; item: C
   </>;
 }
 
+type CatalogBatchTarget = { ids: string[] } | { category: string };
+type CatalogPublishRequest = { target: CatalogBatchTarget; count: number | null; error?: string };
+const formatCatalogCount = new Intl.NumberFormat("he-IL");
+
 export function CatalogList({
   site,
   initial,
@@ -595,7 +600,10 @@ export function CatalogList({
   }));
   const action = useAction(site.domain),
     [checked, setChecked] = useState<string[]>([]);
-  const [scope,setScope] = useState<"selected"|"all">("selected");
+  const [draftScope, setDraftScope] = useState<"selected" | "all">("selected");
+  const [publishRequest, setPublishRequest] = useState<CatalogPublishRequest | null>(null);
+  const [queuingPublication, setQueuingPublication] = useState(false);
+  const publication = useSupplierPublicationProgress(site.domain);
   const confirmPublish = useRef<HTMLDialogElement>(null);
   const pulling = site.state === "queued" || site.state === "running";
   const pending = items.some((i) => ["running", "queued"].includes(i.task || ""));
@@ -606,20 +614,54 @@ export function CatalogList({
   const selected = checked.filter(id => enabled.has(id));
   const selection = new Set(selected);
   const selectedDrafts = items.filter(i => selection.has(i.id) && !i.linked).map(i => i.id);
-  const scopeLabel = scope === "all" ? (cat ? "כל הקטגוריה" : "כל הקטלוג") : `${selected.length} מוצרים שסומנו`;
-  const scopeUnavailable = scope === "all" && (pulling || !items.length);
-  function submitBatch(intent:"draft"|"publish") {
-    const f=new FormData();
-    f.set("intent",intent);
-    if (scope === "all") { f.set("scope","all"); f.set("category",cat); }
-    else (intent === "publish" ? selected : selectedDrafts).forEach(id=>f.append("item",id));
+  const allAvailable = !pulling && (!!cat || items.length > 0);
+
+  async function openPublish(target: CatalogBatchTarget) {
+    const dialog = confirmPublish.current;
+    if (!dialog || action.busy) return;
+    const request = { target, count: "ids" in target ? target.ids.length : null };
+    setPublishRequest(request);
+    dialog.showModal();
+    if ("ids" in target) return;
+    const form = new FormData();
+    form.set("action", "batch-count");
+    form.set("domain", site.domain);
+    form.set("category", target.category);
+    try {
+      const response = await fetch("/admin/suppliers", { method: "POST", body: form });
+      const data = await response.json() as { count?: number; message?: string };
+      const count = data.count;
+      if (!response.ok || typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
+        throw new Error(data.message || "ספירת מוצרי הקטלוג נכשלה.");
+      setPublishRequest(previous => previous === request ? { ...request, count } : previous);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ספירת מוצרי הקטלוג נכשלה.";
+      setPublishRequest(previous => previous === request ? { ...request, error: message } : previous);
+    }
+  }
+
+  function submitBatch(intent: "draft" | "publish", target: CatalogBatchTarget) {
+    if (action.busy || ("ids" in target ? !target.ids.length : pulling)) return;
+    const form = new FormData();
+    form.set("intent", intent);
+    if ("ids" in target) target.ids.forEach(id => form.append("item", id));
+    else {
+      form.set("scope", "all");
+      form.set("category", target.category);
+    }
     confirmPublish.current?.close();
-    void action.run("batch",f,()=>setChecked([]));
+    if (intent === "publish") setQueuingPublication(true);
+    void action.run("batch", form, reply => {
+      setChecked([]);
+      if (reply.publicationIds?.length) publication.track(reply.publicationIds);
+    }).finally(() => { if (intent === "publish") setQueuingPublication(false); });
   }
   const paths = useMemo(() => new Map(site.categories.map(c => [
     c.id, categoryPath(c.id,site.categories).map(parent => parent.name).join(" › "),
   ])),[site.categories]);
   const path = (id: string) => paths.get(id) || "";
+  const publishScope = publishRequest && ("ids" in publishRequest.target ? "המוצרים שסומנו" :
+    publishRequest.target.category ? "כל המוצרים בקטגוריה " + path(publishRequest.target.category) : "כל מוצרי הקטלוג");
   return (
     <section className="supplier-catalog">
       <RefreshWhileBusy active={(pulling || importing || pending) && !feed.loading} />
@@ -674,7 +716,9 @@ export function CatalogList({
           <Link className="btn btn-line" aria-current={importedOnly ? "page" : undefined} prefetch={false}
             href={supplierUrl(site.domain, "catalog", { cat, status: "imported" })}>מוצרים שיובאו</Link>
         </nav>
-        {importing && <p role="status" className="catalog-import-progress">הייבוא מתבצע. הרשימה מתעדכנת אוטומטית.</p>}
+        <SupplierPublicationStatus progress={publication.progress} failed={publication.failed} queuing={queuingPublication} />
+        {importing && !publication.progress && !queuingPublication &&
+          <p role="status" className="catalog-import-progress">הייבוא מתבצע. הרשימה מתעדכנת אוטומטית.</p>}
         {!importedOnly && <>
           <div className="supplier-batch-bar">
             <label className="supplier-check">
@@ -683,31 +727,53 @@ export function CatalogList({
                 checked={!!enabled.size && selected.length === enabled.size}
                 disabled={!enabled.size}
                 ref={input => { if (input) input.indeterminate = selected.length > 0 && selected.length < enabled.size; }}
-                onChange={(e) => {setScope("selected");setChecked(e.target.checked ? [...enabled] : []);}}
+                onChange={event => {
+                  setDraftScope("selected");
+                  setChecked(event.target.checked ? [...enabled] : []);
+                }}
               />
               בחר את המוצרים שנטענו
             </label>
-            <label>
-              <select aria-label="הפעל פעולה על" value={scope} onChange={e=>setScope(e.target.value === "all" ? "all" : "selected")}>
-                <option value="selected">המוצרים שסומנו ({selected.length})</option>
-                <option value="all">{cat ? "כל המוצרים בקטגוריה" : "כל המוצרים בקטלוג"}</option>
-              </select>
-            </label>
             <div className="supplier-batch-buttons">
-              <button className="btn admin-primary" disabled={action.busy || scopeUnavailable || scope === "selected" && !selected.length}
-                onClick={()=>confirmPublish.current?.showModal()}>פרסם באתר</button>
-              <button className="btn btn-line" disabled={action.busy || scopeUnavailable || scope === "selected" && !selectedDrafts.length}
-                onClick={()=>submitBatch("draft")}>ייבא כטיוטות</button>
+              <button type="button" className="btn admin-primary" disabled={action.busy || !selected.length}
+                onClick={() => void openPublish({ ids: selected })}>פרסם את המסומנים ({selected.length})</button>
+              <button type="button" className="btn btn-line" disabled={action.busy || !allAvailable}
+                onClick={() => void openPublish({ category: "" })}>פרסם את כל הקטלוג</button>
+              {cat && <button type="button" className="btn btn-line" disabled={action.busy || pulling || !items.length}
+                onClick={() => void openPublish({ category: cat })}>פרסם את כל הקטגוריה</button>}
             </div>
+            <details className="supplier-batch-drafts">
+              <summary>ייבוא כטיוטות</summary>
+              <div>
+                <select aria-label="מוצרים לייבוא כטיוטות" value={draftScope} onChange={event => setDraftScope(event.target.value === "all" ? "all" : "selected")}>
+                  <option value="selected">המסומנים ({selectedDrafts.length})</option>
+                  <option value="all">{cat ? "כל המוצרים בקטגוריה" : "כל מוצרי הקטלוג"}</option>
+                </select>
+                <button type="button" className="btn btn-line" disabled={action.busy || (draftScope === "all" ? pulling || !items.length : !selectedDrafts.length)}
+                  onClick={() => submitBatch("draft", draftScope === "all" ? { category: cat } : { ids: selectedDrafts })}>
+                  הוסף לתור טיוטות
+                </button>
+              </div>
+            </details>
           </div>
-          <dialog className="supplier-dialog supplier-publish-dialog" ref={confirmPublish} aria-labelledby="supplier-publish-title">
+          <dialog className="supplier-dialog supplier-publish-dialog" ref={confirmPublish} aria-labelledby="supplier-publish-title"
+            onClose={() => setPublishRequest(null)}>
             <header><h2 id="supplier-publish-title">פרסום באתר</h2></header>
-            <p><strong>{scopeLabel}</strong> מתוך <bdi>{site.domain}</bdi>{cat ? " · "+path(cat) : ""}</p>
-            <p>המוצרים המתאימים יעלו למכירה במחירים שהוגדרו, לאחר אימות התמונות, השיוך לאוספים והזמינות לפי צבע ומידה.</p>
-            <div className="supplier-batch-buttons">
-              <button autoFocus className="btn btn-line" onClick={()=>confirmPublish.current?.close()}>ביטול</button>
-              <button className="btn admin-primary" onClick={()=>submitBatch("publish")}>אישור פרסום באתר</button>
-            </div>
+            {publishRequest && <>
+              <p><strong>{publishScope}</strong> מתוך <bdi>{site.domain}</bdi></p>
+              {publishRequest.error ? <p role="alert">{publishRequest.error}</p> : publishRequest.count === null ?
+                <p role="status">סופר מוצרים…</p> : <p role="status">
+                  {publishRequest.count === 0 ? "אין מוצרים בתצוגה שנבחרה." :
+                    publishRequest.count === 1 ? "מוצר אחד ייבדק לפרסום." : formatCatalogCount.format(publishRequest.count) + " מוצרים ייבדקו לפרסום."}
+                </p>}
+              {!!publishRequest.count && <p>מוצרים שמתאימים לפרסום ייכנסו לתור ויתפרסמו במחירים שהוגדרו.</p>}
+              <div className="supplier-batch-buttons">
+                <button type="button" autoFocus className="btn btn-line" onClick={() => confirmPublish.current?.close()}>ביטול</button>
+                <button type="button" className="btn admin-primary" disabled={!publishRequest.count || action.busy ||
+                  (!("ids" in publishRequest.target) && pulling)}
+                  onClick={() => submitBatch("publish", publishRequest.target)}>אישור פרסום באתר</button>
+              </div>
+            </>}
           </dialog>
           {action.feedback}
         </>}
@@ -739,8 +805,9 @@ export function CatalogList({
                 type="checkbox"
                 disabled={!enabled.has(i.id)}
                 checked={selection.has(i.id)}
-                onChange={(e) => {setScope("selected");
-                  setChecked(e.target.checked ? [...selected, i.id] : selected.filter((id) => id !== i.id));
+                onChange={event => {
+                  setDraftScope("selected");
+                  setChecked(event.target.checked ? [...selected, i.id] : selected.filter(id => id !== i.id));
                 }}
               />
               </label>}

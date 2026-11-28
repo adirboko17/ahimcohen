@@ -24,10 +24,12 @@ function load(file, dependencies = {}) {
       : name === "./ProductImage" ? load("components/ProductImage.tsx", dependencies)
       : name === "./MobileFilterSheet" ? load("components/MobileFilterSheet.tsx", dependencies)
       : name === "./CategoryScroller" ? load("components/CategoryScroller.tsx", dependencies)
+      : name === "./CategorySorting" ? load("components/CategorySorting.tsx", dependencies)
       : name === "./ProductListProgress" ? load("components/ProductListProgress.tsx", dependencies)
       : name === "@/lib/page-scroll-lock" ? load("lib/page-scroll-lock.ts")
       : name === "./ProductBrand" ? load("components/ProductBrand.tsx", { "@/lib/brands": load("lib/brands.ts") })
       : name === "@/lib/brands" ? load("lib/brands.ts")
+      : name === "@/lib/product-search" ? load("lib/product-search.ts")
       : name === "./QuantityUnitPicker" ? load("components/QuantityUnitPicker.tsx", dependencies)
       : name === "@/lib/quantity-selection" ? load("lib/quantity-selection.ts", { "./sizes": sizes })
       : name === "@/lib/quantity-offers" ? load("lib/quantity-offers.ts")
@@ -38,9 +40,11 @@ function load(file, dependencies = {}) {
 }
 
 const colors = load("lib/colors.ts");
-const storefrontCatalog = load("lib/catalog.ts", { "./colors": colors, "./category-placement": load("lib/category-placement.ts") });
+const colorFamilies = load("lib/color-families.ts", { "./colors": colors });
+const placement = load("lib/category-placement.ts");
+const storefrontCatalog = load("lib/catalog.ts", { "./colors": colors, "./category-placement": placement });
 const sizes = load("lib/sizes.ts");
-const variantFilters = load("lib/category-filters.ts", { "./colors": colors, "./sizes": sizes });
+const variantFilters = load("lib/category-filters.ts", { "./colors": colors, "./sizes": sizes, "./color-families": colorFamilies });
 const productSelection = load("lib/product-selection.ts", { "./colors": colors, "./sizes": sizes, "./category-filters": variantFilters });
 const { ProductTile } = load("components/ProductTile.tsx", {
   "@/lib/product-tile-photos": load("lib/product-tile-photos.ts"),
@@ -60,21 +64,31 @@ const products = [
   { id: "shoe", cat: "shoes", sub: "Shirts", name: "Other category", price: 200, colors: ["red"], sizes: ["46"] },
 ];
 
-function renderCategory(sub, filters = {}, catalog = products, brand) {
+function renderCategory(sub, filters = {}, catalog = products, brand, editing = false, colorMappings) {
   const category = { id: "work", name: "Work", subs: ["Shirts", "Pants", "Empty"] };
   let historyArgs;
   const { CategoryView } = load("components/CategoryView.tsx", {
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/navigation": { useRouter: () => ({}), useSearchParams: () => new URLSearchParams(sub ? { sub } : {}) },
     "@/lib/catalog": storefrontCatalog,
-    "@/lib/catalog-context": { useCatalog: () => ({ category: () => category, categories: [category], products: catalog, productsInCategory: (id) => catalog.filter((p) => p.cat === id) }) },
+    "@/lib/catalog-context": { useCatalog: () => ({ category: () => category, categories: [category], products: catalog,
+      colorMappings, productsInCategory: (id) => catalog.filter((p) => p.cat === id) }) },
+    "@/lib/color-families": colorFamilies,
     "@/lib/category-filters": variantFilters,
+    "@/lib/category-sorting": load("lib/category-sorting.ts", { "./catalog": storefrontCatalog, "./category-placement": placement }),
     "@/lib/colors": colors,
     "@/lib/sizes": sizes,
     "@/lib/category-history": { CATEGORY_PAGE_SIZE: 8, useCategoryHistory: (...args) => { historyArgs = args; return { filters: { ...emptyFilters, ...filters }, sort: "pop", shown: 8, restoring: false }; } },
     "@/lib/pricing": { fmt: String },
     "@/lib/store": { useScrollLock: () => {} },
-    "./icons": { IconFilter: () => null },
+    "./icons": { IconFilter: () => null, IconPencil: () => null },
+    ...(editing && { "./CategorySorting": {
+      useCategorySorting: () => ({
+        editing: true,
+        access: { enabled: true, categories: [{ ...category, subs: [...category.subs, "Admin only"] }], lastEdit: null },
+      }),
+      SortProductCard: ({ children }) => children,
+    } }),
     "./ProductTile": { ProductTile: (props) => React.createElement("div", { "data-product": props.p.id }, React.createElement(ProductTile, props)) },
   });
   const View = brand ? load("components/BrandView.tsx", { "./CategoryView": { CategoryView } }).BrandView : CategoryView;
@@ -103,14 +117,28 @@ test("brand listings share the category layout while scoping products and facets
 
 test("subcategory filters contain only its products, including secondary subcategory membership", () => {
   const { html, sidebar } = renderCategory("Shirts");
-  assert.match(sidebar, /aria-label="כחול כהה"/);
+  assert.doesNotMatch(html, /class="sub-navigation"/);
+  assert.match(html, /<a href="\/c\/work">Work<\/a><span>\/<\/span><span class="now">Shirts<\/span>/);
+  assert.match(sidebar, /aria-label="כחול"/);
   assert.match(sidebar, /aria-label="לבן"/);
   assert.match(sidebar, />2XL<\/button>/);
   assert.match(sidebar, />M<\/button>/);
-  assert.doesNotMatch(sidebar, /צהוב אבן|>42<\/button>|אדום|>46<\/button>/);
+  assert.doesNotMatch(sidebar, /בז׳|>42<\/button>|אדום|>46<\/button>/);
   assert.match(html, /data-product="shirt"/);
   assert.match(html, /data-product="shared"/);
   assert.doesNotMatch(html, /data-product="pants"|data-product="shoe"/);
+});
+
+test("category navigation follows the published catalog in browse and sorting modes", () => {
+  for (const editing of [false, true]) {
+    const { html } = renderCategory(null, {}, products, undefined, editing);
+    const navigation = html.match(/class="sub-row scroller"[^>]*>(.*?)<\/div>/)?.[1] ?? "";
+    for (const name of ["Shirts", "Pants", "Empty"]) assert.match(navigation, new RegExp(`>${name}<`));
+    assert.doesNotMatch(navigation, /Admin only|Uniforms/);
+  }
+  const { html } = renderCategory("Shirts", {}, products, undefined, true);
+  assert.match(html, /סיום סידור/);
+  assert.doesNotMatch(html, /class="sub-navigation"/);
 });
 
 test("brand aliases share one filter and restored aliases still match all corresponding products", () => {
@@ -138,12 +166,12 @@ test("brand aliases share one filter and restored aliases still match all corres
 
 test("all-category filters include sibling products but exclude other categories", () => {
   const { sidebar } = renderCategory(null);
-  assert.match(sidebar, /צהוב אבן/);
+  assert.match(sidebar, /בז׳/);
   assert.match(sidebar, />42<\/button>/);
   assert.doesNotMatch(sidebar, /אדום|>46<\/button>/);
   const pants = renderCategory("Pants").sidebar;
-  assert.match(pants, /צהוב אבן/);
-  assert.doesNotMatch(pants, /כחול כהה|>2XL<\/button>|>M<\/button>/);
+  assert.match(pants, /בז׳/);
+  assert.doesNotMatch(pants, /כחול|>2XL<\/button>|>M<\/button>/);
 });
 
 test("unavailable restored choices do not leave a subcategory empty, while valid aliases still filter", () => {
@@ -160,6 +188,35 @@ test("empty subcategories show no unrelated color or size choices and retain the
   assert.doesNotMatch(sidebar, /color-dot|class="mini/);
   assert.match(html, /אין התאמות/);
   assert.match(html, /ניקוי המסננים/);
+});
+
+test("old subcategory links redirect to the current label and preserve other query values", async () => {
+  const redirects = [];
+  const { default: CategoryPage } = load("app/c/[cat]/page.tsx", {
+    "next/navigation": { permanentRedirect: destination => { redirects.push(destination); throw new Error("redirect"); } },
+    "@/lib/category-placement": placement,
+    "@/components/CategoryView": {},
+    "@/lib/shopify/storefront-catalog": {},
+  });
+  for (const { parentId, sub, previous } of [placement.winterOuterwear, placement.bagsAndWallets, placement.socksAndUnderwear]) {
+    for (const legacy of previous) {
+      await assert.rejects(CategoryPage({
+        params: Promise.resolve({ cat: parentId }), searchParams: Promise.resolve({ sub: legacy, filter: ["a", "b"] }),
+      }), /redirect/);
+      const destination = new URL(redirects.at(-1), "https://example.com");
+      assert.equal(destination.pathname, `/c/${parentId}`);
+      assert.equal(destination.searchParams.get("sub"), sub);
+      assert.deepEqual(destination.searchParams.getAll("filter"), ["a", "b"]);
+    }
+  }
+  const { previousParent, parentId, sub } = placement.reflectiveVests;
+  await assert.rejects(CategoryPage({
+    params: Promise.resolve({ cat: previousParent }), searchParams: Promise.resolve({ sub, filter: ["a", "b"] }),
+  }), /redirect/);
+  const destination = new URL(redirects.at(-1), "https://example.com");
+  assert.equal(destination.pathname, `/c/${parentId}`);
+  assert.equal(destination.searchParams.get("sub"), sub);
+  assert.deepEqual(destination.searchParams.getAll("filter"), ["a", "b"]);
 });
 
 const variantCatalog = [{
@@ -183,7 +240,7 @@ test("selecting a color shows only sizes paired with that color, even within one
 test("selecting a size shows only its paired colors and resolves size aliases", () => {
   const { sidebar } = renderCategory("Shirts", { sizes: ["2XL"] }, variantCatalog);
   assert.match(sidebar, /aria-label="לבן"/);
-  assert.doesNotMatch(sidebar, /aria-label="כחול כהה"/);
+  assert.doesNotMatch(sidebar, /aria-label="כחול"/);
   assert.match(sidebar, />M<\/button>/); // Other sizes can still be added.
 });
 
@@ -220,13 +277,56 @@ test("legacy products without variant metadata still support reciprocal filters"
   assert.doesNotMatch(color, />M<\/button>/);
   const size = renderCategory("Shirts", { sizes: ["M"] }).sidebar;
   assert.match(size, /aria-label="לבן"/);
-  assert.doesNotMatch(size, /aria-label="כחול כהה"/);
+  assert.doesNotMatch(size, /aria-label="כחול"/);
 });
 
 test("color and size options respect the other active filters", () => {
   const { sidebar } = renderCategory("Shirts", { max: 55 });
-  assert.match(sidebar, /aria-label="כחול כהה"/);
+  assert.match(sidebar, /aria-label="כחול"/);
   assert.doesNotMatch(sidebar, /aria-label="לבן"|>M<\/button>/);
+});
+
+test("the category filter groups shades and puts unmapped colors under additional colors until approved", () => {
+  const base = products[0];
+  const catalog = [
+    { ...base, id: "light", colors: ["תכלת"] },
+    { ...base, id: "navy", colors: ["navy"] },
+    { ...base, id: "unmapped", colors: ["Supply 041"] },
+  ];
+  const { sidebar } = renderCategory("Shirts", {}, catalog);
+  assert.equal((sidebar.match(/aria-label="כחול"/g) || []).length, 1);
+  assert.doesNotMatch(sidebar, /aria-label="תכלת"|aria-label="כחול כהה"/);
+  assert.match(sidebar, /<details class="filter-colors-additional"><summary>צבעים נוספים<\/summary>.*Supply 041/);
+  const blue = renderCategory("Shirts", { colors: ["family:blue"] }, catalog).html;
+  assert.match(blue, /data-product="light"/);
+  assert.match(blue, /data-product="navy"/);
+  assert.doesNotMatch(blue, /data-product="unmapped"|>family:blue/);
+  const additional = renderCategory("Shirts", { colors: ["Supply 041"] }, catalog).html;
+  assert.match(additional, /data-product="unmapped"/);
+  assert.doesNotMatch(additional, /data-product="light"|data-product="navy"/);
+
+  const mapped = renderCategory("Shirts", { colors: ["family:green"] }, catalog, undefined, false, {
+    "supply 041": { family: "green", swatch: "#47623F" },
+  });
+  assert.match(mapped.sidebar, /aria-label="ירוק"/);
+  assert.doesNotMatch(mapped.sidebar, /צבעים נוספים/);
+  assert.match(mapped.html, /href="\/p\/unmapped\?color=Supply\+041"/);
+});
+
+test("a family uses the shade that matches the selected size and its photo", () => {
+  const { categoryProductSelection } = variantFilters;
+  const product = {
+    ...variantCatalog[0], imgs: ["/default.jpg"], colors: ["navy", "תכלת"],
+    choices: [
+      { ...variantCatalog[0].choices[0], image: "/navy-m.jpg" },
+      { ...variantCatalog[0].choices[1], color: "תכלת" },
+      { ...variantCatalog[0].choices[0], color: "תכלת", image: "/light-m.jpg" },
+    ],
+  };
+  const filters = { ...emptyFilters, colors: ["family:blue"], sizes: ["L"], stock: true };
+  assert.deepEqual(categoryProductSelection(product, filters), { color: "תכלת", size: "L", image: "/light-m.jpg" });
+  product.choices.pop();
+  assert.deepEqual(categoryProductSelection(product, filters), { color: "תכלת", size: "L", image: "/default.jpg" });
 });
 
 const picturedCatalog = [{
@@ -426,7 +526,7 @@ test("product route exposes only its published bundle tiers without exposing dis
       { id: "old", active: true, items: [["variants", 2], ["other", 1]] },
       { id: "missing", active: true, items: [["variants", 6]], bundleProductId: "missing" },
       { id: "linked", name: "מארז זוגי", active: true, total: 90, items: [["variants", 2]], bundleProductId: pack.id },
-      { id: "managed", name: "מארז שלישייה", active: true, total: 99, items: [["variants", 3]], sourceVariantIds: ["private"], bestValue: true },
+      { id: "managed", name: "מארז שלישייה", active: true, total: 99, items: [["variants", 3]], sourceVariantIds: ["private"], bestValue: true, mixedUnits: true },
       { id: "pending", name: "ממתין", active: true, total: 119, items: [["variants", 4]], sourceVariantIds: ["private"] },
     ], offers: [
       { id: "offer", productId: "variants", active: true, total: 75, quantity: 3, sourceVariantIds: ["private"] },
@@ -440,7 +540,7 @@ test("product route exposes only its published bundle tiers without exposing dis
     { id: "two", name: "זוג", quantity: 2, total: 120 },
     { id: "three", name: "שלישייה", quantity: 3, total: 160 },
     { id: "linked", name: "מארז זוגי", quantity: 2, total: 95, productId: pack.id },
-    { id: "managed", name: "מארז שלישייה", quantity: 3, total: 99, cartProductId: "bundle-cart-managed", bestValue: true },
+    { id: "managed", name: "מארז שלישייה", quantity: 3, total: 99, cartProductId: "bundle-cart-managed", bestValue: true, mixedUnits: true },
   ]);
   const offerView = await Page({ params: Promise.resolve({ id: "variants" }), searchParams: Promise.resolve({ bundle: "offer" }) });
   assert.deepEqual(offerView.props.bundles, [

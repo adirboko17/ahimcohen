@@ -3,56 +3,65 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { swatchColor, colorLabel, productSubcategories, type Product } from "@/lib/catalog";
+import { productSubcategories, type Category, type Product } from "@/lib/catalog";
 import { canonicalBrandName, uniqueBrandNames, type Brand } from "@/lib/brands";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductSelection, categoryVariantFilters } from "@/lib/category-filters";
-import { matchesColorFilter, uniqueColors } from "@/lib/colors";
+import { categoryBatchLimit } from "@/lib/category-sorting";
+import { categoryColorLabel, categoryColorMatcher, categoryColorOptions, categoryColorValue, colorFamilyFilter, emptyColorMappings } from "@/lib/color-families";
 import { matchesSizeFilter, uniqueSizes } from "@/lib/sizes";
 import { useCategoryHistory, type CategoryFilters as Filters } from "@/lib/category-history";
 import { fmt } from "@/lib/pricing";
 import { useScrollLock } from "@/lib/store";
-import { IconFilter } from "./icons";
+import { IconFilter, IconPencil } from "./icons";
 import { CategoryScroller } from "./CategoryScroller";
 import { ProductListProgress } from "./ProductListProgress";
 import { ProductTile } from "./ProductTile";
 import { MobileFilterSheet } from "./MobileFilterSheet";
+import { CategorySortDialog, SortProductCard, useCategorySorting } from "./CategorySorting";
 
-type ListingScope = { catId: string; brand?: never } | { brand: Brand; catId?: never };
+type ListingScope = { catId: string; categoryFallback?: Category; brand?: never } | { brand: Brand; catId?: never; categoryFallback?: never };
 
 export function CategoryView(scope: ListingScope) {
   const searchParams = useSearchParams();
   const sub = searchParams.get("sub") || null;
-  return <CategoryResults key={JSON.stringify([scope.brand ? `brand:${scope.brand.id}` : scope.catId, sub])} {...scope} sub={sub} />;
+  const sorting = useCategorySorting(Boolean(scope.catId));
+  return <CategoryResults key={JSON.stringify([scope.brand ? `brand:${scope.brand.id}` : scope.catId, sub])} {...scope} sub={sub} sorting={sorting} />;
 }
 
-function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | null }) {
-  const { category, products, productsInCategory, categories } = useCatalog();
+function CategoryResults({ catId, categoryFallback, brand, sub, sorting }: ListingScope & { sub: string | null; sorting: ReturnType<typeof useCategorySorting> }) {
+  const { category, products, productsInCategory, categories, colorMappings = emptyColorMappings } = useCatalog();
   const scopeId = brand ? `brand:${brand.id}` : catId;
   const routePath = brand ? `/brands/${brand.id}` : `/c/${catId}`;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { filters: savedFilters, setFilters: setF, sort, setSort, shown, setShown, clearFilters, restoring, rememberBeforeNavigation } = useCategoryHistory(scopeId, sub, routePath);
   const [sheet, setSheet] = useState(false);
-  useScrollLock(sheet);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [sortDialog, setSortDialog] = useState(false);
+  useScrollLock(sheet || sortDialog);
 
   const categoryProducts = useMemo(() => brand
     ? products.filter(product => canonicalBrandName(product.brand) === canonicalBrandName(brand.name))
     : productsInCategory(catId), [brand, products, catId, productsInCategory]);
+  const catalogCategory = catId ? category(catId) : undefined;
   const cat = useMemo(() => brand ? {
     name: brand.name,
     subs: [...new Set(categoryProducts.flatMap(product => [product.sub, ...(product.subs ?? [])]).filter(Boolean))],
-  } : category(catId), [brand, categoryProducts, category, catId]);
+  } : catalogCategory ?? categoryFallback, [brand, categoryProducts, catalogCategory, categoryFallback]);
   const base = useMemo(() => categoryProducts.filter(p => !sub || (catId
     ? productSubcategories(p, catId).includes(sub)
     : p.sub === sub || (p.subs ?? []).includes(sub))), [categoryProducts, catId, sub]);
   const f = useMemo(() => ({
     ...savedFilters,
-    colors: uniqueColors(savedFilters.colors).filter((color) => base.some((p) => matchesColorFilter(p.colors, [color]))),
+    colors: [...new Set(savedFilters.colors.map(color => categoryColorValue(color, colorMappings)))].filter(color => {
+      const matches = categoryColorMatcher([color], colorMappings);
+      return base.some(product => matches(product.colors));
+    }),
     sizes: uniqueSizes(savedFilters.sizes).filter((size) => base.some((p) => matchesSizeFilter(p.sizes, [size]))),
     std: savedFilters.std.filter((standard) => base.some((p) => p.std?.includes(standard))),
     brands: brand ? [] : uniqueBrandNames(savedFilters.brands).filter((name) => base.some((p) => canonicalBrandName(p.brand) === name)),
-  }), [savedFilters, base, brand]);
+  }), [savedFilters, base, brand, colorMappings]);
   const prices = base.map((p) => p.price);
   const pMin = prices.length ? Math.min(...prices) : 0;
   const pTop = prices.length ? Math.max(...prices) : 100;
@@ -68,10 +77,10 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
       (!f.brands.length || f.brands.includes(canonicalBrandName(p.brand) ?? "")) &&
       p.price <= pMax
   );
-  const variants = categoryVariantFilters(eligible, f);
+  const variants = categoryVariantFilters(eligible, f, colorMappings);
   // Keep selected choices removable even if another filter rules them out.
   const sizeOpts = uniqueSizes([...variants.sizes, ...f.sizes]);
-  const colorOpts = uniqueColors([...variants.colors, ...f.colors]);
+  const colorOpts = categoryColorOptions([...variants.colors, ...f.colors], colorMappings);
   let list = variants.products;
   if (sort === "asc") list = list.slice().sort((a, b) => a.price - b.price);
   if (sort === "desc") list = list.slice().sort((a, b) => b.price - a.price);
@@ -79,7 +88,8 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
   const fCount = f.std.length + f.colors.length + f.sizes.length + f.brands.length + (f.max != null && f.max < pTop ? 1 : 0);
   const toggle = (field: "std" | "colors" | "sizes" | "brands", val: string) => {
     setF((s) => {
-      const a = field === "colors" ? uniqueColors(s.colors) : field === "sizes" ? uniqueSizes(s.sizes) : field === "brands" ? uniqueBrandNames(s.brands) : s[field];
+      const a = field === "colors" ? [...new Set(s.colors.map(color => categoryColorValue(color, colorMappings)))]
+        : field === "sizes" ? uniqueSizes(s.sizes) : field === "brands" ? uniqueBrandNames(s.brands) : s[field];
       const n = a.includes(val) ? a.filter((x) => x !== val) : a.concat(val);
       return { ...s, [field]: n };
     });
@@ -109,31 +119,47 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
   const active = (["std", "sizes", "colors", "brands"] as const).flatMap((field) => f[field].map((v) => ({ v, field })));
 
   if (!cat) return null;
+  const visible = list.slice(0, shown);
+  const editOptions = catId && sorting.access.enabled ? sorting.access : null;
+  const sortingHere = Boolean(editOptions && sorting.editing);
+  const displayedSubs = brand ? cat.subs : sub ? [] : catalogCategory?.subs ?? [];
+  const selected = new Set(picked);
+  const canUndo = editOptions?.lastEdit;
+  const showSortBar = sortingHere && (picked.length > 0 || sorting.notice || canUndo);
 
   return (
-    <main className="wrap" style={{ paddingTop: "clamp(18px, 3vw, 36px)" }} onClickCapture={rememberBeforeNavigation}>
+    <main className="wrap" data-category-sorting={showSortBar ? true : undefined} style={{ paddingTop: "clamp(18px, 3vw, 36px)" }} onClickCapture={rememberBeforeNavigation}>
       <div className="crumbs">
         <Link href="/">בית</Link>
         <span>/</span>
         {brand && <><Link href="/brands">המותגים שלנו</Link><span>/</span>{sub && <><Link href={routePath}>{brand.name}</Link><span>/</span></>}</>}
+        {catId && sub && <><Link href={routePath}>{cat.name}</Link><span>/</span></>}
         <span className="now">{sub || cat.name}</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", paddingBottom: 20 }}>
         <h1 className="k page-title" dir={brand ? "auto" : undefined}>{brand ? brand.name : sub || cat.name}</h1>
-        <span className="muted" style={{ fontSize: 15, fontWeight: 600 }}>
-          {list.length} מוצרים
-        </span>
+        <div className="category-sort-heading">
+          <span className="muted" style={{ fontSize: 15, fontWeight: 600 }}>{list.length} מוצרים</span>
+          {editOptions && <button type="button" className="btn btn-line category-sort-toggle" aria-pressed={sortingHere} disabled={sorting.busy}
+            onClick={() => {
+              setPicked([]);
+              sorting.clearNotice();
+              sorting.setEditing(!sortingHere);
+            }}>
+            <IconPencil />{sortingHere ? "סיום סידור" : "סידור מוצרים"}
+          </button>}
+        </div>
       </div>
-      <CategoryScroller selected={sub} label="תתי קטגוריות">
-        <button className={`chip ${!sub ? "on" : "off"}`} onClick={() => pickSub(null)}>
+      {(brand || displayedSubs.length > 0) && <CategoryScroller selected={sub} label="תתי קטגוריות">
+        {brand && <button className={`chip ${!sub ? "on" : "off"}`} disabled={sorting.busy} onClick={() => pickSub(null)}>
           הכל
-        </button>
-        {cat.subs.map((name) => (
-          <button key={name} className={`chip ${sub === name ? "on" : "off"}`} onClick={() => pickSub(name)}>
+        </button>}
+        {displayedSubs.map((name) => (
+          <button key={name} className={`chip ${sub === name ? "on" : "off"}`} disabled={sorting.busy} onClick={() => pickSub(name)}>
             {name}
           </button>
         ))}
-      </CategoryScroller>
+      </CategoryScroller>}
 
       <div className="filter-bar mob-grid">
         <button className="btn" aria-haspopup="dialog" aria-expanded={sheet} style={{ height: 48, fontSize: 15, gap: 8 }} onClick={() => setSheet(true)}>
@@ -171,7 +197,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {active.map((a) => (
                 <button key={a.field + a.v} className="active-chip" onClick={() => toggle(a.field, a.v)}>
-                  {a.v}
+                  {a.field === "colors" ? categoryColorLabel(a.v) : a.v}
                   <span>×</span>
                 </button>
               ))}
@@ -187,27 +213,53 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
           </div>
           {list.length > 0 ? (
             <div className="product-grid">
-              {list.slice(0, shown).map((p, index) => {
-                const selection = categoryProductSelection(p, f);
-                return <ProductTile key={p.id} p={p} priority={index < 2} imageSrc={selection.image} selectedColor={selection.color} selectedSize={selection.size} />;
+              {visible.map((p, index) => {
+                const selection = categoryProductSelection(p, f, colorMappings);
+                const tile = <ProductTile key={p.id} p={p} priority={index < 2} imageSrc={selection.image} selectedColor={selection.color} selectedSize={selection.size} />;
+                if (!sortingHere) return tile;
+                return <SortProductCard key={p.id} name={p.name} checked={selected.has(p.id)}
+                  disabled={sorting.busy || (!selected.has(p.id) && picked.length >= categoryBatchLimit)} onChange={() => {
+                    sorting.clearNotice();
+                    setPicked(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id]);
+                  }}>{tile}</SortProductCard>;
               })}
             </div>
           ) : (
             <div className="empty">
               <span className="k" style={{ fontSize: 64, lineHeight: 0.85 }}>
-                {categoryProducts.length ? "אין התאמות" : "בקרוב"}
+                {sortingHere && !base.length ? "אין מוצרים לשיוך הזה" : categoryProducts.length ? "אין התאמות" : "בקרוב"}
               </span>
-              <span className="muted" style={{ fontSize: 16, maxWidth: "42ch" }}>
+              {(!sortingHere || base.length > 0) && <><span className="muted" style={{ fontSize: 16, maxWidth: "42ch" }}>
                 {categoryProducts.length ? "נסו להסיר חלק מהמסננים או לבחור תת-קטגוריה אחרת." : brand ? "כרגע אין מוצרים להצגה במותג הזה." : "המוצרים בקטגוריה זו יוצגו לאחר חיבור הקטלוג המלא."}
               </span>
               <button className="btn" style={{ marginTop: 8, height: 50, padding: "0 24px" }} onClick={clear}>
                 {categoryProducts.length ? "ניקוי המסננים" : brand ? "לכל המותגים" : "לביגוד מקצועי"}
-              </button>
+              </button></>}
             </div>
           )}
           <ProductListProgress shown={shown} total={list.length} paused={sheet || restoring} setShown={setShown} />
         </div>
       </div>
+
+      {showSortBar && <div className="category-sort-bar" aria-label="סידור מוצרים">
+        <div className="category-sort-bar-copy">
+          {picked.length > 0 && <strong aria-live="polite">{picked.length === 1 ? "מוצר אחד נבחר" : `${picked.length} מוצרים נבחרו`}</strong>}
+          {picked.length === categoryBatchLimit && <span>אפשר להעביר עד {categoryBatchLimit} מוצרים בפעולה אחת.</span>}
+          {!sortDialog && sorting.notice && <span role={sorting.notice.error ? "alert" : "status"} data-error={sorting.notice.error}>{sorting.notice.text}</span>}
+        </div>
+        {picked.length > 0 ? <>
+          <button type="button" className="btn btn-line" disabled={sorting.busy} onClick={() => setPicked([])}>ניקוי בחירה</button>
+          <button type="button" className="btn" disabled={sorting.busy} onClick={() => { sorting.clearNotice(); setSortDialog(true); }}>העבר ל…</button>
+        </> : canUndo && <button type="button" className="btn btn-line" disabled={sorting.busy}
+          onClick={() => sorting.submit({ operation: "undo", id: canUndo.id })}>
+          {canUndo.mode === "move" ? "בטל העברה אחרונה" : "בטל הוספה אחרונה"}
+        </button>}
+      </div>}
+
+      {sortDialog && editOptions && catId && <CategorySortDialog
+        source={{ parentId: catId, sub: sub ?? "" }} categories={editOptions.categories} products={picked} saving={sorting.busy} notice={sorting.notice}
+        onClose={() => { sorting.clearNotice(); setSortDialog(false); }}
+        onSubmit={command => sorting.submit(command, () => { setPicked([]); setSortDialog(false); })} />}
 
       {sheet && (
         <MobileFilterSheet onClose={() => setSheet(false)} footer={(close) => <>
@@ -240,7 +292,7 @@ function CategoryResults({ catId, brand, sub }: ListingScope & { sub: string | n
 function FilterBody(props: {
   stdOpts: string[];
   sizeOpts: string[];
-  colorOpts: string[];
+  colorOpts: ReturnType<typeof categoryColorOptions>;
   brandOpts: string[];
   f: Filters;
   toggle: (field: "std" | "colors" | "sizes" | "brands", val: string) => void;
@@ -284,12 +336,22 @@ function FilterBody(props: {
             </button>
         )} />
       </div>
-      <div className="filter-block">
+      {(props.colorOpts.families.length > 0 || props.colorOpts.additional.length > 0) && <div className="filter-block">
         <span style={{ fontSize: 15, fontWeight: 700 }}>צבע</span>
-        <FilterOptions options={props.colorOpts} selected={props.f.colors} limit={14} label="צבעים" variant="colors" renderOption={(c) => (
-            <button type="button" key={c} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={props.f.colors.includes(c)} className={`color-dot ${props.f.colors.includes(c) ? "on" : "off"}`} style={{ background: swatchColor(c) }} onClick={() => props.toggle("colors", c)} />
-        )} />
-      </div>
+        {props.colorOpts.families.length > 0 && <div className="filter-options" role="group" aria-label="משפחות צבע">
+          {props.colorOpts.families.map(({ value, label, swatch }) => <button type="button" key={value}
+            aria-label={label} aria-pressed={props.f.colors.includes(value)} className={`mini filter-color-family ${props.f.colors.includes(value) ? "on" : "off"}`}
+            onClick={() => props.toggle("colors", value)}><span aria-hidden="true" style={{ background: swatch }} />{label}</button>)}
+        </div>}
+        {props.colorOpts.additional.length > 0 && <details className="filter-colors-additional"
+          open={props.f.colors.some(color => !colorFamilyFilter(color)) || undefined}>
+          <summary>צבעים נוספים</summary>
+          <FilterOptions options={props.colorOpts.additional} selected={props.f.colors} limit={10} label="צבעים" renderOption={color => (
+            <button type="button" key={color} aria-pressed={props.f.colors.includes(color)} className={`mini filter-color-label ${props.f.colors.includes(color) ? "on" : "off"}`}
+              onClick={() => props.toggle("colors", color)}><bdi>{color}</bdi></button>
+          )} />
+        </details>}
+      </div>}
       <div className="filter-block">
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span style={{ fontSize: 15, fontWeight: 700 }}>מחיר עד</span>
@@ -323,7 +385,7 @@ function FilterOptions({ options, selected, limit, label, variant = "chips", ren
   selected: string[];
   limit: number;
   label: string;
-  variant?: "chips" | "colors" | "list";
+  variant?: "chips" | "list";
   renderOption: (value: string) => ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);

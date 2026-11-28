@@ -14,7 +14,7 @@ import { IconPlus } from "./icons";
 
 export function ProductTile({ p, imageSrc, selectedColor, selectedSize, priority = false }: { priority?: boolean; p: Product; imageSrc?: string; selectedColor?: string; selectedSize?: string }) {
   const { openQuick } = useStore();
-  const { category } = useCatalog();
+  const { category, colorMappings } = useCatalog();
   const catName = category(p.cat)?.name;
   const img = imageSrc ?? p.imgs?.[0];
   const params = new URLSearchParams();
@@ -56,7 +56,7 @@ export function ProductTile({ p, imageSrc, selectedColor, selectedSize, priority
         <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 14 }}>
           <div className="swatches">
             {cols.slice(0, 5).map((c) => (
-              <span key={c} className="swatch-dot" style={{ background: swatchColor(c) }} title={colorLabel(c)} role="img" aria-label={colorLabel(c)} />
+              <span key={c} className="swatch-dot" style={{ background: swatchColor(c, colorMappings) }} title={colorLabel(c)} role="img" aria-label={colorLabel(c)} />
             ))}
           </div>
           <span className="muted" style={{ fontSize: 13 }}>

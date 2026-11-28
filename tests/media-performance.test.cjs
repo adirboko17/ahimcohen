@@ -35,7 +35,10 @@ test("compact catalog round-trip preserves selections, availability, prices and 
     categories: [{ id: "shoes", name: "נעלי בטיחות", subs: ["מגפיים"], image }],
     products: [{ id: "boots", name: "נעליים", cat: "shoes", sub: "מגפיים", price: 0, colors: ["שחור", ""], sizes: ["40", "41"], imgs: [image], desc: ["תיאור"], deal: [2, 99],
       choices: Array.from({ length: 80 }, (_, i) => ({ id: `gid://shopify/ProductVariant/${i}`, color: i % 2 ? "שחור" : "", size: String(40 + i), price: i + 0.5, available: i % 2 === 0, image, sku: i ? `sku-${i}` : "" })) },
-      { id: "plain", name: "ללא תמונה", cat: "shoes", sub: "", price: 12, colors: [], sizes: [], choices: [{ id: "one", color: "", size: "", price: 0, available: false }] },
+      { id: "plain", name: "ללא תמונה", cat: "shoes", sub: "", price: 12, colors: [], sizes: [], choices: [
+        { id: "one", color: "", size: "", price: 0, available: false },
+        { id: "two", color: "", size: "", price: 12, available: true, optionsLabel: "חומר אלומיניום", sourceVariantId: "source" },
+      ] },
       { id: "empty", name: "ריק", cat: "shoes", sub: "", price: 0, colors: [], sizes: [], imgs: [], choices: [] },
     ],
   };

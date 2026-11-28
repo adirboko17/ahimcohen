@@ -1,16 +1,5 @@
 import type { Product, VariantChoice } from "./catalog";
 
-const featuredIds = [
-  "קפוצון-קנגורו",
-  "כפפות-קור-ninja-ice",
-  "סינר-גינס-אמסטרדם-10-80",
-  "מגף-ניטריל-שחור",
-  "חולצת-דרייפיט-פולו-פורטו-ללא-כיס",
-  "משקפי-מגן-kamba",
-  "כובע-מצחייה-דגם-washed",
-  "זקט-פליז",
-];
-
 export type BudgetItem = { product: Product; choice?: VariantChoice };
 
 export function productsUnder100(products: Product[]) {
@@ -28,12 +17,29 @@ export function productsUnder100(products: Product[]) {
   return items;
 }
 
-export function featuredUnder100(items: BudgetItem[]) {
-  const pictured = items.filter(({ product, choice }) => choice?.image || product.imgs?.[0]);
-  const featured = featuredIds.flatMap((id) => pictured.find(({ product }) => product.id === id) ?? []);
-  const selected = new Set(featured.map(({ product }) => product.id));
-  const remaining = items.filter(({ product }) => !selected.has(product.id));
-  const withPhoto = remaining.filter(({ product, choice }) => choice?.image || product.imgs?.[0]);
-  const withoutPhoto = remaining.filter(({ product, choice }) => !choice?.image && !product.imgs?.[0]);
-  return [...featured, ...withPhoto, ...withoutPhoto].slice(0, 8);
+export function featuredUnder100(items: BudgetItem[], seed: number) {
+  // The server supplies one seed per page load so hydration keeps the same tiles.
+  const shuffled = [...items];
+  let state = seed;
+  for (let end = shuffled.length - 1; end > 0; end--) {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    const index = Math.floor((state / 2 ** 32) * (end + 1));
+    [shuffled[end], shuffled[index]] = [shuffled[index], shuffled[end]];
+  }
+
+  const picturedCounts = new Map<string, number>();
+  const unpicturedCounts = new Map<string, number>();
+  const ranked = shuffled.map(item => {
+    const { product, choice } = item;
+    const pictured = Boolean(choice?.image || product.imgs?.[0]);
+    const counts = pictured ? picturedCounts : unpicturedCounts;
+    const isHat = product.sub.startsWith("כובע") || /^(?:[^|]+\|\s*)?כובע/.test(product.name.trim());
+    const kind = isHat ? "כובעים" : product.sub || product.cat;
+    const previous = counts.get(kind) ?? 0;
+    counts.set(kind, previous + 1);
+    return { item, pictured, previous };
+  });
+  // Take the first of each kind before its other styles or colors.
+  ranked.sort((a, b) => Number(b.pictured) - Number(a.pictured) || a.previous - b.previous);
+  return ranked.slice(0, 8).map(({ item }) => item);
 }

@@ -30,7 +30,7 @@ export function heroIsPublished(hero: AdminHero, activeHero: string) {
   return hero.published ?? (hero.id === activeHero);
 }
 
-export type AdminBundle = { id: string; name: string; items: [string, number][]; active: boolean; total?: number; bundleProductId?: string; code?: string; sourceVariantIds?: string[]; bestValue?: boolean; showInQuantityOffers?: boolean };
+export type AdminBundle = { id: string; name: string; items: [string, number][]; active: boolean; total?: number; bundleProductId?: string; code?: string; sourceVariantIds?: string[]; bestValue?: boolean; showInQuantityOffers?: boolean; mixedUnits?: boolean };
 export type PublishedBundle = { id: string; name: string; quantity: number; total: number; productId?: string; cartProductId?: string; bestValue?: boolean; quantityOffer?: true; mixedUnits?: boolean };
 
 export function bundleTierName(quantity: number) {
@@ -45,8 +45,12 @@ export function bundleCartProductId(id: string) {
 
 export function bundleGroupSnapshot(tiers: AdminBundle[]) {
   return JSON.stringify([...tiers].sort((a, b) => a.id.localeCompare(b.id)).map((tier) => [
-    tier.id, tier.name, tier.items, tier.total, tier.active, tier.bundleProductId, tier.bestValue, tier.showInQuantityOffers,
+    tier.id, tier.name, tier.items, tier.total, tier.active, tier.bundleProductId, tier.bestValue, tier.showInQuantityOffers, tier.mixedUnits,
   ]));
+}
+
+export function activeManagedBundleTiers(bundles: AdminBundle[], productId: string) {
+  return bundles.filter((bundle) => bundle.active && bundle.sourceVariantIds?.length && bundle.items.length === 1 && bundle.items[0][0] === productId);
 }
 export type AdminOffer = { id: string; productId: string; quantity: number; total: number; code: string; active: boolean; sourceVariantIds?: string[] };
 export type PublishedQuantityOffer = Pick<AdminOffer, "id" | "productId" | "quantity" | "total">;
@@ -82,7 +86,13 @@ export type AdminRedirect = { id: string; slug: string; destination: string };
 export type AdminSale = { id: string; title: string; productId: string; variantId: string; quantity: number; code: string; url: string };
 
 export type AdminStore = {
+  colorMappings?: import("../color-families").ColorMappings;
   categoryPlacements?: import("../category-placement").CategoryPlacement[];
+  categoryAdjustments?: Record<string, import("../category-sorting").CategoryAdjustment>;
+  lastCategoryEdit?: import("../category-sorting").CategoryEditSummary & {
+    previous: Record<string, import("../category-sorting").CategoryAdjustment | null>;
+    undone?: true;
+  };
   supplierDefaultBrands?: Record<string, string>;
   sets: import("../product-sets").ProductSet[];
   bundles: AdminBundle[];

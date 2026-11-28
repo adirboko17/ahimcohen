@@ -2,13 +2,18 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { CATS } from "@/lib/catalog";
 import { categoryFilterLabel, outdoorFootwear, storefrontCategoryLabels, type StorefrontCategoryChoice } from "@/lib/category-placement";
-import { categoryOpportunityMinimum, readSupplierCategoryAudit } from "./category-audit";
-import { categoryPath, mappedCollections, supplierKey, type Site } from "./catalog-model";
+import { categoryOpportunities, categoryOpportunityMinimum } from "./category-audit";
+import { mappedCollections, supplierCategoryPaths, supplierKey, type Site } from "./catalog-model";
 import { canonicalCategoryLabel, categoryNames, categoryPhrase, categoryText as normalized, isOutdoorFootwear, outdoorFootwearCollection, outdoorFootwearPath, productSupportsCategory, supplierCategoryLabel } from "./category-matching";
 import type { SupplierProduct } from "./redback";
 import { supplierCollectionMemberships } from "./shopify";
 import { supplierStorefrontCollections, type SupplierCollectionOption } from "./storefront-collections";
 import { shopFilter, supplierRequest } from "./storage";
+
+export const unassignedCategoryReviewKey = "unassigned";
+
+export type CategoryReviewSite = Pick<Site, "domain" | "pull_started_at" | "categories" | "mappings">;
+type CategoryPaths = ReturnType<typeof supplierCategoryPaths>;
 
 type ReviewProduct = Pick<SupplierProduct, "title" | "category" | "description" | "productType" | "brand" | "attributes">;
 type ScannedProduct = {
@@ -19,6 +24,7 @@ type ScannedProduct = {
 };
 type ScannedProductFields = Omit<ScannedProduct, "snapshot"> & ReviewProduct & {
   image: string | null;
+  scanned_at: string;
   revision: string;
   collection_ids: string[];
 };
@@ -60,8 +66,11 @@ type Proposed = Omit<Suggestion, "products" | "sources">;
 const catalogNames = new Set(CATS.flatMap(c => [c.name, ...c.subs]).flatMap(categoryNames));
 const emptySource: Source = { id: "", name: "", path: [], label: "" };
 
-function sourcesFor(row: ScannedProduct, site: Site) {
-  const paths = row.category_ids.map(id => categoryPath(id, site.categories)).filter(path => path.length);
+function sourcesFor(row: ScannedProduct, sourcePaths: CategoryPaths) {
+  const paths = row.category_ids.flatMap(id => {
+    const path = sourcePaths.get(id);
+    return path ? [path] : [];
+  });
   const parents = new Set(paths.flatMap(path => path.slice(0, -1).map(category => category.id)));
   const leaves = paths.flatMap(path => {
     const leaf = path.at(-1)!;
@@ -187,10 +196,10 @@ function groupCategorySuggestion(label: string, row: ScannedProduct, sources: So
 }
 
 function categorySuggestion(
-  row: ScannedProduct, site: Site, destinations: Destination[], allCollections: Map<string, string>,
-  sources: Source[], scores: ReturnType<typeof rankDestinations>, excludedCollections: Set<string>,
+  row: ScannedProduct, site: CategoryReviewSite, destinations: Destination[], allCollections: Map<string, string>,
+  sources: Source[], scores: ReturnType<typeof rankDestinations>, excludedCollections: Set<string>, paths: CategoryPaths,
 ): Proposed | null {
-  const approved = mappedCollections(row.category_ids, site).filter(id => allCollections.has(id) && !excludedCollections.has(id));
+  const approved = mappedCollections(row.category_ids, site, paths).filter(id => allCollections.has(id) && !excludedCollections.has(id));
   const direct = [...new Set(sources.flatMap(s => site.mappings[s.id] ?? []))];
   const approvedDestinations = destinations.filter(d => d.collectionIds.some(id => direct.includes(id)));
   const product = row.snapshot;
@@ -253,19 +262,44 @@ export function suggestedProductCategoryIds(
   }
   const destinations = destinationsFor(collections).filter(destination => !outdoorFootwearPath(destination));
   const excluded = new Set(collections.filter(collection => collection.paths.some(outdoorFootwearPath)).map(collection => collection.id));
-  const approved = mappedCollections(categoryIds, site).filter(id => !excluded.has(id));
+  const paths = supplierCategoryPaths(site.categories);
+  const approved = mappedCollections(categoryIds, site, paths).filter(id => !excluded.has(id));
   if (destinations.some(destination => destination.collectionIds.some(id => approved.includes(id)))) return approved;
   const all = new Map(collections.map(collection => [collection.id, collection.title]));
   const unlinked = { source_id: "", category_ids: categoryIds, shopify_product_id: null, snapshot };
-  const sources = sourcesFor(unlinked, site);
-  const recommendation = categorySuggestion(unlinked, site, destinations, all, sources, rankDestinations(snapshot, sources, destinations), excluded);
+  const sources = sourcesFor(unlinked, paths);
+  const recommendation = categorySuggestion(unlinked, site, destinations, all, sources, rankDestinations(snapshot, sources, destinations), excluded, paths);
   return recommendation?.kind === "existing" ? recommendation.targetIds : approved;
 }
 
-export async function readCategoryReview(site: Site, options?: SupplierCollectionOption[]) {
+async function readReviewProducts(domain: string) {
+  const pageSize = 500;
+  const products: ScannedProductFields[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const rows: ScannedProductFields[] = await supplierRequest<ScannedProductFields>("ahim_supplier_previews", "GET", {
+      ...shopFilter(), supplier: "eq." + supplierKey(domain), review_state: "in.(known,pending)",
+      scan_error: "is.null", order: "source_id.asc", limit: String(pageSize),
+      select: "source_id,category_ids,shopify_product_id,collection_ids,revision,scanned_at,image:snapshot->images->>0,title:snapshot->>title,category:snapshot->>category,productType:snapshot->>productType,brand:snapshot->>brand,description:snapshot->description,attributes:snapshot->attributes",
+      ...(cursor ? { source_id: "gt." + cursor } : {}),
+    });
+    products.push(...rows);
+    if (rows.length < pageSize) return products;
+    cursor = rows.at(-1)!.source_id;
+  }
+}
+
+export async function readCategoryReview(
+  site: CategoryReviewSite, options?: SupplierCollectionOption[],
+) {
   const groups = new Map<string, Suggestion>();
-  if (!site.pull_started_at) return groups;
-  const [collections, opportunities] = await Promise.all([options ?? supplierStorefrontCollections(), readSupplierCategoryAudit(site)]);
+  const [collections, rows] = await Promise.all([
+    options ?? supplierStorefrontCollections(), readReviewProducts(site.domain),
+  ]);
+  const run = site.pull_started_at ? Date.parse(site.pull_started_at) : Infinity;
+  const latest = rows.filter(row => Date.parse(row.scanned_at) >= run);
+  const opportunities = categoryOpportunities(latest);
+  const paths = supplierCategoryPaths(site.categories);
   const collectionNames = new Map(collections.map(c => [c.id, c.title]));
   const destinations = destinationsFor(collections);
   const ordinaryDestinations = destinations.filter(destination => !outdoorFootwearPath(destination));
@@ -275,60 +309,68 @@ export async function readCategoryReview(site: Site, options?: SupplierCollectio
   for (const { label, ids } of opportunities) for (const id of ids) {
     opportunitiesByProduct.set(id, label);
   }
-  let cursor: string | undefined;
-  for (;;) {
-    const rows: ScannedProductFields[] = await supplierRequest<ScannedProductFields>("ahim_supplier_previews", "GET", {
-      ...shopFilter(), supplier: "eq." + supplierKey(site.domain), review_state: "in.(known,pending)",
-      scan_error: "is.null", scanned_at: "gte." + site.pull_started_at, order: "source_id.asc", limit: "100",
-      select: "source_id,category_ids,shopify_product_id,collection_ids,revision,image:snapshot->images->>0,title:snapshot->>title,category:snapshot->>category,productType:snapshot->>productType,brand:snapshot->>brand,description:snapshot->description,attributes:snapshot->attributes",
-      ...(cursor ? { source_id: "gt." + cursor } : {}),
-    });
-    if (!rows.length) break;
-    cursor = rows.at(-1)!.source_id;
-    const candidates = rows.flatMap(({ source_id, category_ids, shopify_product_id, collection_ids, revision, image, ...snapshot }) => {
-      const row = { source_id, category_ids, shopify_product_id, snapshot };
-      const sources = sourcesFor(row, site);
-      const group = isOutdoorFootwear(snapshot) ? outdoorFootwear.sub : opportunitiesByProduct.get(source_id);
-      if (!group && !shopify_product_id && collection_ids?.some(id => assignableIds.has(id))) return [];
-      const scores = rankDestinations(snapshot, sources, ordinaryDestinations);
-      const suggestion = group ? groupCategorySuggestion(group, row, sources, destinations, collectionNames) :
-        categorySuggestion(row, site, ordinaryDestinations, collectionNames, sources, scores, outdoorCollections);
-      if (!suggestion) return [];
-      const targets = destinations.filter(destination => destination.collectionIds.some(id => suggestion.targetIds.includes(id)));
-      const target = targets.find(destination => destination.title === suggestion.title && destination.parent === suggestion.parent) ??
-        (targets.length === 1 ? targets[0] : undefined);
-      const preferred = suggestion.kind === "review" ? reviewRecommendation(snapshot, scores, assignableIds) : target;
-      const recommendation = preferred && assignableIds.has(preferred.id)
-        ? { id: preferred.id, parentId: preferred.parentId, parent: preferred.parent, sub: preferred.sub } : undefined;
-      const proposedCategory = suggestion.kind !== "review" || suggestion.title !== "מוצרים שדורשים בחירת קטגוריה"
-        ? preferred ? (preferred.sub ? preferred.parent + " / " + preferred.sub : preferred.parent)
-          : [suggestion.parent === suggestion.title ? undefined : suggestion.parent, suggestion.title].filter(Boolean).join(" / ")
-        : undefined;
-      return [{ row, suggestion, revision, image, recommendation, proposedCategory, collection_ids }];
-    });
-    const reviews = new Map<string, string>();
-    const memberships = await supplierCollectionMemberships(candidates.flatMap(({row}) => row.shopify_product_id ? [row.shopify_product_id] : []), reviews);
-    for (const { row, suggestion, revision, image, recommendation, proposedCategory, collection_ids } of candidates) {
-      const current = row.shopify_product_id ? memberships.get(row.shopify_product_id) :
-        collection_ids?.length ? collection_ids : mappedCollections(row.category_ids, site);
-      const reviewed = row.shopify_product_id && reviews.get(row.shopify_product_id);
-      if (!suggestion.productGroup && reviewed && assignableIds.has(reviewed) && current?.includes(reviewed)) continue;
-      if ((suggestion.kind === "change" || (suggestion.productGroup && suggestion.kind === "existing")) &&
-        current && suggestion.targetIds.every(id => current.includes(id) ||
-        destinations.some(destination => destination.collectionIds.includes(id) && destination.collectionIds.some(candidate => current.includes(candidate))))) continue;
-      const key = createHash("sha256").update(JSON.stringify([
-        suggestion.kind, normalized(suggestion.title), normalized(suggestion.parent),
-      ])).digest("hex").slice(0, 24);
-      const group = groups.get(key) ?? { ...suggestion, sources: [], products: [] };
-      if (suggestion.source.label && !group.sources.some(source => source.id === suggestion.source.id && source.name === suggestion.source.name)) {
-        group.sources.push(suggestion.source);
-      }
-      group.products.push({ id: row.source_id, title: row.snapshot.title, shopifyId: row.shopify_product_id,
-        revision, image: image || undefined, recommendation, proposedCategory,
-        current: current ? storefrontCategoryLabels(collections, current) : null });
-      groups.set(key, group);
+  const candidates = latest.flatMap(({ source_id, category_ids, shopify_product_id, collection_ids, revision, image, scanned_at, ...snapshot }) => {
+    const row = { source_id, category_ids, shopify_product_id, snapshot };
+    const sources = sourcesFor(row, paths);
+    const group = isOutdoorFootwear(snapshot) ? outdoorFootwear.sub : opportunitiesByProduct.get(source_id);
+    if (!group && !shopify_product_id && collection_ids?.some(id => assignableIds.has(id))) return [];
+    const scores = rankDestinations(snapshot, sources, ordinaryDestinations);
+    const suggestion = group ? groupCategorySuggestion(group, row, sources, destinations, collectionNames) :
+      categorySuggestion(row, site, ordinaryDestinations, collectionNames, sources, scores, outdoorCollections, paths);
+    if (!suggestion) return [];
+    const targets = destinations.filter(destination => destination.collectionIds.some(id => suggestion.targetIds.includes(id)));
+    const target = targets.find(destination => destination.title === suggestion.title && destination.parent === suggestion.parent) ??
+      (targets.length === 1 ? targets[0] : undefined);
+    const preferred = suggestion.kind === "review" ? reviewRecommendation(snapshot, scores, assignableIds) : target;
+    const recommendation = preferred && assignableIds.has(preferred.id)
+      ? { id: preferred.id, parentId: preferred.parentId, parent: preferred.parent, sub: preferred.sub } : undefined;
+    const proposedCategory = suggestion.kind !== "review" || suggestion.title !== "מוצרים שדורשים בחירת קטגוריה"
+      ? preferred ? (preferred.sub ? preferred.parent + " / " + preferred.sub : preferred.parent)
+        : [suggestion.parent === suggestion.title ? undefined : suggestion.parent, suggestion.title].filter(Boolean).join(" / ")
+      : undefined;
+    return [{ row, suggestion, revision, image, recommendation, proposedCategory, collection_ids }];
+  });
+  const reviews = new Map<string, string>();
+  const memberships = await supplierCollectionMemberships(rows.flatMap(row => row.shopify_product_id ? [row.shopify_product_id] : []), reviews);
+  const currentIds = (row: Pick<ScannedProductFields, "shopify_product_id" | "category_ids">, saved?: string[]) =>
+    row.shopify_product_id ? memberships.get(row.shopify_product_id) : saved?.length ? saved : mappedCollections(row.category_ids, site, paths);
+  const productCards = new Map<string, SupplierCategoryReviewProduct>();
+  for (const { row, suggestion, revision, image, recommendation, proposedCategory, collection_ids } of candidates) {
+    const current = currentIds(row, collection_ids);
+    const product = { id: row.source_id, title: row.snapshot.title, shopifyId: row.shopify_product_id,
+      revision, image: image || undefined, recommendation, proposedCategory,
+      current: current ? storefrontCategoryLabels(collections, current) : null };
+    productCards.set(row.source_id, product);
+    const reviewed = row.shopify_product_id && reviews.get(row.shopify_product_id);
+    if (!suggestion.productGroup && reviewed && assignableIds.has(reviewed) && current?.includes(reviewed)) continue;
+    if ((suggestion.kind === "change" || (suggestion.productGroup && suggestion.kind === "existing")) &&
+      current && suggestion.targetIds.every(id => current.includes(id) ||
+      destinations.some(destination => destination.collectionIds.includes(id) && destination.collectionIds.some(candidate => current.includes(candidate))))) continue;
+    const key = createHash("sha256").update(JSON.stringify([
+      suggestion.kind, normalized(suggestion.title), normalized(suggestion.parent),
+    ])).digest("hex").slice(0, 24);
+    const group = groups.get(key) ?? { ...suggestion, sources: [], products: [] };
+    if (suggestion.source.label && !group.sources.some(source => source.id === suggestion.source.id && source.name === suggestion.source.name)) {
+      group.sources.push(suggestion.source);
     }
-    if (rows.length < 100) break;
+    group.products.push(product);
+    groups.set(key, group);
   }
+  const placedIds = new Set(collections.filter(collection => collection.paths.length).map(collection => collection.id));
+  const unassigned = rows.flatMap(row => {
+    const current = currentIds(row, row.collection_ids);
+    if (!current || current.some(id => placedIds.has(id))) return [];
+    const card = productCards.get(row.source_id);
+    if (card) return [card];
+    const sources = sourcesFor({ ...row, snapshot: row }, paths);
+    const scores = rankDestinations(row, sources, ordinaryDestinations);
+    const target = isOutdoorFootwear(row) ? destinations.find(destination => outdoorFootwearPath(destination) && assignableIds.has(destination.id)) :
+      reviewRecommendation(row, scores, assignableIds);
+    const recommendation = target && { id: target.id, parentId: target.parentId, parent: target.parent, sub: target.sub };
+    return [{ id: row.source_id, title: row.title, shopifyId: row.shopify_product_id, revision: row.revision,
+      image: row.image || undefined, current: [], recommendation }];
+  });
+  groups.set(unassignedCategoryReviewKey, { kind: "review", source: emptySource, sources: [],
+    title: "מוצרים ללא קטגוריה", reason: "מוצרים שטרם שויכו לקטגוריה בחנות.", targetIds: [], products: unassigned });
   return groups;
 }

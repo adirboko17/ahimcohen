@@ -1,4 +1,4 @@
-import { categoryFilterLabel, legacyWorkFootwearCategoryName, outdoorFootwear, workCoatsAndRobes } from "@/lib/category-placement";
+import { bagsAndWallets, categoryFilterLabel, legacyWorkFootwearCategoryName, outdoorFootwear, socksAndUnderwear, winterOuterwear, workCoatsAndRobes } from "@/lib/category-placement";
 
 export function categoryText(value?: string | null) {
   return (value ?? "").toLowerCase().normalize("NFKD").replace(/[\p{M}'׳״’]/gu, "")
@@ -12,7 +12,7 @@ const aliases: Record<string, string[]> = {
   "מגפי עבודה ובטיחות": ["מגף בטיחות", "מגפי בטיחות", "מגפי עבודה", "מגף עבודה", "safety boots", "work boots"],
   "אביזרי הנעלה ורפידות": ["אביזרי הנעלה", "רפידה", "רפידות", "שרוכים", "שרוכי נעליים", "insoles"],
   [outdoorFootwear.sub]: ["סניקרס", "נעלי טיולים", "נעל טיולים", "מגפי טיולים", "נעלי טיפוס הרים", "sneaker", "sneakers", "hiking shoes", "hiking boots", "trekking shoes", "trekking boots"],
-  "גרביים": ["גרב", "גרבי", "גרבים", "גרב תרמית", "socks", "sock"],
+  [socksAndUnderwear.sub]: [...socksAndUnderwear.previous, "גרב", "גרבי", "גרבים", "גרב תרמית", "תחתונים", "בוקסר", "socks", "sock", "underwear", "boxers"],
   "חגורות": ["חגורת", "חגורה", "belts", "belt"],
   "חולצות": ["חולצת", "חולצה", "חולצות טי", "חולצת טי", "חולצת פולו", "חולצות פולו", "טישירט", "טי שירט", "t shirt", "polo shirt", "shirt"],
   "מכנסיים": ["מכנסי עבודה", "מכנס עבודה", "מכנסיים מקצועיים", "דגמח", "pants", "trousers"],
@@ -25,8 +25,8 @@ const aliases: Record<string, string[]> = {
   "חולצות ארוכות": ["חולצה ארוכה", "חולצת פליז", "טישירט שרוול ארוך", "טי שירט שרוול ארוך", "חולצת שרוול ארוך", "long sleeve shirt", "long sleeve"],
   "חליפות גשם": ["חליפת גשם", "rain suit"],
   "אפודים זוהרים": ["אפוד זוהר", "hi vis vest", "high visibility vest"],
-  "מעילים": ["מעיל", "jacket"],
-  "סווטשירטים וקפוצ'ונים": ["קפוצון", "סווטשירט", "hoodie", "sweatshirt"],
+  [winterOuterwear.sub]: [...winterOuterwear.previous, "מעיל", "jacket", "קפוצון", "סווטשירט", "hoodie", "sweatshirt"],
+  [bagsAndWallets.sub]: [...bagsAndWallets.previous, "תיק", "ארנק", "ארנקים", "bag", "bags", "wallet", "wallets"],
   "סרבלים": ["סרבל", "coveralls"],
   "סינרים": ["סינר", "apron"],
   "ג'קט שף": ["מעיל שף", "חולצת שף", "chef jacket", "chef coat"],
@@ -66,12 +66,14 @@ export function canonicalCategoryLabel(label: string) {
 }
 
 export function sourceMappingSuggestion(label: string, collections: {
-  id: string; paths: { parent: string; sub: string }[];
+  id: string; title?: string; paths: { parent: string; sub: string }[];
 }[]) {
   const key = categoryText(label);
   if (!key || canonicalCategoryLabel(label) === outdoorFootwear.sub) return [];
   const matches = collections.filter(collection => collection.paths.some(path => categoryNames(path.sub || path.parent).includes(key)));
-  return matches.length === 1 ? [matches[0].id] : [];
+  if (matches.length === 1) return [matches[0].id];
+  const byTitle = matches.filter(collection => categoryText(collection.title) === key);
+  return byTitle.length === 1 ? [byTitle[0].id] : [];
 }
 
 export function categoryPhrase(text: string, phrase: string) {

@@ -32,6 +32,16 @@ test("shoe recommendations mix insoles and socks and exclude model-specific part
   assert.deepEqual(ids(recommend(boot, [boot, belt, modelPart, sock, insole])), ["insole", "sock"]);
 });
 
+test("combined accessories preserve the original sock and underwear recommendations", () => {
+  const combined = "גרביים והלבשה תחתונה";
+  const boot = product("boot", "מגף עבודה", "shoes", "מגפי עבודה ובטיחות");
+  const mergedSock = product("merged-sock", "PRO-SPORT", "acc", combined, { originalSubcategories: ["גרביים"] });
+  const underwear = product("underwear", "בוקסר", "acc", combined, { originalSubcategories: ["הלבשה תחתונה"] });
+  const tank = product("tank", "גופייה", "acc", combined, { originalSubcategories: ["הלבשה תחתונה"] });
+  assert.deepEqual(ids(recommend(boot, [underwear, mergedSock, tank])), ["merged-sock"]);
+  assert.deepEqual(ids(similarProducts(underwear, [mergedSock, tank])), ["tank"]);
+});
+
 test("winter coats get winter accessories, not another coat whose name mentions a hat", () => {
   const coat = product("coat", "מעיל סופטשל עם כובע", "winter", "מעילים");
   const beanie = product("beanie", "כובע צמר", "acc", "כובעים");

@@ -3,13 +3,15 @@
 import { ProductImage } from "./ProductImage";
 import { ProductBrand } from "./ProductBrand";
 
+import Form from "next/form";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FREE_SHIPPING, phOf, swatchColor, colorLabel } from "@/lib/catalog";
 import { useCatalog } from "@/lib/catalog-context";
 import { categoryProductImage } from "@/lib/category-filters";
 import { fmt } from "@/lib/pricing";
+import { searchCatalogProducts } from "@/lib/product-search";
 import { productSizeOptions, sizeLabel } from "@/lib/sizes";
 import { useScrollLock, useStore } from "@/lib/store";
 import { IconBack, IconBag, IconCase, IconCheck, IconFwd, IconGrid, IconLock, IconPin, IconSearch, IconTruck, IconUser } from "./icons";
@@ -197,7 +199,7 @@ export function Overlays() {
 
 function QuickSheet() {
   const s = useStore();
-  const { product } = useCatalog();
+  const { product, colorMappings } = useCatalog();
   if (s.sheet !== "quick") return null;
   const p = product(s.quickId);
   if (!p) return null;
@@ -231,7 +233,7 @@ function QuickSheet() {
             </span>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {p.colors.map((c, i) => (
-                <button key={c} className={`color-dot lg ${i === s.qColor ? "on" : "off"}`} style={{ background: swatchColor(c) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === s.qColor} onClick={() => s.setQColor(i)} />
+                <button key={c} className={`color-dot lg ${i === s.qColor ? "on" : "off"}`} style={{ background: swatchColor(c, colorMappings) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === s.qColor} onClick={() => s.setQColor(i)} />
               ))}
             </div>
           </div>
@@ -268,6 +270,8 @@ function QuickSheet() {
   );
 }
 
+const searchPreviewLimit = 5;
+
 function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => void }) {
   const s = useStore();
   const { products, category } = useCatalog();
@@ -284,12 +288,8 @@ function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => 
       input?.blur();
     };
   }, [closing]);
-  const q = s.query.trim().toLowerCase();
-  const results = q
-    ? products.filter((x) =>
-        (x.name + " " + (x.sku || "") + " " + (x.brand || "") + " " + (category(x.cat)?.name || "") + " " + (x.sub || "") + " " + (x.std || []).join(" ")).toLowerCase().includes(q)
-      )
-    : [];
+  const query = s.query.trim();
+  const results = useMemo(() => searchCatalogProducts(products, category, query), [products, category, query]);
   return (
     <div
       className={`search-modal${closing ? " is-closing" : ""}`}
@@ -311,27 +311,37 @@ function SearchModal({ closing, onExited }: { closing: boolean; onExited: () => 
           <h2 className="k">מה מחפשים היום?</h2>
           <p>מוצר, מותג או מק״ט - מתחילים כאן.</p>
         </div>
-        <div className="search-line">
+        <Form action="/search" prefetch={false} className="search-line" role="search" onSubmit={(event) => {
+          if (query) s.closeAll();
+          else event.preventDefault();
+        }}>
           <IconSearch size={26} />
-          <input ref={ref} value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label="מה מחפשים?" placeholder="חיפוש מוצר, מותג או מק״ט" enterKeyHint="search" />
+          <input ref={ref} name="q" value={s.query} onChange={(e) => s.setQuery(e.target.value)} aria-label="מה מחפשים?" placeholder="חיפוש מוצר, מותג או מק״ט" autoComplete="off" enterKeyHint="search" />
           {s.query && <button type="button" className="search-clear" aria-label="ניקוי החיפוש" onClick={() => { s.setQuery(""); ref.current?.focus({ preventScroll: true }); }}>×</button>}
-          <button className="x search-desktop-close" onClick={s.closeAll} aria-label="סגירה">
+          <button type="button" className="x search-desktop-close" onClick={s.closeAll} aria-label="סגירה">
             ×
           </button>
-        </div>
+        </Form>
         <div className="search-terms">
           <span className="search-terms-label">חיפושים נפוצים</span>
           {["נעלי עבודה", "S3", "טריקו", "פליז", "כובע"].map((t) => (
-            <button key={t} className="term" aria-pressed={q === t.toLowerCase()} onClick={() => s.setQuery(t)}>
+            <button key={t} className="term" aria-pressed={query.toLowerCase() === t.toLowerCase()} onClick={() => s.setQuery(t)}>
               {t}
             </button>
           ))}
         </div>
-        {q && (
+        {query && (
           <>
-            <div className="search-results-heading" role="status"><strong>{results.length} תוצאות</strong>{results.length > 10 && <span>מציגים את 10 הראשונות</span>}</div>
+            <div className="search-results-heading" aria-live="polite">
+              {results.length > searchPreviewLimit ? (
+                <Link href={{ pathname: "/search", query: { q: query } }} prefetch={false} className="search-view-all" onNavigate={s.closeAll}>
+                  <strong>נמצאו {results.length} מוצרים</strong>
+                  <span>לכל התוצאות <IconFwd /></span>
+                </Link>
+              ) : <strong>{results.length === 1 ? "תוצאה אחת" : `${results.length} תוצאות`}</strong>}
+            </div>
             <div className="search-results">
-              {results.slice(0, 10).map((x) => (
+              {results.slice(0, searchPreviewLimit).map((x) => (
                 <Link key={x.id} href={`/p/${x.id}`} className="search-hit" onClick={s.closeAll}>
                   <div className="line-ph search-hit-image">
                     {x.imgs?.[0] && <ProductImage sizes="160px" maxWidth={480} src={x.imgs[0]} alt="" />}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { catalogPageSize, supplierUrl } from "@/lib/suppliers/catalog-model";
 import type { CategoryAssignmentResult } from "@/lib/suppliers/category-assignment";
@@ -11,9 +12,9 @@ import { StorefrontCategoryCreator } from "./StorefrontCategoryCreator";
 
 type Summary = { id: string; status: string; title: string; parent?: string; reason: string; productCount: number };
 type Props = { domain: string; initialShown: number } & (
-  { groups: Summary[]; products?: never; shop?: never; choices?: never; categories?: never; suggestedSubcategory?: never } |
+  { groups: Summary[]; products?: never; shop?: never; choices?: never; categories?: never; suggestedSubcategory?: never; removeAssigned?: never } |
   { groups?: never; products: SupplierCategoryReviewProduct[]; shop: string; choices: SupplierCategoryChoice[]; categories: Category[];
-    suggestedSubcategory?: { label: string; parentId?: string; collectionId?: string } }
+    suggestedSubcategory?: { label: string; parentId?: string; collectionId?: string }; removeAssigned?: boolean }
 );
 
 const choiceLabel = ({ parent, sub }: SupplierCategoryChoice) => sub ? parent + " / " + sub : parent;
@@ -108,26 +109,64 @@ function ProductCategoryPicker({ domain, product, choices, current, onSave }: {
   </div>;
 }
 
-export function SupplierCategoryReviewList({ domain, initialShown, groups, products, shop, choices, categories, suggestedSubcategory }: Props) {
+export function SupplierCategoryReviewList({ domain, initialShown, groups, products, shop, choices, categories, suggestedSubcategory, removeAssigned }: Props) {
+  const router = useRouter();
   const [shown, setShown] = useState(initialShown);
   const [selected, setSelected] = useState<string[]>([]);
   const [saved, setSaved] = useState<Record<string, string[]>>({});
   const [bulkSaved, setBulkSaved] = useState(0);
   const [added, setAdded] = useState<SupplierCategoryChoice[]>([]);
-  const total = groups?.length ?? products?.length ?? 0;
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [excluding, setExcluding] = useState<string>();
+  const [exclusionNotice, setExclusionNotice] = useState<{ message: string; ok: boolean }>();
+  const remaining = products?.filter(product => !excluded.includes(product.id) && (!removeAssigned || !saved[product.id]?.length));
+  const total = groups?.length ?? remaining?.length ?? 0;
   const available = [...new Map([...(choices ?? []), ...added].map(choice => [choiceKey(choice), choice])).values()];
   const selectedIds = new Set(selected);
-  const picked = products?.filter(product => selectedIds.has(product.id)) ?? [];
-  const visibleIds = products?.slice(0, shown).map(product => product.id) ?? [];
+  const picked = remaining?.filter(product => selectedIds.has(product.id)) ?? [];
+  const visibleIds = remaining?.slice(0, shown).map(product => product.id) ?? [];
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
 
   function saveChoices(assigned: CategoryAssignmentResult["assigned"]) {
     const updated = new Map(assigned.map(product => [product.id, product.current]));
     setSaved(previous => ({ ...previous, ...Object.fromEntries(updated) }));
     setSelected(previous => previous.filter(id => !updated.has(id)));
+    if (removeAssigned && assigned.length) router.refresh();
   }
 
+  async function excludeProduct(product: SupplierCategoryReviewProduct) {
+    if (excluding || !window.confirm("להסיר את ״" + product.title + "״ מהייבוא? ההחרגה תישמר גם למשיכות הבאות.")) return;
+    setExcluding(product.id);
+    setExclusionNotice(undefined);
+    const form = new FormData();
+    form.set("action", "exclude-import");
+    form.set("domain", domain);
+    form.set("id", product.id);
+    form.set("revision", product.revision);
+    try {
+      const response = await fetch("/admin/suppliers", { method: "POST", body: form });
+      const data = await response.json() as { message: string };
+      if (!response.ok) throw new Error(data.message);
+      setExcluded(previous => [...previous, product.id]);
+      setSelected(previous => previous.filter(id => id !== product.id));
+      setExclusionNotice({ message: data.message, ok: true });
+      router.refresh();
+    } catch (error) {
+      setExclusionNotice({ message: error instanceof Error ? error.message : "הסרת המוצר נכשלה. אפשר לנסות שוב.", ok: false });
+    } finally {
+      setExcluding(undefined);
+    }
+  }
+
+  const feedback = exclusionNotice && <p className="admin-feedback" data-ok={exclusionNotice.ok} role={exclusionNotice.ok ? "status" : "alert"}>
+    {exclusionNotice.message}
+  </p>;
+  if (products && !total) return <>{feedback}
+    <p role="status">{removeAssigned ? "אין מוצרים ללא קטגוריה." : "אין עוד מוצרים לבדיקה בקבוצה."}</p>
+  </>;
+
   return <>
+    {feedback}
     {categories && <div className="supplier-category-create-tools">
       <div className="supplier-category-selection">
         <div className="supplier-toolbar">
@@ -136,9 +175,9 @@ export function SupplierCategoryReviewList({ domain, initialShown, groups, produ
             ? previous.filter(id => !visibleIds.includes(id)) : [...new Set([...previous, ...visibleIds])])}>
             {allVisibleSelected ? "בטל סימון של המוצגים" : "סמן את המוצגים"}
           </button>
-          {suggestedSubcategory && products && products.length > visibleIds.length && picked.length < products.length &&
-            <button type="button" className="btn btn-line" onClick={() => setSelected(products.map(product => product.id))}>
-              סמן את כל {products.length} המוצרים בקבוצה
+          {suggestedSubcategory && remaining && remaining.length > visibleIds.length && picked.length < remaining.length &&
+            <button type="button" className="btn btn-line" onClick={() => setSelected(remaining.map(product => product.id))}>
+              סמן את כל {remaining.length} המוצרים בקבוצה
             </button>}
           {picked.length > 0 && <button type="button" className="btn btn-line" onClick={() => setSelected([])}>נקה בחירה</button>}
         </div>
@@ -165,7 +204,7 @@ export function SupplierCategoryReviewList({ domain, initialShown, groups, produ
         {group.productCount} מוצרים לבדיקה
       </Link>
     </article>)}
-    {products?.slice(0, shown).map(product => {
+    {remaining?.slice(0, shown).map(product => {
       const current = saved[product.id] ?? product.current;
       const recommendation = product.recommendation ? choiceLabel(product.recommendation) : product.proposedCategory;
       const currentLabel = current === null ? "השיוך הנוכחי טרם אומת" :
@@ -192,6 +231,10 @@ export function SupplierCategoryReviewList({ domain, initialShown, groups, produ
               }} /> סמן לשיוך
           </label>
           <Link className="btn btn-line" href={supplierUrl(domain, "product", { item: product.id })} prefetch={false}>תצוגת מוצר</Link>
+          <button type="button" className="btn btn-line supplier-remove" disabled={!!excluding}
+            aria-label={"הסר מהייבוא · " + product.title} onClick={() => void excludeProduct(product)}>
+            {excluding === product.id ? "מסיר…" : "הסר מהייבוא"}
+          </button>
           {product.shopifyId && <a className="btn btn-line" href={`https://${shop}/admin/products/${encodeURIComponent(product.shopifyId.split("/").pop()!)}`}>
             פתיחת המוצר ב־Shopify
           </a>}

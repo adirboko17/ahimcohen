@@ -2,9 +2,14 @@ import type { Product } from "./catalog";
 import { productSizeOptions, sizeLabel } from "./sizes";
 import type { AddItem, CartLine } from "./types";
 
-export type QuantityUnit = { color: number; size: string | null };
+export type QuantityUnit = { color: number; size: string | null; variantId?: string };
 
-export function resolveQuantityUnit(product: Product, selection: QuantityUnit) {
+export function resolveQuantityUnit(product: Product, selection: QuantityUnit, selectByVariant = false) {
+  if (selectByVariant) {
+    const variant = product.choices?.find((choice) => choice.available && choice.id === selection.variantId);
+    return { selection, color: variant?.color ?? "", options: [], variant, valid: !!variant,
+      option: variant && { value: variant.size, label: sizeLabel(variant.size) || "מידה אחת", available: true } };
+  }
   const color = product.colors[selection.color] ?? "";
   const options = productSizeOptions(product, color);
   const label = selection.size == null ? null : sizeLabel(selection.size) || "מידה אחת";
@@ -22,8 +27,8 @@ export function changeQuantityUnitColor(product: Product, selection: QuantityUni
   return { color, size: resolved.valid ? selection.size : resolved.options.length === 1 && resolved.options[0].available ? resolved.options[0].label : null };
 }
 
-export function quantitySelection(product: Product, selections: QuantityUnit[]) {
-  const rows = selections.map((selection) => resolveQuantityUnit(product, selection));
+export function quantitySelection(product: Product, selections: QuantityUnit[], selectByVariant = false) {
+  const rows = selections.map((selection) => resolveQuantityUnit(product, selection, selectByVariant));
   const complete = rows.length > 0 && rows.every((row) => row.valid);
   const items: AddItem[] = [];
   const quoteLines: Pick<CartLine, "pid" | "color" | "size" | "qty" | "variantId">[] = [];

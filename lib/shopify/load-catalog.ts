@@ -6,12 +6,14 @@ import { readCatalogBootstrap } from "./catalog-bootstrap";
 import { gzip, gunzip } from "node:zlib";
 import { promisify } from "node:util";
 import { type Category, type Product } from "@/lib/catalog";
+import type { CategorySources } from "@/lib/category-sorting";
 import { metafieldIdentifiers, shopDomain, storefrontApiVersion } from "./config";
 import { fetchShopCatalog } from "./fetch-catalog";
 
 export type ShopCatalog = {
   categories: Category[];
   products: Product[];
+  categorySources?: CategorySources;
 };
 
 // Share cold loads/background refreshes between concurrent requests in this worker.
@@ -36,14 +38,14 @@ const readCachedCatalog = unstable_cache(
     inFlight.set(key, request);
     return request;
   },
-  ["shop-catalog-v17-refresh-window"],
+  ["shop-catalog-v21-refresh-window"],
   { revalidate: 300, tags: ["shop-catalog"] },
 );
 
 // React shares the same snapshot between layout, metadata and page rendering.
 // Give each refresh window its own persistent cache entry. The previous
 // snapshot can still serve requests while the current entry is being populated.
-export const loadShopCatalog = cache(async (): Promise<ShopCatalog> => {
+export const loadShopCatalog = cache(async (requireFresh = false): Promise<ShopCatalog> => {
   const scope = JSON.stringify([shopDomain(), storefrontApiVersion(), metafieldIdentifiers()]);
   const slot = Math.floor(Date.now() / refreshMs);
   const fallback = lastKnown.get(scope)?.encoded ?? await readCatalogBootstrap(scope);
@@ -52,7 +54,7 @@ export const loadShopCatalog = cache(async (): Promise<ShopCatalog> => {
     return encoded;
   });
   let encoded: string;
-  if (!fallback) {
+  if (requireFresh || !fallback) {
     // Local development / a changed store without a compatible build artifact.
     encoded = await fresh;
   } else {

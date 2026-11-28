@@ -26,6 +26,8 @@ import { quantitySelection, type QuantityUnit } from "@/lib/quantity-selection";
 import type { AddItem, PackUnit } from "@/lib/types";
 import type { PublishedBundle, PublishedReview } from "@/lib/admin/models";
 
+const deliveryTime = "משלוח עד 10 ימי עסקים";
+
 function bundleOf(p: Product, extras: Product[], q: number): [string, number][] {
   const rest = extras.map((item) => [item.id, 1] as [string, number]);
   return [[p.id, q], ...rest];
@@ -38,7 +40,7 @@ export function ProductView(props: ProductViewProps) {
 }
 
 function ProductDetails({ id, setSetting, initialColor, initialSize, initialBundle, fromQuantityOffer = false, bundles = [], reviews = [] }: ProductViewProps) {
-  const { product, category, products } = useCatalog();
+  const { product, category, products, colorMappings } = useCatalog();
   const base = product(id);
   const [reviewInteraction, setReviewInteraction] = useState<ReviewInteraction>(null);
   const [managedId, setManagedId] = useState(() => bundles.find((bundle) => bundle.cartProductId && bundle.id === initialBundle)?.id);
@@ -68,23 +70,30 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
   const baseOffer = base ? quantityOffer(base) : null;
   const offer = packProduct ? null : baseOffer;
   const hasPackages = bundles.some((bundle) => !bundle.productId && !bundle.cartProductId) || baseOffer?.kind === "quantity" || !!base?.deal;
-  const mixedOffer = !!(packProduct && managed?.mixedUnits);
-  const separateUnits = mixedOffer || !packProduct && hasPackages && qty > 1;
-  const selectionProduct = mixedOffer ? base : p;
-  const unitCount = mixedOffer ? managed!.quantity : qty;
+  const mixedPack = !!(packProduct && managed?.mixedUnits);
+  const separateUnits = mixedPack || !packProduct && hasPackages && qty > 1;
+  const selectionProduct = useMemo(() => {
+    if (!mixedPack || !base) return p;
+    const mappedIds = new Set(packProduct?.choices?.flatMap((choice) => choice.available && choice.sourceVariantId ? [choice.sourceVariantId] : []));
+    if (!mappedIds.size) return base;
+    return { ...base, choices: base.choices?.map((choice) => choice.available && !mappedIds.has(choice.id) ? { ...choice, available: false } : choice) };
+  }, [mixedPack, base, p, packProduct]);
+  const selectByVariant = !!(mixedPack && selectionProduct?.choices?.some((choice) => choice.optionsLabel));
+  const unitCount = mixedPack ? managed!.quantity : qty;
   const [unitSelections, setUnitSelections] = useState<Record<number, QuantityUnit>>({});
   const unitPicker = useRef<HTMLDivElement>(null);
   const units = useMemo(() => selectionProduct && separateUnits ? quantitySelection(selectionProduct, Array.from({ length: unitCount }, (_, index) =>
     unitSelections[index] ?? { color, size: selectedSize },
-  )) : null, [selectionProduct, separateUnits, unitCount, unitSelections, color, selectedSize]);
-  const packUnits: PackUnit[] | undefined = mixedOffer && units?.complete
+  ), selectByVariant) : null, [selectionProduct, separateUnits, unitCount, unitSelections, color, selectedSize, selectByVariant]);
+  const packUnits: PackUnit[] | undefined = mixedPack && units?.complete
     ? units.quoteLines.flatMap((row) => row.variantId ? [{ variantId: row.variantId, quantity: row.qty }] : [])
       .sort((a, b) => a.variantId.localeCompare(b.variantId)) : undefined;
   const anchor = packUnits?.length ? base?.choices?.find((choice) => choice.id === packUnits[0].variantId) : undefined;
-  const mixedVariant = anchor && packProduct?.choices?.find((choice) => choice.available && choice.color === anchor.color && choice.size === anchor.size);
-  const selectionReady = mixedOffer ? !!mixedVariant && !!units?.complete : separateUnits ? !!units?.complete : !!selectedOption;
+  const mixedVariant = anchor && packProduct?.choices?.find((choice) => choice.available && (choice.sourceVariantId
+    ? choice.sourceVariantId === anchor.id : choice.color === anchor.color && choice.size === anchor.size));
+  const selectionReady = mixedPack ? !!mixedVariant && !!units?.complete : separateUnits ? !!units?.complete : !!selectedOption;
   const variant = p?.choices?.find((choice) => choice.available && choice.color === (p.colors[color] || "") && (!selectedOption || choice.size === selectedOption.value));
-  const quoteState = useCartQuote(mixedOffer
+  const quoteState = useCartQuote(mixedPack
     ? packProduct && mixedVariant && packUnits ? [{ pid: packProduct.id, color: mixedVariant.color, size: mixedVariant.size, qty, variantId: mixedVariant.id, packUnits }] : []
     : separateUnits ? units?.quoteLines ?? [] : p && offer?.kind === "quantity" && variant ? [{ pid: p.id, color: variant.color, size: variant.size, qty, variantId: variant.id }] : []);
   const [sizeErr, setSizeErr] = useState(false);
@@ -126,9 +135,11 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
   const packs = [...options, ...bundles.filter((bundle) => bundle.productId || bundle.cartProductId)].sort((a, b) => a.quantity - b.quantity);
   packs.unshift({ id: "single", name: "יחידה אחת", quantity: 1, total: baseUnitPrice });
   const line = quoteState.quote?.total ?? selectedPack?.total ?? (qty === 1 || offer?.kind === "pack" ? qty * unitPrice : priceFor(p, qty));
-  const lineLabel = separateUnits && !selectionReady ? "בחרו מידה לכל יחידה" : quoteState.pending ? "מחשב מחיר…" : quoteState.error ? "המחיר יתעדכן בסל" : fmt(line);
+  const unitPrompt = selectByVariant ? "בחרו וריאציה לכל יחידה" : "בחרו מידה לכל יחידה";
+  const lineLabel = separateUnits && !selectionReady ? unitPrompt : quoteState.pending ? "מחשב מחיר…" : quoteState.error ? "המחיר יתעדכן בסל" : fmt(line);
+  const quotedQuantity = mixedPack && qty === 1 ? "מארז אחד" : `${qty} ${mixedPack || offer?.kind === "pack" ? "מארזים" : "יחידות"}`;
   const feedback = quoteState.pending ? "מעדכנים את המחיר…" : quoteState.error ? quoteState.error
-    : quoteState.quote ? `${qty} ${offer?.kind === "pack" ? "מארזים" : "יחידות"} ב־${fmt(line)}${quoteState.quote.savings > 0 ? ` · חסכתם ${fmt(quoteState.quote.savings)}` : ""}`
+    : quoteState.quote ? `${quotedQuantity} ב־${fmt(line)}${quoteState.quote.savings > 0 ? ` · חסכתם ${fmt(quoteState.quote.savings)}` : ""}`
     : selectedPack ? `מבצע ${qty} יחידות ב־${fmt(selectedPack.total)}` : "";
 
   const accs = [
@@ -149,6 +160,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
       id: "ship",
       title: "משלוחים והחזרות",
       lines: [
+        { k: "", v: deliveryTime },
         { k: "", v: `משלוח חינם בהזמנות מעל ${fmt(FREE_SHIPPING)}.` },
         { k: "", v: "אפשר לאסוף מהסניף בהפועלים 20, באר שבע." },
         { k: "", v: "מדיניות ההחזרות המלאה מפורטת בתקנון האתר." },
@@ -157,11 +169,11 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
   ];
 
   const items = bundleOf(p, extras, qty);
-  const mainItems: AddItem[] = mixedOffer ? mixedVariant && packUnits ? [[p.id, Math.max(0, p.colors.indexOf(mixedVariant.color)), mixedVariant.size, qty, packUnits]] : []
+  const mainItems: AddItem[] = mixedPack ? mixedVariant && packUnits ? [[p.id, Math.max(0, p.colors.indexOf(mixedVariant.color)), mixedVariant.size, qty, packUnits]] : []
     : separateUnits ? units?.items ?? [] : selectedOption ? [[p.id, color, selectedOption.value, qty]] : [];
   const requireSelection = () => {
     setSizeErr(true);
-    flash(separateUnits ? "בחרו צבע ומידה לכל יחידה" : "בחרו מידה");
+    flash(selectByVariant ? unitPrompt : separateUnits ? "בחרו צבע ומידה לכל יחידה" : "בחרו מידה");
     unitPicker.current?.querySelector<HTMLSelectElement>('select[data-missing="true"]')?.focus();
   };
   const add = () => {
@@ -227,7 +239,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
 
   const addBg = toastOn ? "#1F7A3D" : "#111";
   const inStock = separateUnits ? !!units?.complete : sizeOptions.some(option => option.available);
-  const stockMessage = separateUnits && !selectionReady ? "בחרו צבע ומידה לכל יחידה לבדיקת זמינות"
+  const stockMessage = separateUnits && !selectionReady ? `${selectByVariant ? unitPrompt : "בחרו צבע ומידה לכל יחידה"} לבדיקת זמינות`
     : inStock ? "המוצר הזה זמין במלאי" : "המוצר אינו זמין במלאי בצבע שנבחר";
 
   return (
@@ -306,7 +318,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
             <h1>{p.name}</h1>
             <ProductReviewsLink summary={ratings} interaction={reviewInteraction} onReviewInteraction={setReviewInteraction} />
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{selectedPack || managed?.quantityOffer ? fmt(line) : offer || hasPackages ? lineLabel : fmt(unitPrice)}</span>
+              <span style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{selectedPack || mixedPack || managed?.quantityOffer ? fmt(line) : offer || hasPackages ? lineLabel : fmt(unitPrice)}</span>
               {offer || hasPackages ? quoteState.quote && quoteState.quote.savings > 0 && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(quoteState.quote.regular)}</s> : p.was && <s style={{ fontSize: 18, color: "#8a8a86" }}>{fmt(p.was)}</s>}
             </div>
             {offer && <span className="muted" style={{ fontSize: 14 }}>מחיר כולל {offer.kind === "pack" && qty === 1 ? "למארז אחד" : `ל־${qty} ${offer.kind === "pack" ? "מארזים" : "יחידות"}`}{quoteState.quote || offer.kind === "pack" ? ` · ${fmt(line / (qty * (offer.kind === "pack" ? offer.quantity : 1)))} ${offer.unitLabel}` : ""}</span>}
@@ -378,7 +390,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
           {quoteState.error && <button type="button" className="cart-edit-link" onClick={quoteState.retry}>עדכון המחיר</button>}
 
           {separateUnits && units && selectionProduct && <div ref={unitPicker}>
-            <QuantityUnitPicker product={selectionProduct} rows={units.rows} showErrors={sizeErr} onChange={(index, selection) => {
+            <QuantityUnitPicker product={selectionProduct} rows={units.rows} showErrors={sizeErr} selectByVariant={selectByVariant} onChange={(index, selection) => {
               setUnitSelections((previous) => ({ ...previous, ...Object.fromEntries(units.rows.map((row, rowIndex) => [rowIndex, row.selection])), [index]: selection }));
               setSizeErr(false);
               setColor(selection.color);
@@ -394,7 +406,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {p.colors.map((c, i) => (
-                  <button key={c} className={`color-dot lg ${i === color ? "on" : "off"}`} style={{ background: swatchColor(c) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === color}
+                  <button key={c} className={`color-dot lg ${i === color ? "on" : "off"}`} style={{ background: swatchColor(c, colorMappings) }} title={colorLabel(c)} aria-label={colorLabel(c)} aria-pressed={i === color}
                     disabled={!!packProduct && !p.choices?.some((choice) => choice.available && choice.color === c)} onClick={() => {
                     setColor(i);
                     setGal(0);
@@ -427,12 +439,12 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
 
           <div className="add-row buy-pad">
             <div className="qty">
-              <button disabled={qty >= 250} onClick={() => setQty((n) => Math.min(250, n + 1))} aria-label="הוספת יחידה">+</button>
+              <button disabled={qty >= 250} onClick={() => setQty((n) => Math.min(250, n + 1))} aria-label={mixedPack ? "הוספת מארז" : "הוספת יחידה"}>+</button>
               <span>{qty}</span>
-              <button disabled={qty <= 1} onClick={() => setQty((n) => Math.max(1, n - 1))} aria-label="הפחתת יחידה">−</button>
+              <button disabled={qty <= 1} onClick={() => setQty((n) => Math.max(1, n - 1))} aria-label={mixedPack ? "הפחתת מארז" : "הפחתת יחידה"}>−</button>
             </div>
             <button className="btn product-add-btn" disabled={!separateUnits && !inStock} style={{ background: `var(--product-add-background, ${addBg})` }} onClick={add}>
-              <span>{!separateUnits && !inStock ? "אזל מהמלאי" : selectionReady ? "הוספה לסל" : separateUnits ? "בחרו מידה לכל יחידה" : "בחרו מידה"}</span>
+              <span>{!separateUnits && !inStock ? "אזל מהמלאי" : selectionReady ? "הוספה לסל" : separateUnits ? unitPrompt : "בחרו מידה"}</span>
               <span className="product-add-price"><span className="desk">· </span>{lineLabel}</span>
             </button>
           </div>
@@ -490,7 +502,7 @@ function ProductDetails({ id, setSetting, initialColor, initialSize, initialBund
           </div>}
 
           <div className="ship-list buy-pad">
-            <div><IconTruck /><div><b>משלוח עד הבית</b> · חינם בהזמנה מעל {fmt(FREE_SHIPPING)}</div></div>
+            <div><IconTruck /><div><b>משלוח עד הבית</b> · חינם בהזמנה מעל {fmt(FREE_SHIPPING)}<div>{deliveryTime}</div></div></div>
             <div><IconPin /><div><b>סניף באר שבע</b> · הפועלים 20 - אפשר להגיע ולמדוד</div></div>
             <div><IconPhone /><div><b>התלבטות במידה?</b> · <a href="tel:08-6233803" style={{ textDecoration: "underline" }}>08-6233803</a></div></div>
           </div>

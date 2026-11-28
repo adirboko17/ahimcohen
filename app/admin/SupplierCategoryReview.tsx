@@ -9,9 +9,8 @@ import { storefrontCategories } from "@/lib/category-placement";
 import { readAdminStore } from "@/lib/admin/storage";
 import { shopDomain } from "@/lib/shopify/config";
 import { catalogPageSize, supplierUrl, type Site } from "@/lib/suppliers/catalog-model";
-import { readCategoryReview, storefrontCategoryChoices } from "@/lib/suppliers/category-review";
-import { manualCollections } from "@/lib/suppliers/shopify";
-import { supplierStorefrontCollections } from "@/lib/suppliers/storefront-collections";
+import { storefrontCategoryChoices, unassignedCategoryReviewKey } from "@/lib/suppliers/category-review";
+import { readSupplierCategoryReport } from "@/lib/suppliers/category-review-cache";
 
 const labels = {
   existing: "שיוך מוצע לקטגוריה קיימת",
@@ -25,10 +24,14 @@ export async function SupplierCategoryReview({ site, groupKey, pageParam }: { si
   const busy = site.state === "queued" || site.state === "running";
   const base = supplierUrl(site.domain, "category-review");
   const catalog = supplierUrl(site.domain, "catalog");
-  const categories = storefrontCategories(CATS, (await readAdminStore()).categoryPlacements);
-  const collections = !busy && site.pull_started_at ? await supplierStorefrontCollections() : [];
-  const report = busy ? null : await readCategoryReview(site, collections);
-  const group = groupKey ? report?.get(groupKey) : undefined;
+  const [store, report] = await Promise.all([
+    readAdminStore(), busy ? null : readSupplierCategoryReport(site),
+  ]);
+  const categories = storefrontCategories(CATS, store.categoryPlacements);
+  const collections = report?.collections ?? [];
+  const group = groupKey ? report?.groups.find(([id]) => id === groupKey)?.[1] : undefined;
+  const unassigned = report?.groups.find(([id]) => id === unassignedCategoryReviewKey)?.[1];
+  const unassignedCount = unassigned?.products.length ?? 0;
   const sourceOptions = [...new Map((group?.sources ?? []).filter(source => source.id).map(source => [source.id,
     { id: source.id, title: [...source.path, source.name].join(" / ") },
   ])).values()];
@@ -38,12 +41,12 @@ export async function SupplierCategoryReview({ site, groupKey, pageParam }: { si
     collectionId: group.targetIds.find(id => collections.some(collection => collection.id === id && collection.manual)),
   } : undefined;
   const canApprove = needsCategory && !group.productGroup && sourceOptions.length > 0 && !!site.pull_started_at;
-  const approvalCollections = canApprove ? await manualCollections() : [];
+  const approvalCollections = canApprove ? collections.filter(collection => collection.manual) : [];
   const parentOrder = (parent?: string) => {
     const index = categories.findIndex(category => category.name === parent);
     return index < 0 ? categories.length : index;
   };
-  const entries = [...(report?.entries() ?? [])].sort(([, first], [, second]) =>
+  const entries = (report?.groups ?? []).filter(([id]) => id !== unassignedCategoryReviewKey).sort(([, first], [, second]) =>
     parentOrder(first.parent) - parentOrder(second.parent) || first.title.localeCompare(second.title, "he"));
   const total = group?.products.length ?? entries.length;
   const requested = Number(pageParam);
@@ -60,8 +63,17 @@ export async function SupplierCategoryReview({ site, groupKey, pageParam }: { si
     </header>
     {busy && <p role="status">הדוח יהיה זמין כשהמשיכה תסתיים.</p>}
     {site.state === "failed" && <p role="status">המשיכה נעצרה. הדוח כולל את המוצרים שנסרקו בהצלחה עד לעצירה.</p>}
-    {report && !report.size && <p>{site.pull_started_at ? "במשיכה האחרונה לא נמצאו הצעות לבדיקה." : "הדוח יופיע אחרי המשיכה הראשונה."}</p>}
-    {!group && <StorefrontCategoryCreator categories={categories} />}
+    {!busy && !entries.length && <p>{site.pull_started_at ? "במשיכה האחרונה לא נמצאו הצעות לבדיקה." : "הדוח יופיע אחרי המשיכה הראשונה."}</p>}
+    {!group && <>
+      <article className="supplier-category-review-row supplier-unassigned-card">
+        <h3>מוצרים ללא קטגוריה</h3>
+        {busy ? <span>הספירה תופיע בסיום המשיכה</span> : <Link className="btn btn-line" prefetch={false}
+          href={supplierUrl(site.domain, "category-review", { cat: unassignedCategoryReviewKey })}>
+          {unassignedCount} {unassignedCount === 1 ? "מוצר לבדיקה" : "מוצרים לבדיקה"}
+        </Link>}
+      </article>
+      <StorefrontCategoryCreator categories={categories} />
+    </>}
     {!group && entries.length > 0 && <SupplierCategoryReviewList key={listKey} domain={site.domain} initialShown={initialShown}
       groups={entries.map(([id, entry]) => ({ id, status: labels[entry.kind], title: entry.title, reason: entry.reason,
         parent: entry.parent === entry.title ? undefined : entry.parent,
@@ -94,7 +106,8 @@ export async function SupplierCategoryReview({ site, groupKey, pageParam }: { si
         </div>
       </div>
       <SupplierCategoryReviewList key={listKey} domain={site.domain} initialShown={initialShown} shop={shopDomain()} products={group.products} categories={categories}
-        choices={storefrontCategoryChoices(collections)} suggestedSubcategory={suggestedSubcategory} />
+        choices={storefrontCategoryChoices(collections)} suggestedSubcategory={suggestedSubcategory}
+        removeAssigned={groupKey === unassignedCategoryReviewKey} />
     </>}
   </section>;
 }

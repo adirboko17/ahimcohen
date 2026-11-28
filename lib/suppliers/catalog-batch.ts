@@ -1,6 +1,6 @@
 import "server-only";
 import { catalogPageSize, catalogPrice, descendants, pricedProduct, type CatalogBatch, type CatalogItem, type Site } from "./catalog-model";
-import { previews, type Preview } from "./storage";
+import { countCatalogPreviews, previews, type Preview } from "./storage";
 import { catalogPublicationStates } from "./publication";
 import { importStatuses } from "./import-queue";
 import { detectSupplierBrand, supplierBrandName, supplierDefaultBrand } from "./brand";
@@ -11,11 +11,20 @@ export function prices(row: Preview, site: Site) {
   return pricedProduct(row.snapshot, site.percent, row.manual_price).variants;
 }
 
+function catalogCategoryIds(site: Site, cat: string) {
+  const ids = cat ? descendants([cat], site.categories) : [];
+  if (cat && !ids.length) throw new Error("קטגוריה לא מוכרת.");
+  return ids;
+}
+
+export function readCatalogCount(site: Site, cat: string) {
+  return countCatalogPreviews(site.domain, catalogCategoryIds(site, cat));
+}
+
 export async function readCatalogBatch(site: Site, cat: string, page: number, importedOnly = false,
   defaultBrand = supplierDefaultBrand(site.domain)): Promise<CatalogBatch> {
   const domain = site.domain;
-  const cats = cat ? descendants([cat], site.categories) : [];
-  if (cat && !cats.length) throw new Error("קטגוריה לא מוכרת.");
+  const cats = catalogCategoryIds(site, cat);
   const rows = await previews(domain, {
     ...(importedOnly ? { shopify_product_id: "not.is.null" } : { review_state: "eq.known" }),
     limit: String(catalogPageSize + 1),
@@ -53,7 +62,8 @@ export async function readCatalogBatch(site: Site, cat: string, page: number, im
       linked: !!row.shopify_product_id,
       shopifyStatus: channel?.status,
       siteUrl: channel?.status === "ACTIVE" && channel.onSite ? "/p/" + encodeURIComponent(channel.handle) : undefined,
-      canPublish: !row.shopify_product_id || !!channel && (channel.status === "DRAFT" || channel.status === "ACTIVE" && !channel.onSite),
+      canPublish: row.review_state !== "ignored" &&
+        (!row.shopify_product_id || !!channel && (channel.status === "DRAFT" || channel.status === "ACTIVE" && !channel.onSite)),
       intent: job?.intent,
       scanError: row.scan_error,
       revision: row.revision,

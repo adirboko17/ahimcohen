@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { CATS } from "@/lib/catalog";
-import { storefrontCategories, storefrontCategoryPlacements, type StorefrontCategoryChoice } from "@/lib/category-placement";
+import { storefrontCategories, storefrontCategoryPlacements, storefrontSubcategory, type StorefrontCategoryChoice } from "@/lib/category-placement";
 import { changeAdminStore } from "@/lib/admin/storage";
 import { adminGraphQL } from "@/lib/shopify/admin-bundles";
 import { menuPlacements } from "@/lib/shopify/fetch-catalog";
@@ -57,7 +57,8 @@ async function saveStorefrontCategory(name: string, parentId: string, selectedCo
       categories.find(category => categoryNameKey(category.name) === categoryNameKey(title));
     if (parentId && !existing) throw new Error("בחרו קטגוריה ראשית קיימת.");
     const root = existing ?? { id: "category-" + createHash("sha256").update(categoryNameKey(title)).digest("hex").slice(0, 24), name: title, subs: [] };
-    const label = parentId ? root.subs.find(sub => categoryNameKey(sub) === categoryNameKey(title)) ?? title : "";
+    const requested = storefrontSubcategory(root.id, title);
+    const label = parentId ? root.subs.find(sub => categoryNameKey(sub) === categoryNameKey(requested)) ?? requested : "";
     const collections = await supplierCollections(publication);
     const selected = collections.find(collection => collection.id === selectedCollectionId);
     if (selectedCollectionId && (!selected || selected.ruleSet)) throw new Error("בחרו אוסף ידני קיים ב־Shopify.");
@@ -69,7 +70,7 @@ async function saveStorefrontCategory(name: string, parentId: string, selectedCo
       await createCollection(label || root.name, parentId ? root.id : "root:" + root.id, publication);
     if (collection.ruleSet) throw new Error("אוסף אוטומטי אינו מתאים למיפוי ייבוא הספק.");
     const prior = placements.find(placement => placement.collectionId === collection.id && placement.parentId === root.id);
-    if (prior && categoryNameKey(prior.label) !== categoryNameKey(label))
+    if (prior && categoryNameKey(storefrontSubcategory(root.id, prior.label)) !== categoryNameKey(label))
       throw new Error("לאוסף כבר הוגדר שם סינון תחת קטגוריה זו. בחרו את השם הקיים או אוסף אחר.");
     if (!collection.onSite) await publishCollection(collection.id, publication);
     if (!prior) store.categoryPlacements = [...placements, {

@@ -5,7 +5,7 @@ import { storefront } from "@/lib/shopify/client";
 import { scanRedback, isPilotId, type SupplierProduct } from "./redback";
 import { scanWooProduct } from "./woocommerce";
 import { rescanShopify } from "./shopify-source";
-import { productDomain, supplierKey, type StockChange } from "./catalog-model";
+import { productDomain, supplierImportExcluded, supplierKey, type StockChange } from "./catalog-model";
 import { importStatuses } from "./import-queue";
 import { finishStockUpdate, pendingStockUpdate, stageStockUpdate } from "./monitor-report";
 import { readDraft, repairImportedSalePrices, repairMissingDraftBrand, verifyDraft, type SupplierShopifyProduct } from "./shopify";
@@ -171,6 +171,7 @@ async function recoverStockUpdate(domain: string, id: string, product: SupplierS
 }
 
 export async function refreshLinkedProduct(row: Preview, publish: boolean, onStockApplied?: () => void) {
+  if (publish && row.review_state === "ignored") throw new Error(supplierImportExcluded);
   return withLinkedProductLock(row, async token => {
     const id = row.shopify_product_id!;
     const [fresh, [channelProduct], product] = await Promise.all([

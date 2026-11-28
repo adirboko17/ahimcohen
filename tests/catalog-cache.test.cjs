@@ -26,6 +26,11 @@ const categoryPlacement = {};
 new Function("exports", transpileModule(readFileSync(resolve(__dirname, "../lib/category-placement.ts"), "utf8"), {
   compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 },
 }).outputText)(categoryPlacement);
+const productSubcategories = (product, categoryId) => product.categorySubs?.[categoryId] ?? [];
+const categorySorting = {};
+new Function("require", "exports", transpileModule(readFileSync(resolve(__dirname, "../lib/category-sorting.ts"), "utf8"), {
+  compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 },
+}).outputText)(name => ({ "./catalog": { productSubcategories }, "./category-placement": categoryPlacement })[name], categorySorting);
 
 function deferred() {
   let resolve, reject;
@@ -60,11 +65,11 @@ function harness() {
       CATS: [
         { id: "work", name: "Work", subs: ["Shirts", "Uniforms"] },
         { id: "pro", name: "ביגוד מקצועי", subs: ["חולצות", "מכנסיים", categoryPlacement.workCoatsAndRobes.sub] },
-        { id: "winter", name: "ביגוד חורף", subs: ["מעילים", "ביגוד תרמי", "סווטשירטים וקפוצ'ונים"] },
-        { id: "acc", name: "אביזרים", subs: ["גרביים", "חגורות", "כובעים"] },
+        { id: "winter", name: "ביגוד חורף", subs: [categoryPlacement.winterOuterwear.sub, "ביגוד תרמי"] },
+        { id: "acc", name: "אביזרים", subs: [categoryPlacement.bagsAndWallets.sub, categoryPlacement.socksAndUnderwear.sub, "חגורות", "כובעים"] },
         { id: "shoes", name: "נעליים", subs: ["נעלי בטיחות", "נעלי עבודה ללא מגן", "סניקרס ונעלי טיולים"] },
       ],
-      productSubcategories: (product, categoryId) => product.categorySubs?.[categoryId] ?? [],
+      productSubcategories,
     },
     "@/lib/admin/storage": { readAdminStore: async () => ({ categoryPlacements: state.placements }) },
     "./config": {
@@ -185,18 +190,6 @@ test("a category created in admin and its subcategory classify published product
   await pending.settle();
 });
 
-test("renaming the work coats and robes filter keeps the existing Shopify collection membership", async () => {
-  const { state, request } = harness();
-  const item = { handle: "work-coat", title: "Work coat", vendor: "Brand", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } };
-  state.collections = [{ handle: "existing-work-coats", title: "מקטרונים וחלוקים" }];
-  state.collectionProducts = { "existing-work-coats": [item] };
-  const pending = request();
-  const { categories, products } = await pending.value;
-  assert.deepEqual(categories.find(category => category.id === "pro")?.subs, ["מקטורנים וחלוקים"]);
-  assert.deepEqual(products.find(product => product.id === item.handle)?.categorySubs.pro, ["מקטורנים וחלוקים"]);
-  await pending.settle();
-});
-
 test("work shoes and the existing outdoor collection share the shoes category", async () => {
   const { state, request } = harness();
   const shoe = (handle) => ({ handle, title: handle, vendor: "Brand", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } });
@@ -259,8 +252,83 @@ test("Redback remains a brand and legacy collections are resolved by individual 
     assert.equal(product.brand, "Redback");
     assert.deepEqual(product.cats, [category]);
     assert.deepEqual(product.categorySubs, { [category]: [sub] });
-    assert.ok(categories.find(item => item.id === category).subs.includes(sub));
+    assert.ok(categories.find(item => item.id === category).subs.includes(categoryPlacement.storefrontSubcategory(category, sub)));
   }
+  await pending.settle();
+});
+
+test("renaming the work coats and robes filter keeps the existing Shopify collection membership", async () => {
+  const { state, request } = harness();
+  const item = { handle: "work-coat", title: "Work coat", vendor: "Brand", description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } };
+  state.collections = [{ handle: "existing-work-coats", title: "מקטרונים וחלוקים" }];
+  state.collectionProducts = { "existing-work-coats": [item] };
+  const pending = request();
+  const { categories, products } = await pending.value;
+  assert.deepEqual(categories.find(category => category.id === "pro")?.subs, ["מקטורנים וחלוקים"]);
+  const storefront = categorySorting.applyCategoryAdjustments(products, categories, categories, {}, {});
+  assert.deepEqual(storefront.products.find(product => product.id === item.handle)?.categorySubs.pro, ["מקטורנים וחלוקים"]);
+  await pending.settle();
+});
+
+test("winter outerwear includes both Shopify collections, including products present in both", async () => {
+  const { state, request } = harness();
+  const { sub, previous: [coats, sweats] } = categoryPlacement.winterOuterwear;
+  const item = handle => ({ handle, title: handle, description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } });
+  state.collections = [
+    { id: "coats", handle: "coats", title: coats, image: { url: "https://example.com/winter.jpg" } },
+    { id: "sweats", handle: "sweats", title: sweats },
+    { id: "mapped", handle: "ahim-category-bbbbbbbbbbbbbbbbbbbbbbbb", title: "Custom hoodies" },
+  ];
+  state.placements = [{ collectionId: "mapped", parentId: "winter", label: sweats }];
+  state.collectionProducts = {
+    coats: [item("coat-only"), item("both")], sweats: [item("sweatshirt-only"), item("both")],
+    [state.collections[2].handle]: [item("mapped-hoodie")],
+  };
+  const pending = request();
+  const { categories, products, categorySources } = await pending.value;
+  assert.deepEqual(categories.find(category => category.id === "winter"), {
+    id: "winter", name: "ביגוד חורף", subs: [sub], image: "https://example.com/winter.jpg",
+  });
+  const storefront = categorySorting.applyCategoryAdjustments(products, categories, categories, categorySources, {});
+  const winter = storefront.products.filter(product => productSubcategories(product, "winter").includes(sub));
+  assert.deepEqual(winter.map(product => product.id).sort(), ["both", "coat-only", "mapped-hoodie", "sweatshirt-only"]);
+  assert.ok(winter.every(product => product.categorySubs.winter.length === 1));
+  await pending.settle();
+});
+
+test("bags and wallets includes products from the old bags collection and its saved label", async () => {
+  const { state, request } = harness();
+  const { parentId, sub, previous: [bags] } = categoryPlacement.bagsAndWallets;
+  const item = handle => ({ handle, title: handle, description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } });
+  const mapped = "ahim-category-aaaaaaaaaaaaaaaaaaaaaaaa";
+  state.collections = [
+    { id: "bags", handle: "bags", title: bags }, { id: "mapped", handle: mapped, title: "Handbags" },
+    { id: "socks", handle: "socks", title: "גרביים" },
+  ];
+  state.placements = [{ collectionId: "mapped", parentId, label: bags }];
+  state.collectionProducts = { bags: [item("backpack")], [mapped]: [item("handbag")], socks: [item("sock")] };
+  const pending = request();
+  const { categories, products, categorySources } = await pending.value;
+  const storefront = categorySorting.applyCategoryAdjustments(products, categories, categories, categorySources, {});
+  assert.deepEqual(storefront.categories.find(category => category.id === parentId).subs, [sub, categoryPlacement.socksAndUnderwear.sub]);
+  assert.deepEqual(storefront.products.filter(product => productSubcategories(product, parentId).includes(sub)).map(product => product.id),
+    ["backpack", "handbag"]);
+  await pending.settle();
+});
+
+test("socks and underwear combine both collections once per product while keeping original product types", async () => {
+  const { state, request } = harness();
+  const { parentId, sub, previous: [socks, underwear] } = categoryPlacement.socksAndUnderwear;
+  const item = handle => ({ handle, title: handle, description: "", images: [], variants: [], priceRange: { min: { amount: "100" } } });
+  state.collections = [{ handle: "socks", title: socks }, { handle: "underwear", title: underwear }];
+  state.collectionProducts = { socks: [item("sock-only"), item("both")], underwear: [item("underwear-only"), item("both")] };
+  const pending = request();
+  const { categories, products, categorySources } = await pending.value;
+  const storefront = categorySorting.applyCategoryAdjustments(products, categories, categories, categorySources, {});
+  assert.deepEqual(storefront.categories.find(category => category.id === parentId).subs, [sub]);
+  const members = storefront.products.filter(product => productSubcategories(product, parentId).includes(sub));
+  assert.deepEqual(members.map(product => product.id).sort(), ["both", "sock-only", "underwear-only"]);
+  assert.deepEqual(members.find(product => product.id === "both").originalSubcategories, [socks, underwear]);
   await pending.settle();
 });
 

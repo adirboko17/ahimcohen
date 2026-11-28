@@ -32,12 +32,12 @@ export default async function Page({ params, searchParams }: Props) {
   const requestedBundle = typeof query.bundle === "string" ? query.bundle : undefined;
   const selectedOffer = visibleOffers.find((offer) => offer.id === requestedBundle && offer.active && offer.productId === handle &&
     offer.sourceVariantIds?.length && availableBundleProducts.has(bundleCartProductId(offer.id)));
-  const bundles = admin.bundles.flatMap(({ id, name, items, active, total, sourceVariantIds, bundleProductId, bestValue }): PublishedBundle[] => {
+  const bundles = admin.bundles.flatMap(({ id, name, items, active, total, sourceVariantIds, bundleProductId, bestValue, mixedUnits }): PublishedBundle[] => {
     if (!active || items.length !== 1 || items[0][0] !== handle) return [];
     const tier = { id, name, quantity: items[0][1], ...(bestValue && { bestValue: true }) };
     if (sourceVariantIds) {
       const cartProductId = bundleCartProductId(id);
-      return total !== undefined && availableBundleProducts.has(cartProductId) ? [{ ...tier, total, cartProductId }] : [];
+      return total !== undefined && availableBundleProducts.has(cartProductId) ? [{ ...tier, total, cartProductId, ...(mixedUnits && { mixedUnits: true }) }] : [];
     }
     if (bundleProductId) {
       const pack = bundleProductId !== handle && catalog.products.find((item) => item.id === bundleProductId);

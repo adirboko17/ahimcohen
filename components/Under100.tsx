@@ -29,9 +29,9 @@ function BudgetGrid({ items }: { items: BudgetItem[] }) {
   );
 }
 
-export function Under100Section() {
+export function Under100Section({ seed }: { seed: number }) {
   const { products } = useCatalog();
-  const items = useMemo(() => featuredUnder100(productsUnder100(products)), [products]);
+  const items = useMemo(() => featuredUnder100(productsUnder100(products), seed), [products, seed]);
   if (!items.length) return null;
   return (
     <section className="wrap budget-section" aria-labelledby="budget-title">

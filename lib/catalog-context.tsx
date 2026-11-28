@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { CATS, PRODUCTS, productsInCategory as staticProductsInCategory, type Category, type Product } from "./catalog";
 import { unpackCatalog, type CatalogWire } from "./catalog-wire";
+import { emptyColorMappings, type ColorMappings } from "./color-families";
 
 export type CatalogSnapshot = {
   categories: Category[];
@@ -12,6 +13,7 @@ export type CatalogSnapshot = {
 type CatalogView = {
   categories: Category[];
   products: Product[];
+  colorMappings: ColorMappings;
   product: (id: string) => Product | undefined;
   category: (id: string) => Category | undefined;
   productsInCategory: (id: string) => Product[];
@@ -19,11 +21,13 @@ type CatalogView = {
 
 const Ctx = createContext<CatalogView | null>(null);
 
-export function CatalogProvider({ catalog, children }: { catalog: CatalogWire; children: React.ReactNode }) {
+export function CatalogProvider({ catalog, colorMappings = emptyColorMappings, children }: {
+  catalog: CatalogWire; colorMappings?: ColorMappings; children: React.ReactNode;
+}) {
   const view = useMemo(() => {
     const snapshot = unpackCatalog(catalog);
-    return makeView(snapshot.categories, snapshot.products, false);
-  }, [catalog]);
+    return makeView(snapshot.categories, snapshot.products, false, colorMappings);
+  }, [catalog, colorMappings]);
   return <Ctx.Provider value={view}>{children}</Ctx.Provider>;
 }
 
@@ -31,13 +35,14 @@ export function useCatalog() {
   return useContext(Ctx) ?? staticView;
 }
 
-function makeView(categories: Category[], allProducts: Product[], legacy: boolean): CatalogView {
+function makeView(categories: Category[], allProducts: Product[], legacy: boolean, colorMappings = emptyColorMappings): CatalogView {
   const byProduct = Object.fromEntries(allProducts.map((product) => [product.id, product]));
   const products = allProducts.filter((product) => !product.bundleSourceId);
   const byCategory = Object.fromEntries(categories.map((category) => [category.id, category]));
   return {
     categories,
     products,
+    colorMappings,
     product: (id) => byProduct[id],
     category: (id) => byCategory[id],
     productsInCategory: (id) =>
